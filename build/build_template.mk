@@ -102,6 +102,9 @@ $(1)_BIN = $$(if $(9), $(OUT)/$(1)/$(OUTPUT_NAME), )
 $(1)_TOKEN_MAP = $$(if $(CHRE_TOKENIZED_LOGGING_ENABLED), \
                     $(OUT)/$(1)/$(OUTPUT_NAME)_log_database.bin,)
 
+$(1)_TOKEN_MAP_CSV = $$(if $(CHRE_TOKENIZED_LOGGING_ENABLED), \
+                        $(OUT)/$(1)/$(OUTPUT_NAME)_log_database.csv,)
+
 # Top-level Build Rule #########################################################
 
 # Define the phony target.
@@ -228,6 +231,7 @@ $$($(1)_TOKEN_MAP): $$($(1)_AR)
 	@echo " [TOKEN_MAP_GEN] $<"
 	$(V)mkdir -p $(OUT)/$(1)
 	$(V)$(TOKEN_MAP_GEN_CMD) $$($(1)_TOKEN_MAP) $$($(1)_AR)
+	$(V)$(TOKEN_MAP_CSV_GEN_CMD) $$($(1)_TOKEN_MAP_CSV) $$($(1)_AR)
 
 # Link #########################################################################
 
