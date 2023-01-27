@@ -229,10 +229,10 @@ $$($(1)_AR): $$($(1)_CC_OBJS) $$($(1)_CPP_OBJS) $$($(1)_C_OBJS) \
 # Token Mapping ################################################################
 
 $$($(1)_TOKEN_MAP): $$($(1)_AR)
-	@echo " [TOKEN_MAP_GEN] $<"
-	$(V)mkdir -p $(OUT)/$(1)
-	$(V)$(TOKEN_MAP_GEN_CMD) $$($(1)_TOKEN_MAP) $$($(1)_AR)
-	$(V)$(TOKEN_MAP_CSV_GEN_CMD) $$($(1)_TOKEN_MAP_CSV) $$($(1)_AR)
+	@echo " [TOKEN_MAP_GEN] $$@"
+	$(V)mkdir -p $$(@D)
+	$(V)$(TOKEN_MAP_GEN_CMD) $$($(1)_TOKEN_MAP) $$($(1)_AR) 2>&1
+	$(V)$(TOKEN_MAP_CSV_GEN_CMD) $$($(1)_TOKEN_MAP_CSV) $$($(1)_AR) 2>&1
 
 # Link #########################################################################
 
