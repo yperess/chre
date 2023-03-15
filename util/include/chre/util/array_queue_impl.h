@@ -132,8 +132,7 @@ void ArrayQueueCore<ElementType, StorageType>::pop() {
 template <typename ElementType, typename StorageType>
 void ArrayQueueCore<ElementType, StorageType>::pop_back() {
   if (mSize > 0) {
-    size_t absoluteIndex = relativeIndexToAbsolute(mSize - 1);
-    StorageType::data()[absoluteIndex].~ElementType();
+    StorageType::data()[mTail].~ElementType();
     pullTail();
   }
 }
