@@ -92,6 +92,11 @@ ifneq ($(CHRE_NANOAPP_USES_WWAN),)
 COMMON_CFLAGS += -DCHRE_NANOAPP_USES_WWAN
 endif
 
+ifneq ($(CHRE_NANOAPP_USES_TOKENIZED_LOGGING),)
+COMMON_CFLAGS += -DCHRE_TOKENIZED_LOGGING_ENABLED
+include $(CHRE_PREFIX)/external/pigweed/pw_tokenizer.mk
+endif
+
 # Common Compiler Flags ########################################################
 
 # Add the CHRE API to the include search path.
