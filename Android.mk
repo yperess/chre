@@ -116,6 +116,8 @@ LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_preprocessor/public
 LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_tokenizer/public
 LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_varint/public
 LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_span/public
+LOCAL_CFLAGS += \
+    -I$(PIGWEED_DIR)/third_party/fuchsia/repo/sdk/lib/stdcompat/include
 
 LOCAL_SRC_FILES += $(PIGWEED_DIR_RELPATH)/pw_tokenizer/detokenize.cc
 LOCAL_SRC_FILES += $(PIGWEED_DIR_RELPATH)/pw_tokenizer/decode.cc
