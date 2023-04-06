@@ -67,16 +67,9 @@ public class ContextHubChreConcurrencyTestExecutor extends ContextHubChreApiTest
     }
 
     /**
-     * Runs the test.
-     */
-    public void run() throws Exception {
-        runAccelerometerConcurrencyTest();
-    }
-
-    /**
      * Tests for accelerometer data concurrency.
      */
-    private void runAccelerometerConcurrencyTest() throws Exception {
+    public void runAccelerometerConcurrencyTest() throws Exception {
         Future<List<List<ChreApiTest.GeneralEventsMessage>>> eventsFuture =
                 new ChreApiTestUtil().gatherEventsConcurrent(mRpcClients,
                         Arrays.asList(CHRE_EVENT_SENSOR_ACCELEROMETER_DATA,
