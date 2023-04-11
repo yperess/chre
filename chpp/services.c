@@ -119,8 +119,6 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
             uuidText, newService->descriptor.version.major,
             newService->descriptor.version.minor,
             newService->descriptor.version.patch, newService->minLength);
-
-  return;
 }
 
 struct ChppAppHeader *chppAllocServiceNotification(size_t len) {

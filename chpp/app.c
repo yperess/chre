@@ -89,7 +89,7 @@ static void chppProcessNegotiatedHandleDatagram(struct ChppAppState *context,
  * Processes a client request that is determined to be for a predefined CHPP
  * service.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param buf Input data. Cannot be null.
  * @param len Length of input data in bytes.
  *
@@ -134,7 +134,7 @@ static bool chppProcessPredefinedClientRequest(struct ChppAppState *context,
  * Processes a service response that is determined to be for a predefined CHPP
  * client.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param buf Input data. Cannot be null.
  * @param len Length of input data in bytes.
  *
@@ -191,7 +191,7 @@ static bool chppProcessPredefinedServiceResponse(struct ChppAppState *context,
  * Processes a client notification that is determined to be for a predefined
  * CHPP service.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param buf Input data. Cannot be null.
  * @param len Length of input data in bytes.
  *
@@ -210,7 +210,7 @@ static bool chppProcessPredefinedClientNotification(
  * Processes a service notification that is determined to be for a predefined
  * CHPP client.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param buf Input data. Cannot be null.
  * @param len Length of input data in bytes.
  *
@@ -227,9 +227,9 @@ static bool chppProcessPredefinedServiceNotification(
 
 /**
  * Verifies if the length of a Rx Datagram from the transport layer is
- * sufficient for the associated service.
+ * sufficient for the associated service/client.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param rxHeader The pointer to the datagram RX header.
  * @param len Length of the datagram in bytes.
  *
@@ -259,6 +259,7 @@ static bool chppDatagramLenIsOk(struct ChppAppState *context,
       default:
         // len remains SIZE_MAX
         CHPP_LOGE("Invalid H#%" PRIu8, handle);
+        return false;
     }
 
   } else {  // Negotiated
@@ -283,21 +284,19 @@ static bool chppDatagramLenIsOk(struct ChppAppState *context,
         }
         break;
       }
-      default: {
-        break;
-      }
-    }
-
-    if (minLen == SIZE_MAX) {
-      CHPP_LOGE("Invalid type=%d or H#%" PRIu8, messageType, handle);
+      default:
+        CHPP_LOGE("Invalid type=%d or H#%" PRIu8, messageType, handle);
+        return false;
     }
   }
 
-  if ((len < minLen) && (minLen != SIZE_MAX)) {
+  if (len < minLen) {
     CHPP_LOGE("Datagram len=%" PRIuSIZE " < %" PRIuSIZE " for H#%" PRIu8, len,
               minLen, handle);
+    return false;
   }
-  return (len >= minLen) && (minLen != SIZE_MAX);
+
+  return true;
 }
 
 /**
@@ -305,7 +304,7 @@ static bool chppDatagramLenIsOk(struct ChppAppState *context,
  * handle and message type. This shall be null if it is unsupported by the
  * service.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param handle Handle number for the client/service.
  * @param type Message type.
  *
@@ -358,7 +357,7 @@ ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
  * client. The function pointer will be set to null by clients that do not need
  * or support a reset notification.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param index Index of the registered client.
  *
  * @return Pointer to the reset notification function.
@@ -373,7 +372,7 @@ ChppNotifierFunction *chppGetClientResetNotifierFunction(
  * function pointer will be set to null by services that do not need or support
  * a reset notification.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param index Index of the registered service.
  *
  * @return Pointer to the reset function.
@@ -387,7 +386,7 @@ ChppNotifierFunction *chppGetServiceResetNotifierFunction(
  * Returns a pointer to the ChppService struct of the service matched to a
  * negotiated handle. Returns null if a service doesn't exist for the handle.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param handle Handle number.
  *
  * @return Pointer to the ChppService struct of a particular service handle.
@@ -406,7 +405,7 @@ static inline const struct ChppService *chppServiceOfHandle(
  * Returns a pointer to the ChppClient struct of the client matched to a
  * negotiated handle. Returns null if a client doesn't exist for the handle.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param handle Handle number.
  *
  * @return Pointer to the ChppClient struct matched to a particular handle.
@@ -429,7 +428,7 @@ static inline const struct ChppClient *chppClientOfHandle(
  * handle.
  * It is up to the caller to ensure the handle number is valid.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param handle Handle number for the service.
  *
  * @return Pointer to the context struct of the service.
@@ -447,7 +446,7 @@ static inline void *chppServiceContextOfHandle(struct ChppAppState *context,
  * handle.
  * It is up to the caller to ensure the handle number is valid.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param handle Handle number for the service.
  *
  * @return Pointer to the ChppService struct of the client.
@@ -466,7 +465,7 @@ static inline void *chppClientContextOfHandle(struct ChppAppState *context,
  * client/service handle.
  * It is up to the caller to ensure the handle number is valid.
  *
- * @param appContext Maintains status for each app layer instance.
+ * @param appContext State of the app layer.
  * @param handle Handle number for the service.
  * @param type Message type (indicates if this is for a client or service).
  *
@@ -497,7 +496,7 @@ static void *chppClientServiceContextOfHandle(struct ChppAppState *appContext,
  * Processes a received datagram that is determined to be for a predefined CHPP
  * service. Responds with an error if unsuccessful.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param buf Input data. Cannot be null.
  * @param len Length of input data in bytes.
  */
@@ -541,7 +540,7 @@ static void chppProcessPredefinedHandleDatagram(struct ChppAppState *context,
  * Processes a received datagram that is determined to be for a negotiated CHPP
  * client or service. Responds with an error if unsuccessful.
  *
- * @param context Maintains status for each app layer instance.
+ * @param context State of the app layer.
  * @param buf Input data. Cannot be null.
  * @param len Length of input data in bytes.
  */
