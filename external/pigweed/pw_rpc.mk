@@ -80,7 +80,16 @@ PW_RPC_GEN_SRCS = $(patsubst %.proto, \
 # Include to-be-generated files
 COMMON_CFLAGS += -I$(PW_RPC_GEN_PATH)
 COMMON_CFLAGS += -I$(PW_RPC_GEN_PATH)/$(PIGWEED_DIR)
+
+# Add include paths to reference protos directly
 COMMON_CFLAGS += $(addprefix -I$(PW_RPC_GEN_PATH)/, $(abspath $(dir $(PW_RPC_SRCS))))
+
+# Add include paths to import protos
+ifneq ($(PW_RPC_INCLUDE_DIRS),)
+COMMON_CFLAGS += $(addprefix -I$(PW_RPC_GEN_PATH)/, $(abspath $(PW_RPC_INCLUDE_DIRS)))
+endif
+
+# TODO(b/277903603): automatically add Google protos
 
 COMMON_SRCS += $(PW_RPC_GEN_SRCS)
 

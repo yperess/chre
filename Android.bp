@@ -866,8 +866,12 @@ java_library_static {
     host_supported: true,
     proto: {
         type: "lite",
+        include_dirs: ["external/protobuf/src"],
     },
-    srcs: ["apps/test/common/chre_api_test/rpc/chre_api_test.proto"],
+    srcs: [
+        "apps/test/common/chre_api_test/rpc/chre_api_test.proto",
+        ":libprotobuf-internal-protos",
+    ],
     sdk_version: "current",
 }
 
