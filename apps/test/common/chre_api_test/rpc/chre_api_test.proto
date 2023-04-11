@@ -2,14 +2,17 @@ syntax = "proto3";
 
 package chre.rpc;
 
+import "google/protobuf/empty.proto";
+
 option java_package = "dev.chre.rpc.proto";
 
 service ChreApiTestService {
   // Returns the BLE capabilities.
-  rpc ChreBleGetCapabilities(Void) returns (Capabilities) {}
+  rpc ChreBleGetCapabilities(google.protobuf.Empty) returns (Capabilities) {}
 
   // Returns the BLE filter capabilities.
-  rpc ChreBleGetFilterCapabilities(Void) returns (Capabilities) {}
+  rpc ChreBleGetFilterCapabilities(google.protobuf.Empty)
+      returns (Capabilities) {}
 
   /* Starts a BLE scan asynchronously. This will not wait for the
    * event but will return success if the chreBleStartScanAsync
@@ -21,7 +24,7 @@ service ChreApiTestService {
    * event but will return success if the chreBleStopScanAsync
    * function returns success.
    */
-  rpc ChreBleStopScanAsync(Void) returns (Status) {}
+  rpc ChreBleStopScanAsync(google.protobuf.Empty) returns (Status) {}
 
   // Finds the default sensor for the given sensor type.
   rpc ChreSensorFindDefault(ChreSensorFindDefaultInput)
@@ -68,16 +71,14 @@ service ChreApiTestService {
    * function returns success and the event is seen. This will
    * return the event's success field.
    */
-  rpc ChreBleStopScanSync(Void) returns (stream GeneralSyncMessage) {}
+  rpc ChreBleStopScanSync(google.protobuf.Empty)
+      returns (stream GeneralSyncMessage) {}
 
   // Returns events that match the eventType filter
   rpc GatherEvents(GatherEventsInput) returns (stream GeneralEventsMessage) {}
 }
 
 // General messages
-
-// Empty message (void)
-message Void {}
 
 // Contains a capabilities uint32
 message Capabilities {

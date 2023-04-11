@@ -86,7 +86,7 @@ void sendFailureAndFinishCloseWriter(
 // Start ChreApiTestService RPC generated functions
 
 pw::Status ChreApiTestService::ChreBleGetCapabilities(
-    const chre_rpc_Void &request, chre_rpc_Capabilities &response) {
+    const google_protobuf_Empty &request, chre_rpc_Capabilities &response) {
   ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
       CHRE_MESSAGE_PERMISSION_NONE);
   return validateInputAndCallChreBleGetCapabilities(request, response)
@@ -95,7 +95,7 @@ pw::Status ChreApiTestService::ChreBleGetCapabilities(
 }
 
 pw::Status ChreApiTestService::ChreBleGetFilterCapabilities(
-    const chre_rpc_Void &request, chre_rpc_Capabilities &response) {
+    const google_protobuf_Empty &request, chre_rpc_Capabilities &response) {
   ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
       CHRE_MESSAGE_PERMISSION_NONE);
   return validateInputAndCallChreBleGetFilterCapabilities(request, response)
@@ -114,7 +114,7 @@ pw::Status ChreApiTestService::ChreBleStartScanAsync(
 }
 
 pw::Status ChreApiTestService::ChreBleStopScanAsync(
-    const chre_rpc_Void &request, chre_rpc_Status &response) {
+    const google_protobuf_Empty &request, chre_rpc_Status &response) {
   ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
       CHRE_MESSAGE_PERMISSION_NONE);
   return validateInputAndCallChreBleStopScanAsync(request, response)
@@ -232,7 +232,7 @@ void ChreApiTestService::ChreBleStartScanSync(
 }
 
 void ChreApiTestService::ChreBleStopScanSync(
-    const chre_rpc_Void &request,
+    const google_protobuf_Empty &request,
     ServerWriter<chre_rpc_GeneralSyncMessage> &writer) {
   if (mWriter.has_value()) {
     ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(

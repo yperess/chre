@@ -19,6 +19,7 @@ package com.google.android.utils.chre;
 import androidx.annotation.NonNull;
 
 import com.google.android.chre.utils.pigweed.ChreRpcClient;
+import com.google.protobuf.Empty;
 import com.google.protobuf.MessageLite;
 
 import java.util.ArrayList;
@@ -145,7 +146,7 @@ public class ChreApiTestUtil {
 
     /**
      * Calls a server streaming RPC method with RPC_TIMEOUT_IN_SECONDS seconds of
-     * timeout with a void request.
+     * timeout with an empty request.
      *
      * @param <ResponseType>  the type of the response (proto generated type).
      * @param rpcClient       the RPC client.
@@ -160,7 +161,7 @@ public class ChreApiTestUtil {
         Objects.requireNonNull(rpcClient);
         Objects.requireNonNull(method);
 
-        ChreApiTest.Void request = ChreApiTest.Void.newBuilder().build();
+        Empty request = Empty.newBuilder().build();
         return callServerStreamingRpcMethodSync(rpcClient, method, request);
     }
 
@@ -271,7 +272,7 @@ public class ChreApiTestUtil {
     }
 
     /**
-     * Calls an RPC method with RPC_TIMEOUT_IN_SECONDS seconds of timeout with a void request.
+     * Calls an RPC method with RPC_TIMEOUT_IN_SECONDS seconds of timeout with an empty request.
      *
      * @param <ResponseType>  the type of the response (proto generated type).
      * @param rpcClient       the RPC client.
@@ -285,7 +286,7 @@ public class ChreApiTestUtil {
         Objects.requireNonNull(rpcClient);
         Objects.requireNonNull(method);
 
-        ChreApiTest.Void request = ChreApiTest.Void.newBuilder().build();
+        Empty request = Empty.newBuilder().build();
         return callUnaryRpcMethodSync(rpcClient, method, request);
     }
 
@@ -390,11 +391,11 @@ public class ChreApiTestUtil {
         return new Service("chre.rpc.ChreApiTestService",
                 Service.unaryMethod(
                         "ChreBleGetCapabilities",
-                        ChreApiTest.Void.class,
+                        Empty.class,
                         ChreApiTest.Capabilities.class),
                 Service.unaryMethod(
                         "ChreBleGetFilterCapabilities",
-                        ChreApiTest.Void.class,
+                        Empty.class,
                         ChreApiTest.Capabilities.class),
                 Service.unaryMethod(
                         "ChreBleStartScanAsync",
@@ -406,11 +407,11 @@ public class ChreApiTestUtil {
                         ChreApiTest.GeneralSyncMessage.class),
                 Service.unaryMethod(
                         "ChreBleStopScanAsync",
-                        ChreApiTest.Void.class,
+                        Empty.class,
                         ChreApiTest.Status.class),
                 Service.serverStreamingMethod(
                         "ChreBleStopScanSync",
-                        ChreApiTest.Void.class,
+                        Empty.class,
                         ChreApiTest.GeneralSyncMessage.class),
                 Service.unaryMethod(
                         "ChreSensorFindDefault",

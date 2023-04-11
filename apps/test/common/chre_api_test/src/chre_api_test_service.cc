@@ -31,14 +31,16 @@ constexpr uint32_t kMaxNameStringSize = 100;
 }  // namespace
 
 bool ChreApiTestService::validateInputAndCallChreBleGetCapabilities(
-    const chre_rpc_Void & /* request */, chre_rpc_Capabilities &response) {
+    const google_protobuf_Empty & /* request */,
+    chre_rpc_Capabilities &response) {
   response.capabilities = chreBleGetCapabilities();
   LOGD("ChreBleGetCapabilities: capabilities: %" PRIu32, response.capabilities);
   return true;
 }
 
 bool ChreApiTestService::validateInputAndCallChreBleGetFilterCapabilities(
-    const chre_rpc_Void & /* request */, chre_rpc_Capabilities &response) {
+    const google_protobuf_Empty & /* request */,
+    chre_rpc_Capabilities &response) {
   response.capabilities = chreBleGetFilterCapabilities();
   LOGD("ChreBleGetFilterCapabilities: capabilities: %" PRIu32,
        response.capabilities);
@@ -108,7 +110,7 @@ bool ChreApiTestService::validateInputAndCallChreBleStartScanAsync(
 }
 
 bool ChreApiTestService::validateInputAndCallChreBleStopScanAsync(
-    const chre_rpc_Void & /* request */, chre_rpc_Status &response) {
+    const google_protobuf_Empty & /* request */, chre_rpc_Status &response) {
   response.status = chreBleStopScanAsync();
   LOGD("ChreBleStopScanAsync: status: %s", response.status ? "true" : "false");
   return true;

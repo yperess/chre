@@ -38,13 +38,13 @@ class ChreApiTestService final
   /**
    * Returns the BLE capabilities.
    */
-  pw::Status ChreBleGetCapabilities(const chre_rpc_Void &request,
+  pw::Status ChreBleGetCapabilities(const google_protobuf_Empty &request,
                                     chre_rpc_Capabilities &response);
 
   /**
    * Returns the BLE filter capabilities.
    */
-  pw::Status ChreBleGetFilterCapabilities(const chre_rpc_Void &request,
+  pw::Status ChreBleGetFilterCapabilities(const google_protobuf_Empty &request,
                                           chre_rpc_Capabilities &response);
 
   /**
@@ -57,7 +57,7 @@ class ChreApiTestService final
   /**
    * Stops a BLE scan.
    */
-  pw::Status ChreBleStopScanAsync(const chre_rpc_Void &request,
+  pw::Status ChreBleStopScanAsync(const google_protobuf_Empty &request,
                                   chre_rpc_Status &response);
 
   /**
@@ -125,7 +125,7 @@ class ChreApiTestService final
    * Stops a BLE scan synchronously. Waits for the CHRE_EVENT_BLE_ASYNC_RESULT
    * event.
    */
-  void ChreBleStopScanSync(const chre_rpc_Void &request,
+  void ChreBleStopScanSync(const google_protobuf_Empty &request,
                            ServerWriter<chre_rpc_GeneralSyncMessage> &writer);
 
   /**
@@ -193,17 +193,17 @@ class ChreApiTestService final
    *                             false otherwise.
    */
   bool validateInputAndCallChreBleGetCapabilities(
-      const chre_rpc_Void &request, chre_rpc_Capabilities &response);
+      const google_protobuf_Empty &request, chre_rpc_Capabilities &response);
 
   bool validateInputAndCallChreBleGetFilterCapabilities(
-      const chre_rpc_Void &request, chre_rpc_Capabilities &response);
+      const google_protobuf_Empty &request, chre_rpc_Capabilities &response);
 
   bool validateInputAndCallChreBleStartScanAsync(
       const chre_rpc_ChreBleStartScanAsyncInput &request,
       chre_rpc_Status &response);
 
-  bool validateInputAndCallChreBleStopScanAsync(const chre_rpc_Void &request,
-                                                chre_rpc_Status &response);
+  bool validateInputAndCallChreBleStopScanAsync(
+      const google_protobuf_Empty &request, chre_rpc_Status &response);
 
   bool validateInputAndCallChreSensorFindDefault(
       const chre_rpc_ChreSensorFindDefaultInput &request,
