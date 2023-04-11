@@ -248,6 +248,20 @@ class ChreApiTestService final
       const chre_rpc_ChreGetHostEndpointInfoInput &request,
       chre_rpc_ChreGetHostEndpointInfoOutput &response);
 
+  /**
+   * Validates the BLE scan filters and creates a generic filter in the
+   * outputScanFilters array. scanFilters and outputScanFilters must be of size
+   * scanFilterCount or greater.
+   *
+   * @param scanFilters          the input scan filters.
+   * @param outputScanFilters    the output scan filters.
+   * @param scanFilterCount      the number of scan filters.
+   * @return                     whether the validation was successful.
+   */
+  bool validateBleScanFilters(const chre_rpc_ChreBleGenericFilter *scanFilters,
+                              chreBleGenericFilter *outputScanFilters,
+                              uint32_t scanFilterCount);
+
   constexpr static uint32_t kMaxNumEventTypes =
       10;  // declared in chre_api_test.options
 

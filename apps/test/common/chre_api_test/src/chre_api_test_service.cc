@@ -48,12 +48,14 @@ bool ChreApiTestService::validateInputAndCallChreBleGetFilterCapabilities(
 bool ChreApiTestService::validateInputAndCallChreBleStartScanAsync(
     const chre_rpc_ChreBleStartScanAsyncInput &request,
     chre_rpc_Status &response) {
-  bool success = false;
   if (request.mode < _chre_rpc_ChreBleScanMode_MIN ||
       request.mode > _chre_rpc_ChreBleScanMode_MAX ||
       request.mode == chre_rpc_ChreBleScanMode_INVALID) {
     LOGE("ChreBleStartScanAsync: invalid mode");
-  } else if (!request.hasFilter) {
+    return false;
+  }
+
+  if (!request.hasFilter) {
     chreBleScanMode mode = static_cast<chreBleScanMode>(request.mode);
     response.status =
         chreBleStartScanAsync(mode, request.reportDelayMs, nullptr);
@@ -65,64 +67,44 @@ bool ChreApiTestService::validateInputAndCallChreBleStartScanAsync(
              : (mode == CHRE_BLE_SCAN_MODE_FOREGROUND ? "foreground"
                                                       : "aggressive"),
          request.reportDelayMs, response.status ? "true" : "false");
-    success = true;
-  } else if (request.filter.rssiThreshold <
-                 std::numeric_limits<int8_t>::min() ||
-             request.filter.rssiThreshold >
-                 std::numeric_limits<int8_t>::max()) {
-    LOGE("ChreBleStartScanAsync: invalid filter.rssiThreshold");
-  } else if (request.filter.scanFilterCount == 0 ||
-             request.filter.scanFilterCount > kMaxBleScanFilters) {
-    LOGE("ChreBleStartScanAsync: invalid filter.scanFilterCount");
-  } else {
-    chreBleGenericFilter genericFilters[request.filter.scanFilterCount];
-    bool validateFiltersSuccess = true;
-    for (uint32_t i = 0;
-         validateFiltersSuccess && i < request.filter.scanFilterCount; ++i) {
-      const chre_rpc_ChreBleGenericFilter &scanFilter =
-          request.filter.scanFilters[i];
-      if (scanFilter.type > std::numeric_limits<uint8_t>::max() ||
-          scanFilter.length > std::numeric_limits<uint8_t>::max()) {
-        LOGE(
-            "ChreBleStartScanAsync: invalid request.filter.scanFilters member: "
-            "type: %" PRIu32 " or length: %" PRIu32,
-            scanFilter.type, scanFilter.length);
-        validateFiltersSuccess = false;
-      } else if (scanFilter.data.size < scanFilter.length ||
-                 scanFilter.mask.size < scanFilter.length) {
-        LOGE(
-            "ChreBleStartScanAsync: invalid request.filter.scanFilters member: "
-            "data or mask size");
-        validateFiltersSuccess = false;
-      } else {
-        genericFilters[i] = createBleGenericFilter(
-            scanFilter.type, scanFilter.length, scanFilter.data.bytes,
-            scanFilter.mask.bytes);
-      }
-    }
-
-    if (validateFiltersSuccess) {
-      struct chreBleScanFilter filter;
-      filter.rssiThreshold = request.filter.rssiThreshold;
-      filter.scanFilterCount = request.filter.scanFilterCount;
-      filter.scanFilters = genericFilters;
-
-      chreBleScanMode mode = static_cast<chreBleScanMode>(request.mode);
-      response.status =
-          chreBleStartScanAsync(mode, request.reportDelayMs, &filter);
-
-      LOGD("ChreBleStartScanAsync: mode: %s, reportDelayMs: %" PRIu32
-           ", scanFilterCount: %" PRIu32 ", status: %s",
-           mode == CHRE_BLE_SCAN_MODE_BACKGROUND
-               ? "background"
-               : (mode == CHRE_BLE_SCAN_MODE_FOREGROUND ? "foreground"
-                                                        : "aggressive"),
-           request.reportDelayMs, request.filter.scanFilterCount,
-           response.status ? "true" : "false");
-      success = true;
-    }
+    return true;
   }
-  return success;
+
+  if (request.filter.rssiThreshold < std::numeric_limits<int8_t>::min() ||
+      request.filter.rssiThreshold > std::numeric_limits<int8_t>::max()) {
+    LOGE("ChreBleStartScanAsync: invalid filter.rssiThreshold");
+    return false;
+  }
+
+  if (request.filter.scanFilterCount == 0 ||
+      request.filter.scanFilterCount > kMaxBleScanFilters) {
+    LOGE("ChreBleStartScanAsync: invalid filter.scanFilterCount");
+    return false;
+  }
+
+  chreBleGenericFilter genericFilters[request.filter.scanFilterCount];
+  if (!validateBleScanFilters(request.filter.scanFilters, genericFilters,
+                              request.filter.scanFilterCount)) {
+    return false;
+  }
+
+  struct chreBleScanFilter filter;
+  filter.rssiThreshold = request.filter.rssiThreshold;
+  filter.scanFilterCount = request.filter.scanFilterCount;
+  filter.scanFilters = genericFilters;
+
+  chreBleScanMode mode = static_cast<chreBleScanMode>(request.mode);
+  response.status = chreBleStartScanAsync(mode, request.reportDelayMs, &filter);
+
+  LOGD("ChreBleStartScanAsync: mode: %s, reportDelayMs: %" PRIu32
+       ", scanFilterCount: %" PRIu32 ", status: %s",
+       mode == CHRE_BLE_SCAN_MODE_BACKGROUND
+           ? "background"
+           : (mode == CHRE_BLE_SCAN_MODE_FOREGROUND ? "foreground"
+                                                    : "aggressive"),
+       request.reportDelayMs, request.filter.scanFilterCount,
+       response.status ? "true" : "false");
+  return true;
 }
 
 bool ChreApiTestService::validateInputAndCallChreBleStopScanAsync(
@@ -323,5 +305,39 @@ bool ChreApiTestService::validateInputAndCallChreGetHostEndpointInfo(
   } else {
     LOGD("ChreGetHostEndpointInfo: status: false");
   }
+  return true;
+}
+
+bool ChreApiTestService::validateBleScanFilters(
+    const chre_rpc_ChreBleGenericFilter *scanFilters,
+    chreBleGenericFilter *outputScanFilters, uint32_t scanFilterCount) {
+  if (scanFilters == nullptr || outputScanFilters == nullptr) {
+    return false;
+  }
+
+  for (uint32_t i = 0; i < scanFilterCount; ++i) {
+    const chre_rpc_ChreBleGenericFilter &scanFilter = scanFilters[i];
+    if (scanFilter.type > std::numeric_limits<uint8_t>::max() ||
+        scanFilter.length > std::numeric_limits<uint8_t>::max()) {
+      LOGE(
+          "validateBleScanFilters: invalid request.filter.scanFilters member: "
+          "type: %" PRIu32 " or length: %" PRIu32,
+          scanFilter.type, scanFilter.length);
+      return false;
+    }
+
+    if (scanFilter.data.size < scanFilter.length ||
+        scanFilter.mask.size < scanFilter.length) {
+      LOGE(
+          "validateBleScanFilters: invalid request.filter.scanFilters member: "
+          "data or mask size");
+      return false;
+    }
+
+    outputScanFilters[i] =
+        createBleGenericFilter(scanFilter.type, scanFilter.length,
+                               scanFilter.data.bytes, scanFilter.mask.bytes);
+  }
+
   return true;
 }
