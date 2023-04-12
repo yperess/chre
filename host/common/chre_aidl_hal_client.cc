@@ -197,8 +197,8 @@ class ContextHubCallback : public BnContextHubCallback {
     return ScopedAStatus::ok();
   }
 
-  ScopedAStatus handleContextHubAsyncEvent(AsyncEventType /*event*/) override {
-    setPromiseAndRefresh();
+  ScopedAStatus handleContextHubAsyncEvent(AsyncEventType event) override {
+    std::cout << "Received async event " << toString(event) << std::endl;
     return ScopedAStatus::ok();
   }
 
