@@ -108,13 +108,6 @@ class ChreApiTestService final
       chre_rpc_Status &response);
 
   /**
-   * Retrieve the last host endpoint notification.
-   */
-  pw::Status RetrieveLatestDisconnectedHostEndpointEvent(
-      const chre_rpc_Void &request,
-      chre_rpc_RetrieveLatestDisconnectedHostEndpointEventOutput &response);
-
-  /**
    * Gets the host endpoint info for a given host endpoint id.
    */
   pw::Status ChreGetHostEndpointInfo(
@@ -240,10 +233,6 @@ class ChreApiTestService final
       const chre_rpc_ChreConfigureHostEndpointNotificationsInput &request,
       chre_rpc_Status &response);
 
-  bool validateInputAndRetrieveLatestDisconnectedHostEndpointEvent(
-      const chre_rpc_Void &request,
-      chre_rpc_RetrieveLatestDisconnectedHostEndpointEventOutput &response);
-
   bool validateInputAndCallChreGetHostEndpointInfo(
       const chre_rpc_ChreGetHostEndpointInfoInput &request,
       chre_rpc_ChreGetHostEndpointInfoOutput &response);
@@ -272,12 +261,6 @@ class ChreApiTestService final
   Optional<ServerWriter<chre_rpc_GeneralSyncMessage>> mWriter;
   uint32_t mSyncTimerHandle = CHRE_TIMER_INVALID;
   uint8_t mRequestType;
-
-  /**
-   * Variables to store disconnected host endpoint notification.
-   */
-  uint32_t mReceivedHostEndpointDisconnectedNum = 0;
-  chreHostEndpointNotification mLatestHostEndpointNotification;
 
   /*
    * Variables to control synchronization for sync events calls.

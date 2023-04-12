@@ -55,6 +55,11 @@ public class ChreApiTestUtil {
     public static final int RPC_TIMEOUT_IN_MS = RPC_TIMEOUT_IN_SECONDS * 1000;
 
     /**
+     * The default timeout for an RPC call in nanosecond.
+     */
+    public static final long RPC_TIMEOUT_IN_NS = RPC_TIMEOUT_IN_SECONDS * 1000000000L;
+
+    /**
      * The number of threads for the executor that executes the futures.
      * We need at least 2 here. One to process the RPCs for server streaming
      * and one to process events (which has server streaming as a dependent).
@@ -435,11 +440,6 @@ public class ChreApiTestUtil {
                         "ChreConfigureHostEndpointNotifications",
                         ChreApiTest.ChreConfigureHostEndpointNotificationsInput.class,
                         ChreApiTest.Status.class),
-                Service.unaryMethod(
-                        "RetrieveLatestDisconnectedHostEndpointEvent",
-                        ChreApiTest.Void.class,
-                        ChreApiTest.RetrieveLatestDisconnectedHostEndpointEventOutput
-                                .class),
                 Service.unaryMethod(
                         "ChreGetHostEndpointInfo",
                         ChreApiTest.ChreGetHostEndpointInfoInput.class,

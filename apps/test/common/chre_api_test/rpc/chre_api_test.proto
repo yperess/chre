@@ -49,12 +49,6 @@ service ChreApiTestService {
   rpc ChreConfigureHostEndpointNotifications(
       ChreConfigureHostEndpointNotificationsInput) returns (Status) {}
 
-  // TODO(b/274791978): Deprecate this once we can capture event
-  // Retrieves the latest disconnected host endpoint event and the number of
-  // disconnect event received.
-  rpc RetrieveLatestDisconnectedHostEndpointEvent(Void)
-      returns (RetrieveLatestDisconnectedHostEndpointEventOutput) {}
-
   // Gets the host endpoint info for a given host endpoint id.
   rpc ChreGetHostEndpointInfo(ChreGetHostEndpointInfoInput)
       returns (ChreGetHostEndpointInfoOutput) {}

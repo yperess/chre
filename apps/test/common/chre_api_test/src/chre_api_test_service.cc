@@ -255,15 +255,6 @@ bool ChreApiTestService::
   return true;
 }
 
-bool ChreApiTestService::
-    validateInputAndRetrieveLatestDisconnectedHostEndpointEvent(
-        const chre_rpc_Void & /* request */,
-        chre_rpc_RetrieveLatestDisconnectedHostEndpointEventOutput &response) {
-  response.disconnectedCount = mReceivedHostEndpointDisconnectedNum;
-  response.hostEndpointId = mLatestHostEndpointNotification.hostEndpointId;
-  return true;
-}
-
 bool ChreApiTestService::validateInputAndCallChreGetHostEndpointInfo(
     const chre_rpc_ChreGetHostEndpointInfoInput &request,
     chre_rpc_ChreGetHostEndpointInfoOutput &response) {
