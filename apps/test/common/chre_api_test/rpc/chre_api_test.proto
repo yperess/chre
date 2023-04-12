@@ -93,7 +93,9 @@ message GeneralSyncMessage {
 // Contains event filters for gathering events
 message GatherEventsInput {
   repeated uint32 eventTypes = 1;
-  uint32 eventTypeCount = 2;
+
+  // Deprecated: We use the built-in count variable now
+  uint32 eventTypeCount = 2 [deprecated = true];
   uint32 eventCount = 3;
   uint64 timeoutInNs = 4;
 }
@@ -260,7 +262,9 @@ message ChreBleGenericFilter {
 // Scan filter for BLE scanning
 message ChreBleScanFilter {
   int32 rssiThreshold = 1;
-  uint32 scanFilterCount = 2;
+
+  // Deprecated: We use the built-in count variable now
+  uint32 scanFilterCount = 2 [deprecated = true];
   repeated ChreBleGenericFilter scanFilters = 3;
 }
 
