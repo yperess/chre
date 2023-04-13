@@ -424,6 +424,21 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
           chre_rpc_GeneralEventsMessage_chreSensorSamplingStatusEvent_tag;
       break;
     }
+
+    case CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION: {
+      const struct chreHostEndpointNotification *data =
+          static_cast<const struct chreHostEndpointNotification *>(eventData);
+      message.data.chreHostEndpointNotification.hostEndpointId =
+          data->hostEndpointId;
+      message.data.chreHostEndpointNotification.notificationType =
+          data->notificationType;
+
+      message.status = true;
+      message.which_data =
+          chre_rpc_GeneralEventsMessage_chreHostEndpointNotification_tag;
+      break;
+    }
+
     default: {
       LOGE("GatherEvents: event type: %" PRIu16 " not implemented", eventType);
     }

@@ -122,6 +122,7 @@ message GeneralEventsMessage {
   oneof data {
     ChreSensorThreeAxisData chreSensorThreeAxisData = 2;
     ChreSensorSamplingStatusEvent chreSensorSamplingStatusEvent = 3;
+    ChreHostEndpointNotification chreHostEndpointNotification = 4;
   }
 }
 
@@ -179,6 +180,11 @@ message RetrieveLatestDisconnectedHostEndpointEventOutput {
   // Records how many disconnected event received by this nanoapp.
   uint32 disconnectedCount = 1;
   uint32 hostEndpointId = 2;
+}
+
+message ChreHostEndpointNotification {
+  uint32 hostEndpointId = 1;
+  uint32 notificationType = 2;
 }
 
 // Input value for ChreGetHostEndpointInfo
