@@ -154,16 +154,6 @@ class ChreApiTestService final
 
  private:
   /**
-   * Copies a string from source to destination up to the length of the source
-   * or the max value. Pads with null characters.
-   *
-   * @param destination         the destination string.
-   * @param source              the source string.
-   * @param maxChars            the maximum number of chars.
-   */
-  void copyString(char *destination, const char *source, size_t maxChars);
-
-  /**
    * Sets the synchronous timeout timer for the active sync message.
    *
    * @return                     if the operation was successful.

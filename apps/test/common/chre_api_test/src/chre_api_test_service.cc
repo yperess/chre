@@ -18,7 +18,9 @@
 
 #include "chre/util/nanoapp/ble.h"
 #include "chre/util/nanoapp/log.h"
+#include "chre/util/nanoapp/string.h"
 
+using ::chre::copyString;
 using ::chre::createBleGenericFilter;
 
 namespace {
@@ -27,7 +29,9 @@ namespace {
  * The following constants are defined in chre_api_test.options.
  */
 constexpr uint32_t kMaxBleScanFilters = 10;
-constexpr uint32_t kMaxNameStringSize = 100;
+constexpr size_t kMaxNameStringBufferSize = 100;
+constexpr size_t kMaxHostEndpointNameBufferSize = 51;
+constexpr size_t kMaxHostEndpointTagBufferSize = 51;
 }  // namespace
 
 bool ChreApiTestService::validateInputAndCallChreBleGetCapabilities(
@@ -141,7 +145,8 @@ bool ChreApiTestService::validateInputAndCallChreGetSensorInfo(
   response.status = chreGetSensorInfo(request.handle, &sensorInfo);
 
   if (response.status) {
-    copyString(response.sensorName, sensorInfo.sensorName, kMaxNameStringSize);
+    copyString(response.sensorName, sensorInfo.sensorName,
+               kMaxNameStringBufferSize);
     response.sensorType = sensorInfo.sensorType;
     response.isOnChange = sensorInfo.isOnChange;
     response.isOneShot = sensorInfo.isOneShot;
@@ -223,7 +228,7 @@ bool ChreApiTestService::validateInputAndCallChreAudioGetSource(
   response.status = chreAudioGetSource(request.handle, &audioSource);
 
   if (response.status) {
-    copyString(response.name, audioSource.name, kMaxNameStringSize);
+    copyString(response.name, audioSource.name, kMaxNameStringBufferSize);
     response.sampleRate = audioSource.sampleRate;
     response.minBufferDuration = audioSource.minBufferDuration;
     response.maxBufferDuration = audioSource.maxBufferDuration;
@@ -277,15 +282,15 @@ bool ChreApiTestService::validateInputAndCallChreGetHostEndpointInfo(
     response.isTagValid = hostEndpointInfo.isTagValid;
     if (hostEndpointInfo.isNameValid) {
       copyString(response.endpointName, hostEndpointInfo.endpointName,
-                 CHRE_MAX_ENDPOINT_NAME_LEN);
+                 kMaxHostEndpointNameBufferSize);
     } else {
-      memset(response.endpointName, 0, CHRE_MAX_ENDPOINT_NAME_LEN);
+      memset(response.endpointName, 0, kMaxHostEndpointNameBufferSize);
     }
     if (hostEndpointInfo.isTagValid) {
       copyString(response.endpointTag, hostEndpointInfo.endpointTag,
-                 CHRE_MAX_ENDPOINT_TAG_LEN);
+                 kMaxHostEndpointTagBufferSize);
     } else {
-      memset(response.endpointTag, 0, CHRE_MAX_ENDPOINT_TAG_LEN);
+      memset(response.endpointTag, 0, kMaxHostEndpointTagBufferSize);
     }
 
     LOGD("ChreGetHostEndpointInfo: status: true, hostEndpointID: %" PRIu32

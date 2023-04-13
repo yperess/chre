@@ -25,6 +25,7 @@ COMMON_SRCS += $(NANOAPP_PATH)/src/chre_api_test.cc
 # Utilities ####################################################################
 
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/ble.cc
+COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/string.cc
 
 # Compiler Flags ###############################################################
 

@@ -446,23 +446,6 @@ void ChreApiTestService::handleTimerEvent(const void *cookie) {
   }
 }
 
-void ChreApiTestService::copyString(char *destination, const char *source,
-                                    size_t maxChars) {
-  CHRE_ASSERT_NOT_NULL(destination);
-  CHRE_ASSERT_NOT_NULL(source);
-
-  if (maxChars == 0) {
-    return;
-  }
-
-  uint32_t i;
-  for (i = 0; i < maxChars - 1 && source[i] != '\0'; ++i) {
-    destination[i] = source[i];
-  }
-
-  memset(&destination[i], 0, maxChars - i);
-}
-
 bool ChreApiTestService::startSyncTimer() {
   mSyncTimerHandle = chreTimerSet(
       kSyncFunctionTimeout, &mSyncTimerHandle /* cookie */, true /* oneShot */);
