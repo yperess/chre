@@ -69,17 +69,17 @@ class ClientsTest : public testing::Test {
   struct ChppRequestResponseState mRRState;
 };
 
-void getClientRRStateInputCheck(struct ChppClientState *clientState,
-                                struct ChppAppHeader *header) {
-  ASSERT_TRUE(clientState != NULL);
-  uint8_t clientIdx = clientState->index;
+void validateClientStateAndRRState(struct ChppClientState *clientState,
+                                   const struct ChppAppHeader *header) {
+  ASSERT_NE(clientState, nullptr);
+  const uint8_t clientIdx = clientState->index;
 
-  ASSERT_TRUE(clientState->appContext != NULL);
-  ASSERT_TRUE(clientState->appContext->registeredClients != NULL);
-  ASSERT_TRUE(clientState->appContext->registeredClients[clientIdx] != NULL);
-  ASSERT_TRUE(
-      clientState->appContext->registeredClientStates[clientIdx]->rRStates !=
-      NULL);
+  ASSERT_NE(clientState->appContext, nullptr);
+  ASSERT_NE(clientState->appContext->registeredClients, nullptr);
+  ASSERT_NE(clientState->appContext->registeredClients[clientIdx], nullptr);
+  ASSERT_NE(
+      clientState->appContext->registeredClientStates[clientIdx]->rRStates,
+      nullptr);
   ASSERT_LT(
       header->command,
       clientState->appContext->registeredClients[clientIdx]->rRStateCount);
@@ -87,15 +87,15 @@ void getClientRRStateInputCheck(struct ChppClientState *clientState,
 
 struct ChppRequestResponseState *getClientRRState(
     struct ChppClientState *clientState, struct ChppAppHeader *header) {
-  getClientRRStateInputCheck(clientState, header);
+  validateClientStateAndRRState(clientState, header);
 
   uint8_t clientIdx = clientState->index;
   return &(clientState->appContext->registeredClientStates[clientIdx]
                ->rRStates[header->command]);
 }
 
-void isTimeoutAsExpected(uint64_t timeoutTimeNs, uint64_t expectedTimeNs) {
-  uint64_t kJitterNs = 10 * CHPP_NSEC_PER_MSEC;
+void validateTimeout(uint64_t timeoutTimeNs, uint64_t expectedTimeNs) {
+  constexpr uint64_t kJitterNs = 10 * CHPP_NSEC_PER_MSEC;
 
   if (expectedTimeNs == CHPP_TIME_MAX) {
     EXPECT_EQ(timeoutTimeNs, expectedTimeNs);
@@ -107,45 +107,31 @@ void isTimeoutAsExpected(uint64_t timeoutTimeNs, uint64_t expectedTimeNs) {
 
 void registerAndValidateRequestForTimeout(struct ChppClientState *clientState,
                                           struct ChppAppHeader *header,
-                                          uint64_t timeoutNs,
+                                          uint64_t kTimeoutNs,
                                           uint64_t expectedTimeNs) {
   struct ChppRequestResponseState *rRState =
       getClientRRState(clientState, header);
-  chppClientTimestampRequest(clientState, rRState, header, timeoutNs);
+  chppClientTimestampRequest(clientState, rRState, header, kTimeoutNs);
 
-  isTimeoutAsExpected(clientState->appContext->nextRequestTimeoutNs,
-                      expectedTimeNs);
+  validateTimeout(clientState->appContext->nextRequestTimeoutNs,
+                  expectedTimeNs);
 }
 
 void registerAndValidateResponseForTimeout(struct ChppClientState *clientState,
-                                           const struct ChppAppHeader *header,
+                                           struct ChppAppHeader *header,
                                            uint64_t expectedTimeNs) {
-  ASSERT_FALSE(clientState == NULL);
-  uint8_t clientIdx = clientState->index;
-
-  ASSERT_FALSE(clientState->appContext == NULL);
-  ASSERT_FALSE(clientState->appContext->registeredClients == NULL);
-  ASSERT_FALSE(clientState->appContext->registeredClients[clientIdx] == NULL);
-  ASSERT_FALSE(
-      clientState->appContext->registeredClientStates[clientIdx]->rRStates ==
-      NULL);
-  ASSERT_LT(
-      header->command,
-      clientState->appContext->registeredClients[clientIdx]->rRStateCount);
-
   struct ChppRequestResponseState *rRState =
-      &(clientState->appContext->registeredClientStates[clientIdx]
-            ->rRStates[header->command]);
+      getClientRRState(clientState, header);
   chppClientTimestampResponse(clientState, rRState, header);
 
-  isTimeoutAsExpected(clientState->appContext->nextRequestTimeoutNs,
-                      expectedTimeNs);
+  validateTimeout(clientState->appContext->nextRequestTimeoutNs,
+                  expectedTimeNs);
 }
 
 void validateTimeoutResponse(const struct ChppAppHeader *request,
                              const struct ChppAppHeader *response) {
-  ASSERT_TRUE(request != NULL);
-  ASSERT_TRUE(response != NULL);
+  ASSERT_NE(request, nullptr);
+  ASSERT_NE(response, nullptr);
 
   EXPECT_EQ(response->handle, request->handle);
   EXPECT_EQ(response->type, CHPP_MESSAGE_TYPE_SERVICE_RESPONSE);
@@ -154,6 +140,8 @@ void validateTimeoutResponse(const struct ChppAppHeader *request,
   EXPECT_EQ(response->command, request->command);
 }
 
+// Simulates a request from a client and a response from the service.
+// There should be no error as the timeout is infinite.
 TEST_F(ClientsTest, RequestResponseTimestampValid) {
   struct ChppAppHeader *reqHeader =
       chppAllocClientRequestCommand(mClientState, 0 /* command */);
@@ -168,6 +156,7 @@ TEST_F(ClientsTest, RequestResponseTimestampValid) {
   chppFree(respHeader);
 }
 
+// Simulates a single request from the client with 2 responses.
 TEST_F(ClientsTest, RequestResponseTimestampDuplicate) {
   struct ChppAppHeader *reqHeader =
       chppAllocClientRequestCommand(mClientState, 0 /* command */);
@@ -176,7 +165,11 @@ TEST_F(ClientsTest, RequestResponseTimestampDuplicate) {
 
   struct ChppAppHeader *respHeader =
       chppAllocServiceResponse(reqHeader, sizeof(*reqHeader));
+
+  // The first response has no error.
   ASSERT_TRUE(chppClientTimestampResponse(mClientState, &mRRState, respHeader));
+
+  // The second response errors as one response has already been received.
   ASSERT_FALSE(
       chppClientTimestampResponse(mClientState, &mRRState, respHeader));
 
@@ -184,6 +177,7 @@ TEST_F(ClientsTest, RequestResponseTimestampDuplicate) {
   chppFree(respHeader);
 }
 
+// Simulates a response to a request that has not been timestamped.
 TEST_F(ClientsTest, RequestResponseTimestampInvalidId) {
   struct ChppAppHeader *reqHeader =
       chppAllocClientRequestCommand(mClientState, 0 /* command */);
@@ -192,6 +186,9 @@ TEST_F(ClientsTest, RequestResponseTimestampInvalidId) {
 
   struct ChppAppHeader *newReqHeader =
       chppAllocClientRequestCommand(mClientState, 0 /* command */);
+
+  // We expect a response for req but get a response for newReq.
+  // That is an error (the transaction does not match).
   struct ChppAppHeader *respHeader =
       chppAllocServiceResponse(newReqHeader, sizeof(*reqHeader));
   ASSERT_FALSE(
@@ -202,19 +199,21 @@ TEST_F(ClientsTest, RequestResponseTimestampInvalidId) {
   chppFree(respHeader);
 }
 
+// Make sure the request does not timeout right away.
 TEST_F(ClientsTest, RequestTimeoutAddRemoveSingle) {
   EXPECT_EQ(mAppContext.nextRequestTimeoutNs, CHPP_TIME_MAX);
 
   struct ChppAppHeader *reqHeader =
       chppAllocClientRequestCommand(mClientState, 1 /* command */);
 
-  uint64_t time = chppGetCurrentTimeNs();
-  uint64_t timeout = 1000 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader, timeout,
-                                       time + timeout);
+  const uint64_t timeNs = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeoutNs = 1000 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader, kTimeoutNs,
+                                       timeNs + kTimeoutNs);
 
-  EXPECT_TRUE(
-      chppTransportGetClientRequestTimeoutResponse(&mTransportContext) == NULL);
+  // Timeout is not expired yet.
+  EXPECT_EQ(chppTransportGetClientRequestTimeoutResponse(&mTransportContext),
+            nullptr);
 
   registerAndValidateResponseForTimeout(mClientState, reqHeader, CHPP_TIME_MAX);
 
@@ -231,43 +230,47 @@ TEST_F(ClientsTest, RequestTimeoutAddRemoveMultiple) {
 
   EXPECT_EQ(mAppContext.nextRequestTimeoutNs, CHPP_TIME_MAX);
 
-  uint64_t time1 = chppGetCurrentTimeNs();
-  uint64_t timeout1 = 2000 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader1, timeout1,
-                                       time1 + timeout1);
+  // kTimeout1Ns is the smallest so it will be the first timeout to expire
+  // for all the requests.
+  const uint64_t time1Ns = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeout1Ns = 2000 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader1, kTimeout1Ns,
+                                       time1Ns + kTimeout1Ns);
 
-  uint64_t time2 = chppGetCurrentTimeNs();
-  uint64_t timeout2 = 4000 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader2, timeout2,
-                                       time1 + timeout1);
+  const uint64_t time2Ns = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeout2Ns = 4000 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader2, kTimeout2Ns,
+                                       time1Ns + kTimeout1Ns);
 
-  uint64_t time3 = chppGetCurrentTimeNs();
-  uint64_t timeout3 = 3000 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader3, timeout3,
-                                       time1 + timeout1);
-
-  registerAndValidateResponseForTimeout(mClientState, reqHeader1,
-                                        time3 + timeout3);
-
-  EXPECT_TRUE(
-      chppTransportGetClientRequestTimeoutResponse(&mTransportContext) == NULL);
-
-  uint64_t time4 = chppGetCurrentTimeNs();
-  uint64_t timeout4 = 1000 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader1, timeout4,
-                                       time4 + timeout4);
+  const uint64_t time3Ns = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeout3Ns = 3000 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader3, kTimeout3Ns,
+                                       time1Ns + kTimeout1Ns);
 
   registerAndValidateResponseForTimeout(mClientState, reqHeader1,
-                                        time3 + timeout3);
+                                        time3Ns + kTimeout3Ns);
+
+  // Timeout is not expired yet.
+  EXPECT_EQ(chppTransportGetClientRequestTimeoutResponse(&mTransportContext),
+            nullptr);
+
+  // kTimeout4Ns is now the smallest timeout.
+  const uint64_t time4Ns = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeout4Ns = 1000 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader1, kTimeout4Ns,
+                                       time4Ns + kTimeout4Ns);
+
+  registerAndValidateResponseForTimeout(mClientState, reqHeader1,
+                                        time3Ns + kTimeout3Ns);
 
   registerAndValidateResponseForTimeout(mClientState, reqHeader3,
-                                        time2 + timeout2);
+                                        time2Ns + kTimeout2Ns);
 
   registerAndValidateResponseForTimeout(mClientState, reqHeader2,
                                         CHPP_TIME_MAX);
 
-  EXPECT_TRUE(
-      chppTransportGetClientRequestTimeoutResponse(&mTransportContext) == NULL);
+  EXPECT_EQ(chppTransportGetClientRequestTimeoutResponse(&mTransportContext),
+            nullptr);
 
   chppFree(reqHeader1);
   chppFree(reqHeader2);
@@ -280,38 +283,36 @@ TEST_F(ClientsTest, DuplicateRequestTimeoutResponse) {
   struct ChppAppHeader *reqHeader =
       chppAllocClientRequestCommand(mClientState, 1 /* command */);
 
-  uint64_t time1 = chppGetCurrentTimeNs();
-  uint64_t timeout1 = 200 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader, timeout1,
-                                       time1 + timeout1);
+  const uint64_t time1Ns = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeout1Ns = 200 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader, kTimeout1Ns,
+                                       time1Ns + kTimeout1Ns);
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(timeout1 / 2));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(kTimeout1Ns / 2));
 
-  uint64_t time2 = chppGetCurrentTimeNs();
-  uint64_t timeout2 = 200 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader, timeout2,
-                                       time2 + timeout2);
+  const uint64_t time2Ns = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeout2Ns = 200 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader, kTimeout2Ns,
+                                       time2Ns + kTimeout2Ns);
 
   std::this_thread::sleep_for(
-      std::chrono::nanoseconds(timeout1 + time1 - chppGetCurrentTimeNs()));
+      std::chrono::nanoseconds(kTimeout1Ns + time1Ns - chppGetCurrentTimeNs()));
   // First request would have timed out but superseded by second request
   ASSERT_GT(mAppContext.nextRequestTimeoutNs, chppGetCurrentTimeNs());
 
   std::this_thread::sleep_for(
-      std::chrono::nanoseconds(timeout2 + time2 - chppGetCurrentTimeNs()));
-  // Second request should have timed out
+      std::chrono::nanoseconds(kTimeout2Ns + time2Ns - chppGetCurrentTimeNs()));
+  // Second request should have timed out - so we get a response.
   ASSERT_LT(mAppContext.nextRequestTimeoutNs, chppGetCurrentTimeNs());
 
   struct ChppAppHeader *response =
       chppTransportGetClientRequestTimeoutResponse(&mTransportContext);
   validateTimeoutResponse(reqHeader, response);
-  if (response != NULL) {
-    chppFree(response);
-  }
+  chppFree(response);
 
   registerAndValidateResponseForTimeout(mClientState, reqHeader, CHPP_TIME_MAX);
-  EXPECT_TRUE(
-      chppTransportGetClientRequestTimeoutResponse(&mTransportContext) == NULL);
+  EXPECT_EQ(chppTransportGetClientRequestTimeoutResponse(&mTransportContext),
+            nullptr);
 
   chppFree(reqHeader);
 }
@@ -324,39 +325,38 @@ TEST_F(ClientsTest, RequestTimeoutResponse) {
   struct ChppAppHeader *reqHeader2 =
       chppAllocClientRequestCommand(mClientState, 2 /* command */);
 
-  uint64_t time1 = chppGetCurrentTimeNs();
-  uint64_t timeout1 = 200 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader1, timeout1,
-                                       time1 + timeout1);
+  const uint64_t time1Ns = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeout1Ns = 200 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader1, kTimeout1Ns,
+                                       time1Ns + kTimeout1Ns);
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(timeout1));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(kTimeout1Ns));
   ASSERT_LT(mAppContext.nextRequestTimeoutNs, chppGetCurrentTimeNs());
 
+  // No response in time, we then get a timeout response.
   struct ChppAppHeader *response =
       chppTransportGetClientRequestTimeoutResponse(&mTransportContext);
   validateTimeoutResponse(reqHeader1, response);
-  if (response != NULL) {
-    chppFree(response);
-  }
+  chppFree(response);
 
   registerAndValidateResponseForTimeout(mClientState, reqHeader1,
                                         CHPP_TIME_MAX);
-  EXPECT_TRUE(
-      chppTransportGetClientRequestTimeoutResponse(&mTransportContext) == NULL);
+  // No other request in timeout.
+  EXPECT_EQ(chppTransportGetClientRequestTimeoutResponse(&mTransportContext),
+            nullptr);
 
-  uint64_t time2 = chppGetCurrentTimeNs();
-  uint64_t timeout2 = 200 * CHPP_NSEC_PER_MSEC;
-  registerAndValidateRequestForTimeout(mClientState, reqHeader2, timeout2,
-                                       time2 + timeout2);
+  // Simulate a new timeout and make sure we have a timeout response.
+  const uint64_t time2Ns = chppGetCurrentTimeNs();
+  constexpr uint64_t kTimeout2Ns = 200 * CHPP_NSEC_PER_MSEC;
+  registerAndValidateRequestForTimeout(mClientState, reqHeader2, kTimeout2Ns,
+                                       time2Ns + kTimeout2Ns);
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(timeout2));
+  std::this_thread::sleep_for(std::chrono::nanoseconds(kTimeout2Ns));
   ASSERT_LT(mAppContext.nextRequestTimeoutNs, chppGetCurrentTimeNs());
 
   response = chppTransportGetClientRequestTimeoutResponse(&mTransportContext);
   validateTimeoutResponse(reqHeader2, response);
-  if (response != NULL) {
-    chppFree(response);
-  }
+  chppFree(response);
 
   chppFree(reqHeader1);
   chppFree(reqHeader2);
