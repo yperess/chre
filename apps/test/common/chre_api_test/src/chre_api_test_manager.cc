@@ -289,7 +289,7 @@ void ChreApiTestService::GatherEvents(
   for (uint32_t i = 0; i < request.eventTypeCount; ++i) {
     if (request.eventTypes[i] < std::numeric_limits<uint16_t>::min() ||
         request.eventTypes[i] > std::numeric_limits<uint16_t>::max()) {
-      LOGE("GatherEvents: invalid request.eventTypes: i: %" PRIu32, i);
+      LOGE("GatherEvents: invalid request.eventTypes at index: %" PRIu32, i);
       ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
           CHRE_MESSAGE_PERMISSION_NONE);
       writer.Finish();
