@@ -156,6 +156,7 @@ cc_test_host {
         "test/gnss_test.cpp",
         "test/transport_test.cpp",
         "test/app_timeout_test.cpp",
+        "test/app_discovery_test.cpp",
     ],
     static_libs: [
         "chre_chpp_linux",
