@@ -153,6 +153,9 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
  * chppAllocServiceNotificationTypedArray() macros shall be used rather than
  * calling this function directly.
  *
+ * The caller must initialize at least the handle and command fields of the
+ * ChppAppHeader.
+ *
  * @param len Length of the notification (including header) in bytes. Note
  * that the specified length must be at least equal to the length of the app
  * layer header.
