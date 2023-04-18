@@ -103,25 +103,6 @@ pw::Status ChreApiTestService::ChreBleGetFilterCapabilities(
              : pw::Status::InvalidArgument();
 }
 
-pw::Status ChreApiTestService::ChreBleStartScanAsync(
-    const chre_rpc_ChreBleStartScanAsyncInput &request,
-    chre_rpc_Status &response) {
-  ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
-      CHRE_MESSAGE_PERMISSION_NONE);
-  return validateInputAndCallChreBleStartScanAsync(request, response)
-             ? pw::OkStatus()
-             : pw::Status::InvalidArgument();
-}
-
-pw::Status ChreApiTestService::ChreBleStopScanAsync(
-    const google_protobuf_Empty &request, chre_rpc_Status &response) {
-  ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
-      CHRE_MESSAGE_PERMISSION_NONE);
-  return validateInputAndCallChreBleStopScanAsync(request, response)
-             ? pw::OkStatus()
-             : pw::Status::InvalidArgument();
-}
-
 pw::Status ChreApiTestService::ChreSensorFindDefault(
     const chre_rpc_ChreSensorFindDefaultInput &request,
     chre_rpc_ChreSensorFindDefaultOutput &response) {

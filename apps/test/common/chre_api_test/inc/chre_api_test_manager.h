@@ -48,19 +48,6 @@ class ChreApiTestService final
                                           chre_rpc_Capabilities &response);
 
   /**
-   * Starts a BLE scan.
-   */
-  pw::Status ChreBleStartScanAsync(
-      const chre_rpc_ChreBleStartScanAsyncInput &request,
-      chre_rpc_Status &response);
-
-  /**
-   * Stops a BLE scan.
-   */
-  pw::Status ChreBleStopScanAsync(const google_protobuf_Empty &request,
-                                  chre_rpc_Status &response);
-
-  /**
    * Finds the default sensor and returns the handle in the output.
    */
   pw::Status ChreSensorFindDefault(

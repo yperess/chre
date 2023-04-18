@@ -397,18 +397,10 @@ public class ChreApiTestUtil {
                         "ChreBleGetFilterCapabilities",
                         Empty.class,
                         ChreApiTest.Capabilities.class),
-                Service.unaryMethod(
-                        "ChreBleStartScanAsync",
-                        ChreApiTest.ChreBleStartScanAsyncInput.class,
-                        ChreApiTest.Status.class),
                 Service.serverStreamingMethod(
                         "ChreBleStartScanSync",
                         ChreApiTest.ChreBleStartScanAsyncInput.class,
                         ChreApiTest.GeneralSyncMessage.class),
-                Service.unaryMethod(
-                        "ChreBleStopScanAsync",
-                        Empty.class,
-                        ChreApiTest.Status.class),
                 Service.serverStreamingMethod(
                         "ChreBleStopScanSync",
                         Empty.class,
