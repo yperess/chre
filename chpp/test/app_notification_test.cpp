@@ -63,6 +63,7 @@ void *workThread(void *transportState) {
 
 enum class Commands : uint16_t {
   kServiceNotification,
+  kClientNotification,
 };
 
 constexpr uint16_t kNumCommands = 1;
@@ -137,7 +138,33 @@ void clientDeinit(void *clientState) {
 struct ServiceState {
   struct ChppServiceState chppServiceState;
   struct ChppRequestResponseState rRState[kNumCommands];
+  bool clientNotificationStatus;
+  struct ChppNotifier notifier;
 };
+
+// Called when a notification from a client is received.
+enum ChppAppErrorCode serviceDispatchNotification(void *serviceState,
+                                                  uint8_t *buf, size_t len) {
+  auto state = static_cast<struct ServiceState *>(serviceState);
+
+  // The response is composed of the app header only.
+  if (len != sizeof(ChppAppHeader)) {
+    return CHPP_APP_ERROR_NONE;
+  }
+
+  auto notification = reinterpret_cast<struct ChppAppHeader *>(buf);
+
+  switch (notification->command) {
+    case asBaseType(Commands::kClientNotification):
+      state->clientNotificationStatus =
+          notification->error == CHPP_APP_ERROR_NONE;
+      chppNotifierSignal(&state->notifier, 1 /*signal*/);
+      return CHPP_APP_ERROR_NONE;
+
+    default:
+      return CHPP_APP_ERROR_NONE;
+  }
+}
 
 const struct ChppService kService = {
     .descriptor.uuid = TEST_UUID,
@@ -147,7 +174,7 @@ const struct ChppService kService = {
     .descriptor.version.patch = 0,
     .resetNotifierFunctionPtr = nullptr,
     .requestDispatchFunctionPtr = nullptr,
-    .notificationDispatchFunctionPtr = nullptr,
+    .notificationDispatchFunctionPtr = &serviceDispatchNotification,
     .minLength = sizeof(struct ChppAppHeader),
 };
 
@@ -157,6 +184,7 @@ class AppNotificationTest : public testing::Test {
   void SetUp() {
     chppClearTotalAllocBytes();
     chppNotifierInit(&mClientState.notifier);
+    chppNotifierInit(&mServiceState.notifier);
     memset(&mClientLinkContext, 0, sizeof(mClientLinkContext));
     memset(&mServiceLinkContext, 0, sizeof(mServiceLinkContext));
 
@@ -223,6 +251,7 @@ class AppNotificationTest : public testing::Test {
 
   void TearDown() {
     chppNotifierDeinit(&mClientState.notifier);
+    chppNotifierDeinit(&mServiceState.notifier);
     chppWorkThreadStop(&mClientTransportContext);
     chppWorkThreadStop(&mServiceTransportContext);
     pthread_join(mClientWorkThread, NULL);
@@ -272,6 +301,26 @@ TEST_F(AppNotificationTest, serviceSendANotificationToClient) {
   chppNotifierWait(&mClientState.notifier);
 
   EXPECT_TRUE(mClientState.serviceNotificationStatus);
+}
+
+TEST_F(AppNotificationTest, clientSendANotificationToService) {
+  // Send a notification.
+  constexpr size_t notificationLen = sizeof(struct ChppAppHeader);
+
+  struct ChppAppHeader *notification =
+      chppAllocClientNotification(notificationLen);
+  ASSERT_NE(notification, nullptr);
+  notification->command = asBaseType(Commands::kClientNotification);
+  notification->handle = mClientState.chppClientState.handle;
+
+  mServiceState.clientNotificationStatus = false;
+
+  EXPECT_TRUE(chppEnqueueTxDatagramOrFail(&mClientTransportContext,
+                                          notification, notificationLen));
+
+  chppNotifierWait(&mServiceState.notifier);
+
+  EXPECT_TRUE(mServiceState.clientNotificationStatus);
 }
 
 }  // namespace

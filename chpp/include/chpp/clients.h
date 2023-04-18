@@ -63,6 +63,31 @@ extern "C" {
       clientState, sizeof(type) + (count)*sizeof_member(type, arrayField[0]))
 
 /**
+ * Uses chppAllocClientNotification() to allocate a variable-length notification
+ * of a specific type.
+ *
+ * @param type Type of notification which includes an arrayed member.
+ * @param count number of items in the array of arrayField.
+ * @param arrayField The arrayed member field.
+ *
+ * @return Pointer to allocated memory
+ */
+#define chppAllocClientNotificationTypedArray(type, count, arrayField) \
+  (type *)chppAllocClientNotification(                                 \
+      sizeof(type) + (count)*sizeof_member(type, arrayField[0]))
+
+/**
+ * Uses chppAllocClientNotification() to allocate a notification of a
+ * specific type and its corresponding length.
+ *
+ * @param type Type of notification.
+ *
+ * @return Pointer to allocated memory
+ */
+#define chppAllocClientNotificationFixed(type) \
+  (type *)chppAllocClientNotification(sizeof(type))
+
+/**
  * Maintains the basic state of a client.
  * This is expected to be included once in the (context) status variable of
  * each client.
@@ -382,6 +407,25 @@ void chppClientRecalculateNextTimeout(struct ChppAppState *context);
 void chppClientCloseOpenRequests(struct ChppClientState *clientState,
                                  const struct ChppClient *client,
                                  bool clearOnly);
+
+/**
+ * Allocates a client notification of a specified length.
+ *
+ * It is expected that for most use cases, the
+ * chppAllocClientNotificationFixed() or
+ * chppAllocClientNotificationTypedArray() macros shall be used rather than
+ * calling this function directly.
+ *
+ * The caller must initialize at least the handle and command fields of the
+ * ChppAppHeader.
+ *
+ * @param len Length of the notification (including header) in bytes. Note
+ * that the specified length must be at least equal to the length of the app
+ * layer header.
+ *
+ * @return Pointer to allocated memory
+ */
+struct ChppAppHeader *chppAllocClientNotification(size_t len);
 
 #ifdef __cplusplus
 }

@@ -594,3 +594,17 @@ void chppClientCloseOpenRequests(struct ChppClientState *clientState,
     chppClientRecalculateNextTimeout(clientState->appContext);
   }
 }
+
+struct ChppAppHeader *chppAllocClientNotification(size_t len) {
+  CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
+
+  struct ChppAppHeader *result = chppMalloc(len);
+  if (result) {
+    result->handle = CHPP_HANDLE_NONE;
+    result->type = CHPP_MESSAGE_TYPE_CLIENT_NOTIFICATION;
+    result->transaction = 0;
+    result->error = CHPP_APP_ERROR_NONE;
+    result->command = CHPP_APP_COMMAND_NONE;
+  }
+  return result;
+}

@@ -38,8 +38,8 @@ extern "C" {
 #endif
 
 /**
- * Uses chppAllocServiceNotification() to allocate a variable-length response
- * message of a specific type.
+ * Uses chppAllocServiceNotification() to allocate a variable-length
+ * notification of a specific type.
  *
  * @param type Type of notification which includes an arrayed member.
  * @param count number of items in the array of arrayField.
@@ -52,7 +52,7 @@ extern "C" {
       sizeof(type) + (count)*sizeof_member(type, arrayField[0]))
 
 /**
- * Uses chppAllocServiceNotification() to allocate a response message of a
+ * Uses chppAllocServiceNotification() to allocate a response notification of a
  * specific type and its corresponding length.
  *
  * @param type Type of notification.
