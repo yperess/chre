@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "clients_test.h"
+#include "app_timeout_test.h"
 
 #include <gtest/gtest.h>
-
 #include <string.h>
 #include <thread>
 
