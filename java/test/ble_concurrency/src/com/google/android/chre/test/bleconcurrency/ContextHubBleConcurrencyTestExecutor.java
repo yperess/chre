@@ -130,6 +130,7 @@ public class ContextHubBleConcurrencyTestExecutor extends ContextHubChreApiTestE
 
         return ChreApiTest.ChreBleScanFilter.newBuilder()
                 .setRssiThreshold(RSSI_THRESHOLD)
+                .setScanFilterCount(2)
                 .addScanFilters(eddystoneFilter)
                 .addScanFilters(nearbyFastpairFilter)
                 .build();

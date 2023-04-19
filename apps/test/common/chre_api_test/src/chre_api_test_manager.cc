@@ -251,15 +251,23 @@ void ChreApiTestService::GatherEvents(
     return;
   }
 
-  if (request.eventTypes_count == 0) {
-    LOGE("GatherEvents: request.eventTypes_count == 0");
+  if (request.eventTypeCount > kMaxNumEventTypes) {
+    LOGE("GatherEvents: request.eventTypeCount is out of bounds");
     ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
         CHRE_MESSAGE_PERMISSION_NONE);
     writer.Finish();
     return;
   }
 
-  for (uint32_t i = 0; i < request.eventTypes_count; ++i) {
+  if (request.eventTypeCount == 0) {
+    LOGE("GatherEvents: request.eventTypeCount == 0");
+    ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
+        CHRE_MESSAGE_PERMISSION_NONE);
+    writer.Finish();
+    return;
+  }
+
+  for (uint32_t i = 0; i < request.eventTypeCount; ++i) {
     if (request.eventTypes[i] < std::numeric_limits<uint16_t>::min() ||
         request.eventTypes[i] > std::numeric_limits<uint16_t>::max()) {
       LOGE("GatherEvents: invalid request.eventTypes at index: %" PRIu32, i);
@@ -283,7 +291,7 @@ void ChreApiTestService::GatherEvents(
     sendFailureAndFinishCloseWriter(mEventWriter);
     mEventTimerHandle = CHRE_TIMER_INVALID;
   } else {
-    mEventTypeCount = request.eventTypes_count;
+    mEventTypeCount = request.eventTypeCount;
     mEventExpectedCount = request.eventCount;
     mEventSentCount = 0;
     LOGD("GatherEvents: mEventTypeCount: %" PRIu32

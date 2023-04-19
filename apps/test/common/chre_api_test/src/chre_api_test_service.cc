@@ -28,6 +28,7 @@ namespace {
 /**
  * The following constants are defined in chre_api_test.options.
  */
+constexpr uint32_t kMaxBleScanFilters = 10;
 constexpr size_t kMaxNameStringBufferSize = 100;
 constexpr size_t kMaxHostEndpointNameBufferSize = 51;
 constexpr size_t kMaxHostEndpointTagBufferSize = 51;
@@ -81,32 +82,33 @@ bool ChreApiTestService::validateInputAndCallChreBleStartScanAsync(
     return false;
   }
 
-  if (request.filter.scanFilters_count == 0) {
-    LOGE("ChreBleStartScanAsync: invalid filter.scanFilters_count");
+  if (request.filter.scanFilterCount == 0 ||
+      request.filter.scanFilterCount > kMaxBleScanFilters) {
+    LOGE("ChreBleStartScanAsync: invalid filter.scanFilterCount");
     return false;
   }
 
-  chreBleGenericFilter genericFilters[request.filter.scanFilters_count];
+  chreBleGenericFilter genericFilters[request.filter.scanFilterCount];
   if (!validateBleScanFilters(request.filter.scanFilters, genericFilters,
-                              request.filter.scanFilters_count)) {
+                              request.filter.scanFilterCount)) {
     return false;
   }
 
   struct chreBleScanFilter filter;
   filter.rssiThreshold = request.filter.rssiThreshold;
-  filter.scanFilterCount = request.filter.scanFilters_count;
+  filter.scanFilterCount = request.filter.scanFilterCount;
   filter.scanFilters = genericFilters;
 
   chreBleScanMode mode = static_cast<chreBleScanMode>(request.mode);
   response.status = chreBleStartScanAsync(mode, request.reportDelayMs, &filter);
 
   LOGD("ChreBleStartScanAsync: mode: %s, reportDelayMs: %" PRIu32
-       ", scanFilterCount: %" PRIu16 ", status: %s",
+       ", scanFilterCount: %" PRIu32 ", status: %s",
        mode == CHRE_BLE_SCAN_MODE_BACKGROUND
            ? "background"
            : (mode == CHRE_BLE_SCAN_MODE_FOREGROUND ? "foreground"
                                                     : "aggressive"),
-       request.reportDelayMs, request.filter.scanFilters_count,
+       request.reportDelayMs, request.filter.scanFilterCount,
        response.status ? "true" : "false");
   return true;
 }

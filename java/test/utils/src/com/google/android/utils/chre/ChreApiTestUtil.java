@@ -309,6 +309,7 @@ public class ChreApiTestUtil {
 
         ChreApiTest.GatherEventsInput input = ChreApiTest.GatherEventsInput.newBuilder()
                 .addAllEventTypes(eventTypes)
+                .setEventTypeCount(eventTypes.size())
                 .setEventCount(eventCount)
                 .setTimeoutInNs(timeoutInNs)
                 .build();
