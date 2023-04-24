@@ -56,11 +56,17 @@ public class ContextHubChreConcurrencyTestExecutor extends ContextHubChreApiTest
     private static final long TIMEOUT_IN_NS = 5000000000L;
 
     /**
-     * The multiplier used to allow for jitter in the timestamps of the samples. This is
+     * The multiplier used to allow for jitter in the intervals of the samples. This is
      * multiplied against the requested interval between samples to produce the final interval
      * that is compared with the real interval between samples. This allows for 5% of jitter.
      */
     private static final double JITTER_MULTIPLIER = 1.05;
+
+    /**
+     * The sum of the intervals in ns and timestamp count. Used to calculate the average interval.
+     */
+    private double mIntervalSumNs = 0;
+    private int mTimestampCount = 0;
 
     public ContextHubChreConcurrencyTestExecutor(NanoAppBinary nanoapp, NanoAppBinary nanoapp2) {
         super(Arrays.asList(nanoapp, nanoapp2));
@@ -203,19 +209,30 @@ public class ContextHubChreConcurrencyTestExecutor extends ContextHubChreApiTest
             List<ChreApiTest.GeneralEventsMessage> events,
             long requestedIntervalNs) {
         assertThat(events).isNotNull();
+
         Long lastReadingTimestamp = null;
+        mIntervalSumNs = 0;
+        mTimestampCount = 0;
         for (ChreApiTest.GeneralEventsMessage event: events) {
             Assert.assertTrue(event.getStatus());
             if (event.hasChreSensorThreeAxisData()) {
                 lastReadingTimestamp = handleChreSensorThreeAxisData(event, requestedIntervalNs,
                         lastReadingTimestamp, accelerometerHandle);
             } else if (event.hasChreSensorSamplingStatusEvent()) {
+                // The interval will change due to the sampling status event.
+                // Assert the past data was good and continue with fresh data.
+                assertAverageIntervalIsLessThanOrEqualToTheRequestedInterval(requestedIntervalNs);
+
+                mIntervalSumNs = 0;
+                mTimestampCount = 0;
                 requestedIntervalNs = handleChreSensorSamplingStatusEvent(event,
                         requestedIntervalNs, accelerometerHandle);
             } else {
                 Assert.fail("Event does not contain any requested data.");
             }
         }
+
+        assertAverageIntervalIsLessThanOrEqualToTheRequestedInterval(requestedIntervalNs);
     }
 
     /**
@@ -231,8 +248,8 @@ public class ContextHubChreConcurrencyTestExecutor extends ContextHubChreApiTest
             long requestedIntervalNs, Long lastReadingTimestamp, int accelerometerHandle) {
         ChreApiTest.ChreSensorThreeAxisData data = event.getChreSensorThreeAxisData();
         Assert.assertEquals(data.getHeader().getSensorHandle(), accelerometerHandle);
-
         assertThat(data.getReadingsCount()).isGreaterThan(0);
+
         for (int i = 0; i < data.getReadingsCount(); ++i) {
             ChreApiTest.ChreSensorThreeAxisSampleData sampleData = data.getReadings(i);
 
@@ -243,11 +260,8 @@ public class ContextHubChreConcurrencyTestExecutor extends ContextHubChreApiTest
                     ? data.getHeader().getBaseTimestamp()
                     : lastReadingTimestamp) + sampleData.getTimestampDelta();
             if (lastReadingTimestamp != null) {
-                Assert.assertTrue("Invalid timestamp between samples: interval: "
-                        + (readingTimestamp - lastReadingTimestamp)
-                        + ", requestedIntervalNs: " + requestedIntervalNs,
-                        readingTimestamp <= requestedIntervalNs * JITTER_MULTIPLIER
-                                + lastReadingTimestamp);
+                mIntervalSumNs += readingTimestamp - lastReadingTimestamp;
+                ++mTimestampCount;
             }
             lastReadingTimestamp = readingTimestamp;
         }
@@ -270,5 +284,23 @@ public class ContextHubChreConcurrencyTestExecutor extends ContextHubChreApiTest
         Assert.assertEquals(samplingStatusEvent.getSensorHandle(), accelerometerHandle);
         ChreApiTest.ChreSensorSamplingStatus samplingStatus = samplingStatusEvent.getStatus();
         return samplingStatus.getEnabled() ? samplingStatus.getInterval() : requestedIntervalNs;
+    }
+
+    /**
+     * Asserts that the average interval is less than the requested interval (both in ns),
+     * accounting for jitter.
+     *
+     * @param requestedIntervalNs           the requested interval in ns.
+     */
+    private void assertAverageIntervalIsLessThanOrEqualToTheRequestedInterval(
+                long requestedIntervalNs) {
+        if (mTimestampCount <= 0) {
+            return;
+        }
+
+        double averageIntervalNs = mIntervalSumNs / mTimestampCount;
+        Assert.assertTrue("Invalid average timestamp between samples: averageIntervalNs: "
+                + averageIntervalNs + ", requestedIntervalNs: " + requestedIntervalNs,
+                averageIntervalNs <= requestedIntervalNs * JITTER_MULTIPLIER);
     }
 }
