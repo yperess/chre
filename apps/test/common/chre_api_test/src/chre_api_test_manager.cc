@@ -341,7 +341,7 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
       message.which_data =
           chre_rpc_GeneralEventsMessage_chreSensorThreeAxisData_tag;
 
-      const struct chreSensorThreeAxisData *data =
+      const auto *data =
           static_cast<const struct chreSensorThreeAxisData *>(eventData);
       message.data.chreSensorThreeAxisData.header.baseTimestamp =
           data->header.baseTimestamp;
@@ -370,7 +370,7 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
       break;
     }
     case CHRE_EVENT_SENSOR_SAMPLING_CHANGE: {
-      const struct chreSensorSamplingStatusEvent *data =
+      const auto *data =
           static_cast<const struct chreSensorSamplingStatusEvent *>(eventData);
       message.data.chreSensorSamplingStatusEvent.sensorHandle =
           data->sensorHandle;
@@ -388,7 +388,7 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
     }
 
     case CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION: {
-      const struct chreHostEndpointNotification *data =
+      const auto *data =
           static_cast<const struct chreHostEndpointNotification *>(eventData);
       message.data.chreHostEndpointNotification.hostEndpointId =
           data->hostEndpointId;

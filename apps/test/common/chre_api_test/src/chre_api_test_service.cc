@@ -61,7 +61,7 @@ bool ChreApiTestService::validateInputAndCallChreBleStartScanAsync(
   }
 
   if (!request.hasFilter) {
-    chreBleScanMode mode = static_cast<chreBleScanMode>(request.mode);
+    auto mode = static_cast<chreBleScanMode>(request.mode);
     response.status =
         chreBleStartScanAsync(mode, request.reportDelayMs, nullptr);
 
@@ -97,7 +97,7 @@ bool ChreApiTestService::validateInputAndCallChreBleStartScanAsync(
   filter.scanFilterCount = request.filter.scanFilters_count;
   filter.scanFilters = genericFilters;
 
-  chreBleScanMode mode = static_cast<chreBleScanMode>(request.mode);
+  auto mode = static_cast<chreBleScanMode>(request.mode);
   response.status = chreBleStartScanAsync(mode, request.reportDelayMs, &filter);
 
   LOGD("ChreBleStartScanAsync: mode: %s, reportDelayMs: %" PRIu32
@@ -125,7 +125,7 @@ bool ChreApiTestService::validateInputAndCallChreSensorFindDefault(
     return false;
   }
 
-  uint8_t sensorType = (uint8_t)request.sensorType;
+  auto sensorType = static_cast<uint8_t>(request.sensorType);
   response.foundSensor =
       chreSensorFindDefault(sensorType, &response.sensorHandle);
 
@@ -197,8 +197,7 @@ bool ChreApiTestService::validateInputAndCallChreGetSensorSamplingStatus(
 bool ChreApiTestService::validateInputAndCallChreSensorConfigure(
     const chre_rpc_ChreSensorConfigureInput &request,
     chre_rpc_Status &response) {
-  chreSensorConfigureMode mode =
-      static_cast<chreSensorConfigureMode>(request.mode);
+  auto mode = static_cast<chreSensorConfigureMode>(request.mode);
   response.status = chreSensorConfigure(request.sensorHandle, mode,
                                         request.interval, request.latency);
 
@@ -209,8 +208,7 @@ bool ChreApiTestService::validateInputAndCallChreSensorConfigure(
 bool ChreApiTestService::validateInputAndCallChreSensorConfigureModeOnly(
     const chre_rpc_ChreSensorConfigureModeOnlyInput &request,
     chre_rpc_Status &response) {
-  chreSensorConfigureMode mode =
-      static_cast<chreSensorConfigureMode>(request.mode);
+  auto mode = static_cast<chreSensorConfigureMode>(request.mode);
   response.status = chreSensorConfigureModeOnly(request.sensorHandle, mode);
 
   LOGD("ChreSensorConfigureModeOnly: status: %s",
