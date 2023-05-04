@@ -68,6 +68,12 @@ COMMON_CFLAGS += -DCHRE_TOKENIZED_LOGGING_ENABLED
 include $(CHRE_PREFIX)/external/pigweed/pw_tokenizer.mk
 endif
 
+# Optional tokenized tracing support.
+ifeq ($(CHRE_TRACING_ENABLED), true)
+COMMON_CFLAGS += -DCHRE_TRACING_ENABLED
+include $(CHRE_PREFIX)/external/pigweed/pw_trace.mk
+endif
+
 # Optional on-device unit tests support
 include $(CHRE_PREFIX)/test/test.mk
 

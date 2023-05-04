@@ -19,6 +19,49 @@
 
 #include <cstdint>
 
+#ifdef CHRE_TRACING_ENABLED
+
+#include "chre/target_platform/tracing.h"
+
+/**
+ * All tracing macros to be used in CHRE
+ */
+#ifndef CHRE_TRACE_INSTANT
+#error "CHRE_TRACE_INSTANT must be defined by chre/target_platform/tracing.h"
+#endif
+
+#ifndef CHRE_TRACE_START
+#error "CHRE_TRACE_START must be defined by chre/target_platform/tracing.h"
+#endif
+
+#ifndef CHRE_TRACE_END
+#error "CHRE_TRACE_END must be defined by chre/target_platform/tracing.h"
+#endif
+
+#ifndef CHRE_TRACE_INSTANT_DATA
+#error \
+    "CHRE_TRACE_INSTANT_DATA must be defined by chre/target_platform/tracing.h"
+#endif
+
+#ifndef CHRE_TRACE_START_DATA
+#error "CHRE_TRACE_START_DATA must be defined by chre/target_platform/tracing.h"
+#endif
+
+#ifndef CHRE_TRACE_END_DATA
+#error "CHRE_TRACE_END_DATA must be defined by chre/target_platform/tracing.h"
+#endif
+
+#else
+
+#define CHRE_TRACE_INSTANT(str, ...)
+#define CHRE_TRACE_START(str, ...)
+#define CHRE_TRACE_END(str, ...)
+#define CHRE_TRACE_INSTANT_DATA(str, ...)
+#define CHRE_TRACE_START_DATA(str, ...)
+#define CHRE_TRACE_END_DATA(str, ...)
+
+#endif  // CHRE_TRACING_ENABLED
+
 /**
  * @file
  * Tracing support for CHRE.
