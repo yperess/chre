@@ -129,7 +129,6 @@ public class ContextHubRpcServiceTestExecutor extends ContextHubClientCallback {
         };
 
         IntentFilter filter = new IntentFilter(ACTION);
-        mContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
         Intent intent = new Intent(ACTION).setPackage(mContext.getPackageName());
         PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext, 0 /* requestCode */,
                 intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
@@ -138,6 +137,7 @@ public class ContextHubRpcServiceTestExecutor extends ContextHubClientCallback {
                 pendingIntent, mNanoAppId);
 
         mRpcClient = new ChreRpcClient(contextHubClient, mNanoAppId, List.of(mEchoService));
+        mContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
 
         invokeRpc(mRpcClient);
 
