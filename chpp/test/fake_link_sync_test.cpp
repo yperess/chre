@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <string.h>
 #include <cstdint>
 #include <iostream>
 #include <thread>
@@ -87,6 +88,7 @@ namespace chpp::test {
 class FakeLinkSyncTests : public testing::Test {
  protected:
   void SetUp() override {
+    memset(&mLinkContext, 0, sizeof(mLinkContext));
     chppTransportInit(&mTransportContext, &mAppContext, &mLinkContext,
                       &gLinkApi);
     chppAppInitWithClientServiceSet(&mAppContext, &mTransportContext,
@@ -96,19 +98,24 @@ class FakeLinkSyncTests : public testing::Test {
     mWorkThread = std::thread(chppWorkThreadStart, &mTransportContext);
 
     // Proceed to the initialized state by performing the CHPP 3-way handshake
+    CHPP_LOGI("Send a RESET packet");
     ASSERT_TRUE(mFakeLink->waitForTxPacket());
     std::vector<uint8_t> resetPkt = mFakeLink->popTxPacket();
     ASSERT_TRUE(comparePacket(resetPkt, generateResetPacket()))
         << "Full packet: " << asResetPacket(resetPkt);
 
+    CHPP_LOGI("Receive a RESET ACK packet");
     ChppResetPacket resetAck = generateResetAckPacket();
     chppRxDataCb(&mTransportContext, reinterpret_cast<uint8_t *>(&resetAck),
                  sizeof(resetAck));
 
+    // chppProcessResetAck() results in sending a no error packet.
+    CHPP_LOGI("Send CHPP_TRANSPORT_ERROR_NONE packet");
     ASSERT_TRUE(mFakeLink->waitForTxPacket());
     std::vector<uint8_t> ackPkt = mFakeLink->popTxPacket();
     ASSERT_TRUE(comparePacket(ackPkt, generateEmptyPacket()))
         << "Full packet: " << asChpp(ackPkt);
+    CHPP_LOGI("CHPP handshake complete");
   }
 
   void TearDown() override {
@@ -127,7 +134,7 @@ class FakeLinkSyncTests : public testing::Test {
 
   ChppTransportState mTransportContext = {};
   ChppAppState mAppContext = {};
-  ChppTestLinkState mLinkContext = {};
+  ChppTestLinkState mLinkContext;
   FakeLink *mFakeLink;
   std::thread mWorkThread;
 };
@@ -139,6 +146,7 @@ TEST_F(FakeLinkSyncTests, CheckRetryOnTimeout) {
 
   std::vector<uint8_t> pkt1 = mFakeLink->popTxPacket();
 
+  // Not calling chppRxDataCb() will result in a timeout.
   // Ideally, to speed up the test, we'd have a mechanism to trigger
   // chppNotifierWait() to return immediately, to simulate timeout
   ASSERT_TRUE(mFakeLink->waitForTxPacket());
