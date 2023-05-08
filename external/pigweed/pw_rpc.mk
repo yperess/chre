@@ -12,6 +12,7 @@ ifneq ($(PW_RPC_SRCS),)
 
 # Location of various Pigweed modules
 PIGWEED_DIR = $(ANDROID_BUILD_TOP)/external/pigweed
+PROTOBUF_DIR = $(ANDROID_BUILD_TOP)/external/protobuf
 CHRE_PREFIX = $(ANDROID_BUILD_TOP)/system/chre
 CHRE_UTIL_DIR = $(CHRE_PREFIX)/util
 CHRE_API_DIR = $(CHRE_PREFIX)/chre_api
@@ -89,7 +90,8 @@ ifneq ($(PW_RPC_INCLUDE_DIRS),)
 COMMON_CFLAGS += $(addprefix -I$(PW_RPC_GEN_PATH)/, $(abspath $(PW_RPC_INCLUDE_DIRS)))
 endif
 
-# TODO(b/277903603): automatically add Google protos
+# Add Google proto well-known types. See https://protobuf.dev/reference/protobuf/google.protobuf/.
+COMMON_CFLAGS += -I$(PW_RPC_GEN_PATH)/$(PROTOBUF_DIR)/src
 
 COMMON_SRCS += $(PW_RPC_GEN_SRCS)
 

@@ -45,6 +45,3 @@ CHRE_NANOAPP_USES_BLE = true
 
 PW_RPC_SRCS = $(NANOAPP_PATH)/rpc/chre_api_test.proto
 PW_RPC_SRCS += $(ANDROID_BUILD_TOP)/external/protobuf/src/google/protobuf/empty.proto
-
-# TODO(b/277903603): Remove this when we default import Google protos
-PW_RPC_INCLUDE_DIRS = $(ANDROID_BUILD_TOP)/external/protobuf/src
