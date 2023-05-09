@@ -64,6 +64,10 @@ endif
 
 endif
 
+# Add Google proto well-known types. See https://protobuf.dev/reference/protobuf/google.protobuf/.
+PROTOBUF_DIR = $(ANDROID_BUILD_TOP)/external/protobuf
+COMMON_CFLAGS += -I$(NANOPB_GEN_PATH)/$(PROTOBUF_DIR)/src
+
 # NanoPB Compiler Flags ########################################################
 
 ifneq ($(NANOPB_GEN_SRCS),)
