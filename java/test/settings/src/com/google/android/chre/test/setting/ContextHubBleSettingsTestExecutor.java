@@ -16,8 +16,6 @@
 
 package com.google.android.chre.test.setting;
 
-import static android.Manifest.permission.BLUETOOTH_CONNECT;
-
 import android.app.Instrumentation;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
@@ -136,7 +134,6 @@ public class ContextHubBleSettingsTestExecutor {
             Assert.assertTrue(bluetoothManager != null);
             BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
             Assert.assertTrue(bluetoothAdapter != null);
-            mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(BLUETOOTH_CONNECT);
             Assert.assertTrue(bluetoothAdapter.enableBLE());
         }
         try {
