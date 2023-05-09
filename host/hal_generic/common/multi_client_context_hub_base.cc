@@ -143,11 +143,15 @@ ScopedAStatus MultiClientContextHubBase::loadNanoapp(
 
   if (request.has_value() &&
       sendFragmentedLoadRequest(clientId, request.value())) {
+    mEventLogger.logNanoappLoad(appBinary, /* success= */ true);
     return ScopedAStatus::ok();
   }
   LOGE("Failed to send the first load request for nanoapp 0x%" PRIx64,
        appBinary.nanoappId);
   mHalClientManager->resetPendingLoadTransaction();
+  // TODO(b/284481035): The result should be logged after the async response is
+  //  received.
+  mEventLogger.logNanoappLoad(appBinary, /* success= */ false);
   return fromResult(false);
 }
 
@@ -181,6 +185,9 @@ ScopedAStatus MultiClientContextHubBase::unloadNanoapp(int32_t contextHubId,
   if (!result) {
     mHalClientManager->resetPendingUnloadTransaction(clientId, transactionId);
   }
+  // TODO(b/284481035): The result should be logged after the async response is
+  //  received.
+  mEventLogger.logNanoappUnload(appId, result);
   return fromResult(result);
 }
 
@@ -315,7 +322,9 @@ ScopedAStatus MultiClientContextHubBase::sendMessageToHub(
   HostProtocolHost::encodeNanoappMessage(
       builder, message.nanoappId, message.messageType, hostEndpointId,
       message.messageBody.data(), message.messageBody.size());
-  return fromResult(mConnection->sendMessage(builder));
+  bool success = mConnection->sendMessage(builder);
+  mEventLogger.logMessageToNanoapp(message, success);
+  return fromResult(success);
 }
 
 ScopedAStatus MultiClientContextHubBase::onHostEndpointConnected(
@@ -526,6 +535,7 @@ void MultiClientContextHubBase::onNanoappUnloadResponse(
 
 void MultiClientContextHubBase::onNanoappMessage(
     const ::chre::fbs::NanoappMessageT &message) {
+  mEventLogger.logMessageFromNanoapp(message);
   ContextHubMessage outMessage;
   outMessage.nanoappId = message.app_id;
   outMessage.hostEndPoint = message.host_endpoint;
@@ -571,6 +581,7 @@ void MultiClientContextHubBase::handleClientDeath(pid_t clientPid) {
 
 void MultiClientContextHubBase::onChreRestarted() {
   mIsWifiAvailable.reset();
+  mEventLogger.logContextHubRestart();
   mHalClientManager->handleChreRestart();
 }
 }  // namespace android::hardware::contexthub::common::implementation

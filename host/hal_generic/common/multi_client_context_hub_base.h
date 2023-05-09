@@ -23,6 +23,7 @@
 #include "chre_connection_callback.h"
 #include "chre_host/napp_header.h"
 #include "chre_host/preloaded_nanoapp_loader.h"
+#include "event_logger.h"
 #include "hal_client_id.h"
 #include "hal_client_manager.h"
 
@@ -147,6 +148,8 @@ class MultiClientContextHubBase
   // A mutex to synchronize access to the list of preloaded nanoapp IDs.
   std::mutex mPreloadedNanoappIdsMutex;
   std::optional<std::vector<uint64_t>> mPreloadedNanoappIds{};
+
+  EventLogger mEventLogger;
 };
 }  // namespace android::hardware::contexthub::common::implementation
 #endif  // ANDROID_HARDWARE_CONTEXTHUB_COMMON_MULTICLIENTS_HAL_BASE_H_

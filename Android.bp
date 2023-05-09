@@ -46,7 +46,7 @@ license {
 
 cc_library_static {
     name: "contexthub_generic_aidl_hal_core_lib",
-    vendor_available: true,
+    vendor: true,
     export_include_dirs: [
         "host/common/include",
     ],
@@ -62,7 +62,9 @@ cc_library_static {
     local_include_dirs: [
         "chre_api/include/chre_api",
         "external/flatbuffers/include",
+        "host/hal_generic/aidl",
         "host/hal_generic/common",
+        "platform/include",
         "platform/shared/include",
         "util/include",
     ],
@@ -77,12 +79,18 @@ cc_library_static {
     static_libs: [
         "pw_varint",
         "pw_detokenizer",
+        "event_logger",
     ],
     header_libs: [
         "pw_span_headers",
         "pw_polyfill_headers",
     ],
-    cflags: ["-Wall", "-Werror", "-DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4096",]
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4096",
+        "-DCHRE_IS_HOST_BUILD",
+    ]
 }
 
 cc_library_static {
