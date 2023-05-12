@@ -50,6 +50,8 @@ public class ContextHubBleSettingsTestExecutor {
 
     private boolean mInitialBluetoothEnabled;
 
+    private boolean mInitialAirplaneMode;
+
     private boolean mInitialBluetoothScanningEnabled;
 
     public static class BluetoothUpdateListener {
@@ -87,8 +89,11 @@ public class ContextHubBleSettingsTestExecutor {
     public void setUp() {
         mInitialBluetoothEnabled = mSettingsUtil.isBluetoothEnabled();
         mInitialBluetoothScanningEnabled = mSettingsUtil.isBluetoothScanningAlwaysEnabled();
+        mInitialAirplaneMode = mSettingsUtil.isAirplaneModeOn();
         Log.d(TAG, "isBluetoothEnabled=" + mInitialBluetoothEnabled
-                    + "; isBluetoothScanningEnabled=" + mInitialBluetoothScanningEnabled);
+                    + "; isBluetoothScanningEnabled=" + mInitialBluetoothScanningEnabled
+                    + "; isAirplaneModeOn=" + mInitialAirplaneMode);
+        mSettingsUtil.setAirplaneMode(false /* enable */);
         mExecutor.init();
     }
 
@@ -106,6 +111,7 @@ public class ContextHubBleSettingsTestExecutor {
         mExecutor.deinit();
         mSettingsUtil.setBluetooth(mInitialBluetoothEnabled);
         mSettingsUtil.setBluetoothScanningSettings(mInitialBluetoothScanningEnabled);
+        mSettingsUtil.setAirplaneMode(mInitialAirplaneMode);
     }
 
     /**
