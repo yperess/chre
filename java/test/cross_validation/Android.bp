@@ -35,5 +35,5 @@ java_library {
         "guava",
     ],
 
-    sdk_version: "system_current",
+    sdk_version: "test_current",
 }
