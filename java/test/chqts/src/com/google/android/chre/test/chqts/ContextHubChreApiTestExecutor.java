@@ -77,7 +77,6 @@ public class ContextHubChreApiTestExecutor extends ContextHubClientCallback {
 
     /** Should be invoked before run() is invoked to set up the test, e.g. in a @Before method. */
     public void init() {
-        mContextHubManager.enableTestMode();
         for (NanoAppBinary nanoapp: mNanoAppBinaries) {
             ChreTestUtil.loadNanoAppAssertSuccess(mContextHubManager, mContextHub, nanoapp);
         }
@@ -93,7 +92,6 @@ public class ContextHubChreApiTestExecutor extends ContextHubClientCallback {
             ChreTestUtil.unloadNanoAppAssertSuccess(mContextHubManager, mContextHub,
                     nanoapp.getNanoAppId());
         }
-        mContextHubManager.disableTestMode();
         mContextHubClient.close();
     }
 
