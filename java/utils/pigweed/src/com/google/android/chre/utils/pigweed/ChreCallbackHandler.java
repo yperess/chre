@@ -35,8 +35,7 @@ import dev.pigweed.pw_rpc.Client;
  */
 public class ChreCallbackHandler extends ContextHubClientCallback {
     private final long mNanoappId;
-    @Nullable
-    private final ContextHubClientCallback mCallback;
+    private final @Nullable ContextHubClientCallback mCallback;
     private Client mRpcClient;
     private ChreChannelOutput mChannelOutput;
 

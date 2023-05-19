@@ -40,15 +40,12 @@ import dev.pigweed.pw_rpc.Service;
  * See https://g3doc.corp.google.com/location/lbs/contexthub/g3doc/nanoapps/pw_rpc_host.md
  */
 public class ChreRpcClient {
-    @NonNull
-    private final Client mRpcClient;
-    @NonNull
-    private final Channel mChannel;
-    @NonNull
-    private final ChreChannelOutput mChannelOutput;
+
+    private final @NonNull Client mRpcClient;
+    private final @NonNull Channel mChannel;
+    private final @NonNull ChreChannelOutput mChannelOutput;
     private final long mServerNanoappId;
-    @NonNull
-    private final ContextHubClient mContextHubClient;
+    private final @NonNull ContextHubClient mContextHubClient;
     private ChreIntentHandler mIntentHandler;
 
     /**
