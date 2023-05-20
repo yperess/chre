@@ -357,13 +357,63 @@ void handleUnloadNanoappCallback(uint16_t /*type*/, void *data,
   memoryFree(data);
 }
 
+void sendDebugDumpData(uint16_t hostClientId, const char *debugStr,
+                       size_t debugStrSize) {
+  struct DebugDumpMessageData {
+    uint16_t hostClientId;
+    const char *debugStr;
+    size_t debugStrSize;
+  };
+
+  auto msgBuilder = [](ChreFlatBufferBuilder &builder, void *cookie) {
+    const auto *data = static_cast<const DebugDumpMessageData *>(cookie);
+    HostProtocolChre::encodeDebugDumpData(builder, data->hostClientId,
+                                          data->debugStr, data->debugStrSize);
+  };
+
+  constexpr size_t kFixedSizePortion = 52;
+  DebugDumpMessageData data;
+  data.hostClientId = hostClientId;
+  data.debugStr = debugStr;
+  data.debugStrSize = debugStrSize;
+  buildAndEnqueueMessage(PendingMessageType::DebugDumpData,
+                         kFixedSizePortion + debugStrSize, msgBuilder, &data);
+}
+
+void sendDebugDumpResponse(uint16_t hostClientId, bool success,
+                           uint32_t dataCount) {
+  struct DebugDumpResponseData {
+    uint16_t hostClientId;
+    bool success;
+    uint32_t dataCount;
+  };
+
+  auto msgBuilder = [](ChreFlatBufferBuilder &builder, void *cookie) {
+    const auto *data = static_cast<const DebugDumpResponseData *>(cookie);
+    HostProtocolChre::encodeDebugDumpResponse(builder, data->hostClientId,
+                                              data->success, data->dataCount);
+  };
+
+  constexpr size_t kInitialSize = 52;
+  DebugDumpResponseData data;
+  data.hostClientId = hostClientId;
+  data.success = success;
+  data.dataCount = dataCount;
+  buildAndEnqueueMessage(PendingMessageType::DebugDumpResponse, kInitialSize,
+                         msgBuilder, &data);
+}
 }  // anonymous namespace
 
-void sendDebugDumpResultToHost(uint16_t hostClientId, const char * /*debugStr*/,
-                               size_t /*debugStrSize*/, bool /*complete*/,
-                               uint32_t /*dataCount*/) {
+void sendDebugDumpResultToHost(uint16_t hostClientId, const char *debugStr,
+                               size_t debugStrSize, bool complete,
+                               uint32_t dataCount) {
   LOGV("%s: host client id %d", __func__, hostClientId);
-  // TODO(b/263958729): Implement this.
+  if (debugStrSize > 0) {
+    sendDebugDumpData(hostClientId, debugStr, debugStrSize);
+  }
+  if (complete) {
+    sendDebugDumpResponse(hostClientId, /* success= */ true, dataCount);
+  }
 }
 
 HostLinkBase::HostLinkBase() {
@@ -721,7 +771,13 @@ void HostMessageHandlers::handleTimeSyncMessage(int64_t offset) {
 
 void HostMessageHandlers::handleDebugDumpRequest(uint16_t hostClientId) {
   LOGV("%s: host client id %d", __func__, hostClientId);
-  // TODO(b/263958729): Implement this.
+  if (!EventLoopManagerSingleton::get()
+           ->getDebugDumpManager()
+           .onDebugDumpRequested(hostClientId)) {
+    LOGE("Couldn't trigger debug dump process");
+    sendDebugDumpResponse(hostClientId, /* success= */ false,
+                          /* dataCount= */ 0);
+  }
 }
 
 void HostMessageHandlers::handleSettingChangeMessage(fbs::Setting setting,

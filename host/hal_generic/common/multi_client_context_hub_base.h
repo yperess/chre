@@ -23,6 +23,7 @@
 #include "chre_connection_callback.h"
 #include "chre_host/napp_header.h"
 #include "chre_host/preloaded_nanoapp_loader.h"
+#include "debug_dump_helper.h"
 #include "event_logger.h"
 #include "hal_client_id.h"
 #include "hal_client_manager.h"
@@ -39,20 +40,13 @@ using ::ndk::ScopedAStatus;
  * A subclass should initiate mConnection, mHalClientManager and
  * mPreloadedNanoappLoader in its constructor.
  *
- * TODO(b/247124878): A few things are pending:
- *   - Some APIs of IContextHub are not implemented yet;
- *   - onHostEndpointConnected/Disconnected now returns an error if the endpoint
- *     id is illegal or already connected/disconnected. The doc of
- *     IContextHub.aidl should be updated accordingly.
- *   - registerCallback() can fail if mHalClientManager sees an error during
- *     registration. The doc of IContextHub.aidl should be updated accordingly.
- *   - Involve EventLogger to log API calls;
- *   - extends DebugDumpHelper to ease debugging
+ * TODO(b/247124878): setTestMode is not implemented yet.
  */
 class MultiClientContextHubBase
     : public BnContextHub,
       public ::android::hardware::contexthub::common::implementation::
-          ChreConnectionCallback {
+          ChreConnectionCallback,
+      public ::android::hardware::contexthub::DebugDumpHelper {
  public:
   /** The entry point of death recipient for a disconnected client. */
   static void onClientDied(void *cookie);
@@ -89,6 +83,11 @@ class MultiClientContextHubBase
                              size_t messageLen) override;
   void onChreRestarted() override;
 
+  // The functions for dumping debug information
+  binder_status_t dump(int fd, const char **args, uint32_t numArgs) override;
+  bool requestDebugDump() override;
+  void writeToDebugFile(const char *str) override;
+
  protected:
   // The data needed by the death client to clear states of a client.
   struct HalDeathRecipientCookie {
@@ -114,7 +113,9 @@ class MultiClientContextHubBase
       const ::chre::fbs::UnloadNanoappResponseT &response,
       HalClientId clientId);
   void onNanoappMessage(const ::chre::fbs::NanoappMessageT &message);
-
+  void onDebugDumpData(const ::chre::fbs::DebugDumpDataT &data);
+  void onDebugDumpComplete(
+      const ::chre::fbs::DebugDumpResponseT & /* response */);
   void handleClientDeath(pid_t pid);
 
   inline bool isSettingEnabled(Setting setting) {
