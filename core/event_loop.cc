@@ -303,7 +303,7 @@ void EventLoop::postEventOrDie(uint16_t eventType, void *eventData,
   if (mRunning) {
     if (hasNoSpaceForHighPriorityEvent() ||
         !allocateAndPostEvent(eventType, eventData, freeCallback,
-                              false /*isLowPriority*/, kSystemInstanceId,
+                              /* isLowPriority= */ false, kSystemInstanceId,
                               targetInstanceId, targetGroupMask)) {
       FATAL_ERROR("Failed to post critical system event 0x%" PRIx16, eventType);
     }
@@ -343,20 +343,14 @@ bool EventLoop::postLowPriorityEventOrFree(
   bool eventPosted = false;
 
   if (mRunning) {
-#ifdef CHRE_STATIC_EVENT_LOOP
-    if (mEventPool.getFreeBlockCount() > kMinReservedHighPriorityEventCount)
-#else
-    if (mEventPool.getFreeSpaceCount() > kMinReservedHighPriorityEventCount)
-#endif
-    {
-      eventPosted = allocateAndPostEvent(
-          eventType, eventData, freeCallback, true /*isLowPriority*/,
-          senderInstanceId, targetInstanceId, targetGroupMask);
-      if (!eventPosted) {
-        LOGE("Failed to allocate event 0x%" PRIx16 " to instanceId %" PRIu16,
-             eventType, targetInstanceId);
-        ++mNumDroppedLowPriEvents;
-      }
+    eventPosted =
+        allocateAndPostEvent(eventType, eventData, freeCallback,
+                             /* isLowPriority= */ true, senderInstanceId,
+                             targetInstanceId, targetGroupMask);
+    if (!eventPosted) {
+      LOGE("Failed to allocate event 0x%" PRIx16 " to instanceId %" PRIu16,
+           eventType, targetInstanceId);
+      ++mNumDroppedLowPriEvents;
     }
   }
 

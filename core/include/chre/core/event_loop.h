@@ -57,13 +57,6 @@
 #define CHRE_MAX_EVENT_BLOCKS 4
 #endif
 
-#ifndef CHRE_UNSCHEDULED_EVENT_PER_BLOCK
-#define CHRE_UNSCHEDULED_EVENT_PER_BLOCK 24
-#endif
-
-#ifndef CHRE_MAX_UNSCHEDULED_EVENT_BLOCKS
-#define CHRE_MAX_UNSCHEDULED_EVENT_BLOCKS 4
-#endif
 #endif
 
 namespace chre {
@@ -78,7 +71,7 @@ class EventLoop : public NonCopyable {
   EventLoop()
       :
 #ifndef CHRE_STATIC_EVENT_LOOP
-        mEvents(kMaxUnscheduleEventBlocks),
+        mEvents(kMaxEventBlock),
 #endif
         mTimeLastWakeupBucketCycled(SystemTime::getMonotonicTime()),
         mRunning(true) {
@@ -356,10 +349,6 @@ class EventLoop : public NonCopyable {
   //! The maximum number of events that can be active in the system.
   static constexpr size_t kMaxEventCount = CHRE_MAX_EVENT_COUNT;
 
-  //! The minimum number of events to reserve in the event pool for high
-  //! priority events.
-  static constexpr size_t kMinReservedHighPriorityEventCount = 16;
-
   //! The maximum number of events that are awaiting to be scheduled. These
   //! events are in a queue to be distributed to apps.
   static constexpr size_t kMaxUnscheduledEventCount =
@@ -382,26 +371,13 @@ class EventLoop : public NonCopyable {
   static constexpr size_t kMaxEventCount =
       CHRE_EVENT_PER_BLOCK * CHRE_MAX_EVENT_BLOCKS;
 
-  //! The minimum number of events to reserve in the event pool for high
-  //! priority events.
-  static constexpr size_t kMinReservedHighPriorityEventCount = 16;
-
-  //! The maximum number of events per block that are awaiting to be scheduled.
-  //! These events are in a queue to be distributed to apps.
-  static constexpr size_t kMaxUnscheduledEventPerBlock =
-      CHRE_UNSCHEDULED_EVENT_PER_BLOCK;
-
-  //! The maximum number of event blocks that mEvents can hold.
-  static constexpr size_t kMaxUnscheduleEventBlocks =
-      CHRE_MAX_UNSCHEDULED_EVENT_BLOCKS;
-
   //! The memory pool to allocate incoming events from.
   SynchronizedExpandableMemoryPool<Event, kEventPerBlock, kMaxEventBlock>
       mEventPool;
 
   //! The blocking queue of incoming events from the system that have not been
   //! distributed out to apps yet.
-  BlockingSegmentedQueue<Event *, kMaxUnscheduledEventPerBlock> mEvents;
+  BlockingSegmentedQueue<Event *, kEventPerBlock> mEvents;
 #endif
   //! The time interval of nanoapp wakeup buckets, adjust in conjuction with
   //! Nanoapp::kMaxSizeWakeupBuckets.
