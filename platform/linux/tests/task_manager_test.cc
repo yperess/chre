@@ -26,12 +26,8 @@
 namespace {
 
 uint32_t gVarTaskManager = 0;
-uint32_t gTask1Var = 0;
-uint32_t gTask2Var = 0;
 
 constexpr auto incrementGVar = []() { ++gVarTaskManager; };
-constexpr auto task1Func = []() { ++gTask1Var; };
-constexpr auto task2Func = []() { ++gTask2Var; };
 
 TEST(TaskManager, FlushTasks) {
   chre::TaskManager taskManager;
