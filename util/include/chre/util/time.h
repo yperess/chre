@@ -21,6 +21,9 @@
 
 namespace chre {
 
+//! The number of seconds in one day.
+constexpr uint64_t kOneDayInSeconds(60 * 60 * 24);
+
 //! The number of milliseconds in one min.
 constexpr uint64_t kOneMinuteInMilliseconds(60000);
 
