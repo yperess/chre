@@ -76,7 +76,7 @@ public class ContextHubMicDisableSettingsTestExecutor {
                 "cmd sensor_privacy " + settingEnableStr + " 0 microphone");
 
         try {
-            Thread.sleep(1000);   // wait for setting to propagate
+            Thread.sleep(2000);   // wait for setting to propagate
         } catch (InterruptedException e) {
             Assert.fail(e.getMessage());
         }
