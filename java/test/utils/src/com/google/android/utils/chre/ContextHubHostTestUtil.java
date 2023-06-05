@@ -173,9 +173,9 @@ public class ContextHubHostTestUtil {
      *
      * @return true if the device is in the allowlist, false otherwise
      */
-    public static boolean deviceInallowlist() {
+    public static boolean deviceInAllowlist() {
         DynamicConfigDeviceSide deviceDynamicConfig = getDynamicConfig();
-        List<String> configValues = deviceDynamicConfig.getValues("chre_device_allowlist");
+        List<String> configValues = deviceDynamicConfig.getValues("chre_device_whitelist");
         Assert.assertTrue("Could not find device allowlist from dynamic config",
                 configValues != null);
 
@@ -198,9 +198,9 @@ public class ContextHubHostTestUtil {
      *
      * @return true if the device is in the denylist, false otherwise
      */
-    public static boolean deviceIndenylist() {
+    public static boolean deviceInDenylist() {
         DynamicConfigDeviceSide deviceDynamicConfig = getDynamicConfig();
-        List<String> configValues = deviceDynamicConfig.getValues("chre_device_denylist");
+        List<String> configValues = deviceDynamicConfig.getValues("chre_device_blacklist");
         Assert.assertTrue("Could not find device denylist from dynamic config",
                 configValues != null);
 
@@ -342,10 +342,10 @@ public class ContextHubHostTestUtil {
             // failures on devices that do not actually support CHRE.
             Assume.assumeTrue(
                     "Device not in allowlist and does not have Context Hub, skipping test",
-                    numContextHubs != 0 || deviceInallowlist());
+                    numContextHubs != 0 || deviceInAllowlist());
         }
 
         // Use a denylist on platforms that should not run CHQTS.
-        Assume.assumeTrue("Device is in denylist, skipping test", !deviceIndenylist());
+        Assume.assumeTrue("Device is in denylist, skipping test", !deviceInDenylist());
     }
 }
