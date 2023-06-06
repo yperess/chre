@@ -103,6 +103,12 @@ class BleRequest : public NonCopyable {
   const DynamicVector<chreBleGenericFilter> &getGenericFilters() const;
 
   /**
+   * @return Broadcaster address filters of this request.
+   */
+  const DynamicVector<chreBleBroadcasterAddressFilter> &getBroadcasterFilters()
+      const;
+
+  /**
    * @return chreBleScanFilterV1_9 that is valid only as long as the internal
    *    contents of this class are not modified
    */
@@ -149,6 +155,9 @@ class BleRequest : public NonCopyable {
 
   // Generic scan filters.
   DynamicVector<chreBleGenericFilter> mGenericFilters;
+
+  // Broadcaster address filters.
+  DynamicVector<chreBleBroadcasterAddressFilter> mBroadcasterFilters;
 };
 
 }  // namespace chre

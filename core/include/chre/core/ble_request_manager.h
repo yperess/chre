@@ -298,6 +298,8 @@ class BleRequestManager : public NonCopyable {
       reportDelayMs = req.getReportDelayMs();
       rssiThreshold = req.getRssiThreshold();
       scanFilterCount = static_cast<uint8_t>(req.getGenericFilters().size());
+      broadcasterFilterCount =
+          static_cast<uint8_t>(req.getBroadcasterFilters().size());
     }
     Nanoseconds timestamp;
     uint32_t instanceId;
@@ -307,6 +309,7 @@ class BleRequestManager : public NonCopyable {
     uint32_t reportDelayMs;
     int8_t rssiThreshold;
     uint8_t scanFilterCount;
+    uint8_t broadcasterFilterCount;
   };
 
   // List of most recent ble request logs

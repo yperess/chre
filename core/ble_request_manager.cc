@@ -692,10 +692,11 @@ void BleRequestManager::logStateToBuffer(DebugDumpWrapper &debugDump) const {
                     log.timestamp.toRawNanoseconds(), log.instanceId,
                     log.enable ? "enable" : "disable\n");
     if (log.enable && log.compliesWithBleSetting) {
-      debugDump.print(" mode=%" PRIu8 " reportDelayMs=%" PRIu32
-                      " rssiThreshold=%" PRId8 " scanCount=%" PRIu8 "\n",
-                      static_cast<uint8_t>(log.mode), log.reportDelayMs,
-                      log.rssiThreshold, log.scanFilterCount);
+      debugDump.print(
+          " mode=%" PRIu8 " reportDelayMs=%" PRIu32 " rssiThreshold=%" PRId8
+          " scanCount=%" PRIu8 " broadcasterAddressCount=%" PRIu8 "\n",
+          static_cast<uint8_t>(log.mode), log.reportDelayMs, log.rssiThreshold,
+          log.scanFilterCount, log.broadcasterFilterCount);
     } else if (log.enable) {
       debugDump.print(" request did not comply with BLE setting\n");
     }
