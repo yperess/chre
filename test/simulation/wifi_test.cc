@@ -41,53 +41,58 @@ TEST_F(TestBase, WifiCanSubscribeAndUnsubscribeToScanMonitoring) {
     uint32_t cookie;
   };
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_WIFI;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          static uint32_t cookie;
-
-          switch (eventType) {
-            case CHRE_EVENT_WIFI_ASYNC_RESULT: {
-              auto *event = static_cast<const chreAsyncResult *>(eventData);
-              if (event->success) {
-                TestEventQueueSingleton::get()->pushEvent(
-                    CHRE_EVENT_WIFI_ASYNC_RESULT,
-                    *(static_cast<const uint32_t *>(event->cookie)));
-              }
-              break;
-            }
-
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case MONITORING_REQUEST:
-                  auto request =
-                      static_cast<const MonitoringRequest *>(event->data);
-                  cookie = request->cookie;
-                  bool success = chreWifiConfigureScanMonitorAsync(
-                      request->enable, &cookie);
-                  TestEventQueueSingleton::get()->pushEvent(MONITORING_REQUEST,
-                                                            success);
-              }
-            }
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_WIFI_ASYNC_RESULT: {
+          auto *event = static_cast<const chreAsyncResult *>(eventData);
+          if (event->success) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_WIFI_ASYNC_RESULT,
+                *(static_cast<const uint32_t *>(event->cookie)));
           }
-        };
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case MONITORING_REQUEST:
+              auto request =
+                  static_cast<const MonitoringRequest *>(event->data);
+              mCookie = request->cookie;
+              bool success =
+                  chreWifiConfigureScanMonitorAsync(request->enable, &mCookie);
+              TestEventQueueSingleton::get()->pushEvent(MONITORING_REQUEST,
+                                                        success);
+          }
+        }
+      }
+    }
+
+   protected:
+    uint32_t mCookie;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   EXPECT_FALSE(chrePalWifiIsScanMonitoringActive());
 
   MonitoringRequest request{.enable = true, .cookie = 0x123};
-  sendEventToNanoapp(app, MONITORING_REQUEST, request);
+  sendEventToNanoapp(appId, MONITORING_REQUEST, request);
   uint32_t cookie;
   waitForEvent(CHRE_EVENT_WIFI_ASYNC_RESULT, &cookie);
   EXPECT_EQ(cookie, request.cookie);
   EXPECT_TRUE(chrePalWifiIsScanMonitoringActive());
 
   request = {.enable = false, .cookie = 0x456};
-  sendEventToNanoapp(app, MONITORING_REQUEST, request);
+  sendEventToNanoapp(appId, MONITORING_REQUEST, request);
   bool success;
   waitForEvent(MONITORING_REQUEST, &success);
   EXPECT_TRUE(success);
@@ -104,46 +109,51 @@ TEST_F(TestBase, WifiScanMonitoringDisabledOnUnload) {
     uint32_t cookie;
   };
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_WIFI;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          static uint32_t cookie;
-
-          switch (eventType) {
-            case CHRE_EVENT_WIFI_ASYNC_RESULT: {
-              auto *event = static_cast<const chreAsyncResult *>(eventData);
-              if (event->success) {
-                TestEventQueueSingleton::get()->pushEvent(
-                    CHRE_EVENT_WIFI_ASYNC_RESULT,
-                    *(static_cast<const uint32_t *>(event->cookie)));
-              }
-              break;
-            }
-
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case MONITORING_REQUEST:
-                  auto request =
-                      static_cast<const MonitoringRequest *>(event->data);
-                  cookie = request->cookie;
-                  bool success = chreWifiConfigureScanMonitorAsync(
-                      request->enable, &cookie);
-                  TestEventQueueSingleton::get()->pushEvent(MONITORING_REQUEST,
-                                                            success);
-              }
-            }
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_WIFI_ASYNC_RESULT: {
+          auto *event = static_cast<const chreAsyncResult *>(eventData);
+          if (event->success) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_WIFI_ASYNC_RESULT,
+                *(static_cast<const uint32_t *>(event->cookie)));
           }
-        };
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case MONITORING_REQUEST:
+              auto request =
+                  static_cast<const MonitoringRequest *>(event->data);
+              mCookie = request->cookie;
+              bool success =
+                  chreWifiConfigureScanMonitorAsync(request->enable, &mCookie);
+              TestEventQueueSingleton::get()->pushEvent(MONITORING_REQUEST,
+                                                        success);
+          }
+        }
+      }
+    }
+
+   protected:
+    uint32_t mCookie;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   EXPECT_FALSE(chrePalWifiIsScanMonitoringActive());
 
   MonitoringRequest request{.enable = true, .cookie = 0x123};
-  sendEventToNanoapp(app, MONITORING_REQUEST, request);
+  sendEventToNanoapp(appId, MONITORING_REQUEST, request);
   bool success;
   waitForEvent(MONITORING_REQUEST, &success);
   EXPECT_TRUE(success);
@@ -152,7 +162,7 @@ TEST_F(TestBase, WifiScanMonitoringDisabledOnUnload) {
   EXPECT_EQ(cookie, request.cookie);
   EXPECT_TRUE(chrePalWifiIsScanMonitoringActive());
 
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_FALSE(chrePalWifiIsScanMonitoringActive());
 }
 
@@ -164,46 +174,51 @@ TEST_F(TestBase, WifiScanMonitoringDisabledOnUnloadAndCanBeReEnabled) {
     uint32_t cookie;
   };
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_WIFI;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          static uint32_t cookie;
-
-          switch (eventType) {
-            case CHRE_EVENT_WIFI_ASYNC_RESULT: {
-              auto *event = static_cast<const chreAsyncResult *>(eventData);
-              if (event->success) {
-                TestEventQueueSingleton::get()->pushEvent(
-                    CHRE_EVENT_WIFI_ASYNC_RESULT,
-                    *(static_cast<const uint32_t *>(event->cookie)));
-              }
-              break;
-            }
-
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case MONITORING_REQUEST:
-                  auto request =
-                      static_cast<const MonitoringRequest *>(event->data);
-                  cookie = request->cookie;
-                  bool success = chreWifiConfigureScanMonitorAsync(
-                      request->enable, &cookie);
-                  TestEventQueueSingleton::get()->pushEvent(MONITORING_REQUEST,
-                                                            success);
-              }
-            }
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_WIFI_ASYNC_RESULT: {
+          auto *event = static_cast<const chreAsyncResult *>(eventData);
+          if (event->success) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_WIFI_ASYNC_RESULT,
+                *(static_cast<const uint32_t *>(event->cookie)));
           }
-        };
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case MONITORING_REQUEST:
+              auto request =
+                  static_cast<const MonitoringRequest *>(event->data);
+              mCookie = request->cookie;
+              bool success =
+                  chreWifiConfigureScanMonitorAsync(request->enable, &mCookie);
+              TestEventQueueSingleton::get()->pushEvent(MONITORING_REQUEST,
+                                                        success);
+          }
+        }
+      }
+    }
+
+   protected:
+    uint32_t mCookie;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   EXPECT_FALSE(chrePalWifiIsScanMonitoringActive());
 
   MonitoringRequest request{.enable = true, .cookie = 0x123};
-  sendEventToNanoapp(app, MONITORING_REQUEST, request);
+  sendEventToNanoapp(appId, MONITORING_REQUEST, request);
   bool success;
   waitForEvent(MONITORING_REQUEST, &success);
   EXPECT_TRUE(success);
@@ -212,14 +227,14 @@ TEST_F(TestBase, WifiScanMonitoringDisabledOnUnloadAndCanBeReEnabled) {
   EXPECT_EQ(cookie, request.cookie);
   EXPECT_TRUE(chrePalWifiIsScanMonitoringActive());
 
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_FALSE(chrePalWifiIsScanMonitoringActive());
 
-  app = loadNanoapp<App>();
+  appId = loadNanoapp(MakeUnique<App>());
   EXPECT_FALSE(chrePalWifiIsScanMonitoringActive());
 
   request = {.enable = true, .cookie = 0x456};
-  sendEventToNanoapp(app, MONITORING_REQUEST, request);
+  sendEventToNanoapp(appId, MONITORING_REQUEST, request);
   waitForEvent(MONITORING_REQUEST, &success);
   EXPECT_TRUE(success);
   waitForEvent(CHRE_EVENT_WIFI_ASYNC_RESULT, &cookie);

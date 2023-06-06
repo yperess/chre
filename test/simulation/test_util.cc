@@ -17,6 +17,7 @@
 #include "test_util.h"
 
 #include <gtest/gtest.h>
+#include <unordered_map>
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/nanoapp.h"
@@ -29,12 +30,101 @@
 namespace chre {
 
 namespace {
-
-// Keep the chreNslNanoappInfo instances alive for the lifetime of the
-// test nanoapps.
+/**
+ * List of chreNslNanoappInfo.
+ *
+ * Keep the chreNslNanoappInfo instances alive for the lifetime of the test
+ * nanoapps.
+ */
 DynamicVector<UniquePtr<chreNslNanoappInfo>> gNanoappInfos;
 
+/** Registry of nanoapp by ID. */
+std::unordered_map<uint64_t, UniquePtr<TestNanoapp>> nanoapps;
+
+/**
+ * @return a pointer to a registered nanoapp or nullptr if the appId is not
+ *         registered.
+ */
+TestNanoapp *queryNanoapp(uint64_t appId) {
+  return nanoapps.count(appId) == 0 ? nullptr : nanoapps[appId].get();
+}
+
+/**
+ * Nanoapp start.
+ *
+ * Invokes the start method of a registered TestNanoapp.
+ */
+bool start() {
+  uint64_t id = chreGetAppId();
+  TestNanoapp *app = queryNanoapp(id);
+  if (app == nullptr) {
+    LOGE("[start] unregistered nanoapp 0x%016" PRIx64, id);
+    return false;
+  }
+  return app->start();
+}
+
+/**
+ * Nanoapp handleEvent.
+ *
+ * Invokes the handleMethod method of a registered TestNanoapp.
+ */
+void handleEvent(uint32_t senderInstanceId, uint16_t eventType,
+                 const void *eventData) {
+  uint64_t id = chreGetAppId();
+  TestNanoapp *app = queryNanoapp(id);
+  if (app == nullptr) {
+    LOGE("[handleEvent] unregistered nanoapp 0x%016" PRIx64, id);
+  } else {
+    app->handleEvent(senderInstanceId, eventType, eventData);
+  }
+}
+
+/**
+ * Nanoapp end.
+ *
+ * Invokes the end method of a registered TestNanoapp.
+ */
+void end() {
+  uint64_t id = chreGetAppId();
+  TestNanoapp *app = queryNanoapp(id);
+  if (app == nullptr) {
+    LOGE("[end] unregistered nanoapp 0x%016" PRIx64, id);
+  } else {
+    app->end();
+  }
+}
+
+/**
+ * Registers a test nanoapp.
+ *
+ * TestNanoapps are registered when they are loaded so that their entry point
+ * methods can be called.
+ */
+void registerNanoapp(UniquePtr<TestNanoapp> app) {
+  if (nanoapps.count(app->id()) != 0) {
+    LOGE("A nanoapp with the same id is already registered");
+  } else {
+    nanoapps[app->id()] = std::move(app);
+  }
+}
+
+/**
+ * Unregisters a nanoapp.
+ *
+ * Calls the TestNanoapp destructor.
+ */
+void unregisterNanoapp(uint64_t appId) {
+  if (nanoapps.erase(appId) == 0) {
+    LOGE("The nanoapp is not registered");
+  }
+}
+
 }  // namespace
+
+void unregisterAllTestNanoapps() {
+  nanoapps.clear();
+}
 
 UniquePtr<Nanoapp> createStaticNanoapp(
     const char *name, uint64_t appId, uint32_t appVersion, uint32_t appPerms,
@@ -83,12 +173,9 @@ bool defaultNanoappStart() {
   return true;
 }
 
-void defaultNanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
-                               const void *eventData) {
-  UNUSED_VAR(senderInstanceId);
-  UNUSED_VAR(eventType);
-  UNUSED_VAR(eventData);
-}
+void defaultNanoappHandleEvent(uint32_t /*senderInstanceId*/,
+                               uint16_t /*eventType*/,
+                               const void * /*eventData*/) {}
 
 void defaultNanoappEnd(){};
 
@@ -107,8 +194,33 @@ void loadNanoapp(const char *name, uint64_t appId, uint32_t appVersion,
       CHRE_EVENT_SIMULATION_TEST_NANOAPP_LOADED);
 }
 
-template <>
-void unloadNanoapp<uint64_t>(uint64_t appId) {
+uint64_t loadNanoapp(UniquePtr<TestNanoapp> app) {
+  TestNanoapp *pApp = app.get();
+  registerNanoapp(std::move(app));
+  loadNanoapp(pApp->name(), pApp->id(), pApp->version(), pApp->perms(), &start,
+              &handleEvent, &end);
+
+  return pApp->id();
+}
+
+void sendEventToNanoapp(uint64_t appId, uint16_t eventType) {
+  uint16_t instanceId;
+  if (EventLoopManagerSingleton::get()
+          ->getEventLoop()
+          .findNanoappInstanceIdByAppId(appId, &instanceId)) {
+    auto event = memoryAlloc<TestEvent>();
+    ASSERT_NE(event, nullptr);
+    event->type = eventType;
+    EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
+        CHRE_EVENT_TEST_EVENT, static_cast<void *>(event),
+        freeTestEventDataCallback, instanceId);
+
+  } else {
+    LOGE("No instance found for nanoapp id = 0x%016" PRIx64, appId);
+  }
+}
+
+void unloadNanoapp(uint64_t appId) {
   uint64_t *ptr = memoryAlloc<uint64_t>();
   ASSERT_NE(ptr, nullptr);
   *ptr = appId;
@@ -118,6 +230,8 @@ void unloadNanoapp<uint64_t>(uint64_t appId) {
 
   TestEventQueueSingleton::get()->waitForEvent(
       CHRE_EVENT_SIMULATION_TEST_NANOAPP_UNLOADED);
+
+  unregisterNanoapp(appId);
 }
 
 void testFinishLoadingNanoappCallback(SystemCallbackType /* type */,

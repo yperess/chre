@@ -598,7 +598,9 @@ cc_test_host {
     isolated: false,
     test_suites: ["general-tests"],
     srcs: [
-        "test/simulation/*.cc",
+        "test/simulation/test_base.cc",
+        "test/simulation/test_util.cc",
+        "test/simulation/*_test.cc",
     ],
     generated_sources: [
         "rpc_test_proto_source",
