@@ -43,8 +43,6 @@ using ::ndk::ScopedAStatus;
  *
  * A subclass should initiate mConnection, mHalClientManager and
  * mPreloadedNanoappLoader in its constructor.
- *
- * TODO(b/247124878): setTestMode is not implemented yet.
  */
 class MultiClientContextHubBase
     : public BnContextHub,
@@ -102,6 +100,9 @@ class MultiClientContextHubBase
       this->clientPid = pid;
     }
   };
+
+  static constexpr uint32_t kDefaultTestModeTransactionId = 0x80000000;
+
   MultiClientContextHubBase() = default;
 
   bool sendFragmentedLoadRequest(HalClientId clientId,
@@ -121,6 +122,9 @@ class MultiClientContextHubBase
   void onDebugDumpComplete(
       const ::chre::fbs::DebugDumpResponseT & /* response */);
   void handleClientDeath(pid_t pid);
+
+  bool enableTestMode();
+  bool disableTestMode();
 
   inline bool isSettingEnabled(Setting setting) {
     return mSettingEnabled.find(setting) != mSettingEnabled.end() &&
@@ -153,6 +157,16 @@ class MultiClientContextHubBase
   // A mutex to synchronize access to the list of preloaded nanoapp IDs.
   std::mutex mPreloadedNanoappIdsMutex;
   std::optional<std::vector<uint64_t>> mPreloadedNanoappIds{};
+
+  // test mode settings
+  std::mutex mTestModeMutex;
+  std::condition_variable mEnableTestModeCv;
+  bool mIsTestModeEnabled = false;
+  std::optional<bool> mTestModeSyncUnloadResult = std::nullopt;
+  std::optional<std::unordered_set<uint64_t>> mTestModeNanoapps =
+      std::unordered_set<uint64_t>{};
+  int32_t mTestModeTransactionId =
+      static_cast<int32_t>(kDefaultTestModeTransactionId);
 
   EventLogger mEventLogger;
 };
