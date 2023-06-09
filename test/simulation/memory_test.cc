@@ -33,18 +33,6 @@
 namespace chre {
 namespace {
 
-Nanoapp *getNanoappByAppId(uint64_t id) {
-  uint16_t instanceId;
-  EXPECT_TRUE(EventLoopManagerSingleton::get()
-                  ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(id, &instanceId));
-  Nanoapp *nanoapp =
-      EventLoopManagerSingleton::get()->getEventLoop().findNanoappByInstanceId(
-          instanceId);
-  EXPECT_NE(nanoapp, nullptr);
-  return nanoapp;
-}
-
 TEST_F(TestBase, MemoryAllocateAndFree) {
   CREATE_CHRE_TEST_EVENT(ALLOCATE, 0);
   CREATE_CHRE_TEST_EVENT(FREE, 1);
@@ -80,6 +68,7 @@ TEST_F(TestBase, MemoryAllocateAndFree) {
   MemoryManager &memManager =
       EventLoopManagerSingleton::get()->getMemoryManager();
   Nanoapp *nanoapp = getNanoappByAppId(appId);
+  ASSERT_NE(nanoapp, nullptr);
 
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
@@ -142,6 +131,7 @@ TEST_F(TestBase, MemoryFreeOnNanoappUnload) {
   MemoryManager &memManager =
       EventLoopManagerSingleton::get()->getMemoryManager();
   Nanoapp *nanoapp = getNanoappByAppId(appId);
+  ASSERT_NE(nanoapp, nullptr);
 
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);

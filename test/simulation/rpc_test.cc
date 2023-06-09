@@ -65,17 +65,8 @@ TEST_F(TestBase, PwRpcCanPublishServicesInNanoappStart) {
   };
 
   uint64_t appId = loadNanoapp(MakeUnique<App>());
-
-  uint16_t instanceId;
-  EXPECT_TRUE(EventLoopManagerSingleton::get()
-                  ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(appId, &instanceId));
-
-  Nanoapp *napp =
-      EventLoopManagerSingleton::get()->getEventLoop().findNanoappByInstanceId(
-          instanceId);
-
-  ASSERT_FALSE(napp == nullptr);
+  Nanoapp *napp = getNanoappByAppId(appId);
+  ASSERT_NE(napp, nullptr);
 
   EXPECT_EQ(napp->getRpcServices().size(), 4);
   EXPECT_EQ(napp->getRpcServices()[0].id, 1);
@@ -108,17 +99,8 @@ TEST_F(TestBase, PwRpcCanNotPublishDuplicateServices) {
   };
 
   uint64_t appId = loadNanoapp(MakeUnique<App>());
-
-  uint16_t instanceId;
-  EXPECT_TRUE(EventLoopManagerSingleton::get()
-                  ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(appId, &instanceId));
-
-  Nanoapp *napp =
-      EventLoopManagerSingleton::get()->getEventLoop().findNanoappByInstanceId(
-          instanceId);
-
-  ASSERT_FALSE(napp == nullptr);
+  Nanoapp *napp = getNanoappByAppId(appId);
+  ASSERT_NE(napp, nullptr);
 
   EXPECT_EQ(napp->getRpcServices().size(), 2);
   EXPECT_EQ(napp->getRpcServices()[0].id, 1);
@@ -142,32 +124,15 @@ TEST_F(TestBase, PwRpcDifferentAppCanPublishSameServices) {
 
   uint64_t app1Id = loadNanoapp(MakeUnique<App>(0x01));
   uint64_t app2Id = loadNanoapp(MakeUnique<App>(0x02));
-
-  uint16_t instanceId1;
-  EXPECT_TRUE(EventLoopManagerSingleton::get()
-                  ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(app1Id, &instanceId1));
-
-  Nanoapp *napp1 =
-      EventLoopManagerSingleton::get()->getEventLoop().findNanoappByInstanceId(
-          instanceId1);
-
-  ASSERT_FALSE(napp1 == nullptr);
+  Nanoapp *napp1 = getNanoappByAppId(app1Id);
+  ASSERT_NE(napp1, nullptr);
 
   EXPECT_EQ(napp1->getRpcServices().size(), 2);
   EXPECT_EQ(napp1->getRpcServices()[0].id, 1);
   EXPECT_EQ(napp1->getRpcServices()[1].id, 2);
 
-  uint16_t instanceId2;
-  EXPECT_TRUE(EventLoopManagerSingleton::get()
-                  ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(app2Id, &instanceId2));
-
-  Nanoapp *napp2 =
-      EventLoopManagerSingleton::get()->getEventLoop().findNanoappByInstanceId(
-          instanceId2);
-
-  ASSERT_FALSE(napp2 == nullptr);
+  Nanoapp *napp2 = getNanoappByAppId(app2Id);
+  ASSERT_NE(napp2, nullptr);
 
   EXPECT_EQ(napp2->getRpcServices().size(), 2);
   EXPECT_EQ(napp2->getRpcServices()[0].id, 1);
@@ -210,16 +175,8 @@ TEST_F(TestBase, PwRpcCanNotPublishServicesOutsideOfNanoappStart) {
   waitForEvent(PUBLISH_SERVICES, &success);
   EXPECT_FALSE(success);
 
-  uint16_t instanceId;
-  EXPECT_TRUE(EventLoopManagerSingleton::get()
-                  ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(appId, &instanceId));
-
-  Nanoapp *napp =
-      EventLoopManagerSingleton::get()->getEventLoop().findNanoappByInstanceId(
-          instanceId);
-
-  ASSERT_FALSE(napp == nullptr);
+  Nanoapp *napp = getNanoappByAppId(appId);
+  ASSERT_NE(napp, nullptr);
 
   EXPECT_EQ(napp->getRpcServices().size(), 0);
 }
