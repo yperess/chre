@@ -21,6 +21,7 @@
 
 #include <hardware_legacy/power.h>
 #include <sys/ioctl.h>
+#include <utils/SystemClock.h>
 #include <cerrno>
 #include <thread>
 
@@ -131,10 +132,13 @@ bool TinysysChreConnection::init() {
            chreNextState);
     }
     if (chreCurrentState == SCP_CHRE_STOP && chreNextState == SCP_CHRE_START) {
-      // TODO(b/277128368): We should have an explicit indication from CHRE for
-      // restart recovery.
-      LOGW("SCP restarted. Give it 5s for recovery before notifying clients");
-      std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+      int64_t startTime = ::android::elapsedRealtime();
+      // Though usually CHRE is recovered within 1s after SCP is up, in a corner
+      // case it can go beyond 5s. Wait for 10s to cover more extreme cases.
+      chreConnection->waitChreBackOnline(
+          /* timeoutMs= */ std::chrono::milliseconds(10000));
+      LOGW("SCP restarted! CHRE recover time: %" PRIu64 "ms.",
+           ::android::elapsedRealtime() - startTime);
       chreConnection->getCallback()->onChreRestarted();
     }
     chreCurrentState = chreNextState;
@@ -204,6 +208,10 @@ void TinysysChreConnection::handleMessageFromChre(
     }
     case fbs::ChreMessage::LowPowerMicAccessRelease: {
       chreConnection->getLpmaHandler()->enable(/* enabled= */ false);
+      break;
+    }
+    case fbs::ChreMessage::PulseResponse: {
+      chreConnection->notifyChreBackOnline();
       break;
     }
     case fbs::ChreMessage::MetricLog:

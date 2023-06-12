@@ -99,6 +99,12 @@ struct NanConfigurationUpdateBuilder;
 struct DebugConfiguration;
 struct DebugConfigurationBuilder;
 
+struct PulseRequest;
+struct PulseRequestBuilder;
+
+struct PulseResponse;
+struct PulseResponseBuilder;
+
 struct HostAddress;
 
 struct MessageContainer;
@@ -309,11 +315,13 @@ enum class ChreMessage : uint8_t {
   NanConfigurationRequest = 26,
   NanConfigurationUpdate = 27,
   DebugConfiguration = 28,
+  PulseRequest = 29,
+  PulseResponse = 30,
   MIN = NONE,
-  MAX = DebugConfiguration
+  MAX = PulseResponse
 };
 
-inline const ChreMessage (&EnumValuesChreMessage())[29] {
+inline const ChreMessage (&EnumValuesChreMessage())[31] {
   static const ChreMessage values[] = {
     ChreMessage::NONE,
     ChreMessage::NanoappMessage,
@@ -343,13 +351,15 @@ inline const ChreMessage (&EnumValuesChreMessage())[29] {
     ChreMessage::BatchedMetricLog,
     ChreMessage::NanConfigurationRequest,
     ChreMessage::NanConfigurationUpdate,
-    ChreMessage::DebugConfiguration
+    ChreMessage::DebugConfiguration,
+    ChreMessage::PulseRequest,
+    ChreMessage::PulseResponse
   };
   return values;
 }
 
 inline const char * const *EnumNamesChreMessage() {
-  static const char * const names[30] = {
+  static const char * const names[32] = {
     "NONE",
     "NanoappMessage",
     "HubInfoRequest",
@@ -379,13 +389,15 @@ inline const char * const *EnumNamesChreMessage() {
     "NanConfigurationRequest",
     "NanConfigurationUpdate",
     "DebugConfiguration",
+    "PulseRequest",
+    "PulseResponse",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameChreMessage(ChreMessage e) {
-  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::DebugConfiguration)) return "";
+  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::PulseResponse)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesChreMessage()[index];
 }
@@ -504,6 +516,14 @@ template<> struct ChreMessageTraits<chre::fbs::NanConfigurationUpdate> {
 
 template<> struct ChreMessageTraits<chre::fbs::DebugConfiguration> {
   static const ChreMessage enum_value = ChreMessage::DebugConfiguration;
+};
+
+template<> struct ChreMessageTraits<chre::fbs::PulseRequest> {
+  static const ChreMessage enum_value = ChreMessage::PulseRequest;
+};
+
+template<> struct ChreMessageTraits<chre::fbs::PulseResponse> {
+  static const ChreMessage enum_value = ChreMessage::PulseResponse;
 };
 
 bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, ChreMessage type);
@@ -2507,6 +2527,66 @@ inline flatbuffers::Offset<DebugConfiguration> CreateDebugConfiguration(
   return builder_.Finish();
 }
 
+struct PulseRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PulseRequestBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct PulseRequestBuilder {
+  typedef PulseRequest Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit PulseRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  PulseRequestBuilder &operator=(const PulseRequestBuilder &);
+  flatbuffers::Offset<PulseRequest> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<PulseRequest>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<PulseRequest> CreatePulseRequest(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  PulseRequestBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct PulseResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PulseResponseBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct PulseResponseBuilder {
+  typedef PulseResponse Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit PulseResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  PulseResponseBuilder &operator=(const PulseResponseBuilder &);
+  flatbuffers::Offset<PulseResponse> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<PulseResponse>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<PulseResponse> CreatePulseResponse(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  PulseResponseBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
 /// The top-level container that encapsulates all possible messages. Note that
 /// per FlatBuffers requirements, we can't use a union as the top-level
 /// structure (root type), so we must wrap it in a table.
@@ -2607,6 +2687,12 @@ struct MessageContainer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   const chre::fbs::DebugConfiguration *message_as_DebugConfiguration() const {
     return message_type() == chre::fbs::ChreMessage::DebugConfiguration ? static_cast<const chre::fbs::DebugConfiguration *>(message()) : nullptr;
+  }
+  const chre::fbs::PulseRequest *message_as_PulseRequest() const {
+    return message_type() == chre::fbs::ChreMessage::PulseRequest ? static_cast<const chre::fbs::PulseRequest *>(message()) : nullptr;
+  }
+  const chre::fbs::PulseResponse *message_as_PulseResponse() const {
+    return message_type() == chre::fbs::ChreMessage::PulseResponse ? static_cast<const chre::fbs::PulseResponse *>(message()) : nullptr;
   }
   /// The originating or destination client ID on the host side, used to direct
   /// responses only to the client that sent the request. Although initially
@@ -2737,6 +2823,14 @@ template<> inline const chre::fbs::NanConfigurationUpdate *MessageContainer::mes
 
 template<> inline const chre::fbs::DebugConfiguration *MessageContainer::message_as<chre::fbs::DebugConfiguration>() const {
   return message_as_DebugConfiguration();
+}
+
+template<> inline const chre::fbs::PulseRequest *MessageContainer::message_as<chre::fbs::PulseRequest>() const {
+  return message_as_PulseRequest();
+}
+
+template<> inline const chre::fbs::PulseResponse *MessageContainer::message_as<chre::fbs::PulseResponse>() const {
+  return message_as_PulseResponse();
 }
 
 struct MessageContainerBuilder {
@@ -2893,6 +2987,14 @@ inline bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, 
     }
     case ChreMessage::DebugConfiguration: {
       auto ptr = reinterpret_cast<const chre::fbs::DebugConfiguration *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::PulseRequest: {
+      auto ptr = reinterpret_cast<const chre::fbs::PulseRequest *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::PulseResponse: {
+      auto ptr = reinterpret_cast<const chre::fbs::PulseResponse *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

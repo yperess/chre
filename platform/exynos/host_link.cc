@@ -139,6 +139,8 @@ void HostMessageHandlers::handleNanoappListRequest(uint16_t hostClientId) {
   // TODO(b/230134803): Implement this.
 }
 
+void HostMessageHandlers::handlePulseRequest() {}
+
 void HostMessageHandlers::sendFragmentResponse(uint16_t hostClientId,
                                                uint32_t transactionId,
                                                uint32_t fragmentId,

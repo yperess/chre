@@ -250,5 +250,10 @@ void HostProtocolHost::encodeNanconfigurationUpdate(
   finalize(builder, fbs::ChreMessage::NanConfigurationUpdate, message.Union());
 }
 
+void HostProtocolHost::encodePulseRequest(FlatBufferBuilder &builder) {
+  auto message = fbs::CreatePulseRequest(builder);
+  finalize(builder, fbs::ChreMessage::PulseRequest, message.Union());
+}
+
 }  // namespace chre
 }  // namespace android

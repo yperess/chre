@@ -186,6 +186,11 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
         break;
       }
 
+      case fbs::ChreMessage::PulseRequest: {
+        HostMessageHandlers::handlePulseRequest();
+        break;
+      }
+
       default:
         LOGW("Got invalid/unexpected message type %" PRIu8,
              static_cast<uint8_t>(container->message_type()));
@@ -249,6 +254,11 @@ void HostProtocolChre::finishNanoappListResponse(
   auto response = fbs::CreateNanoappListResponse(builder, vectorOffset);
   finalize(builder, fbs::ChreMessage::NanoappListResponse, response.Union(),
            hostClientId);
+}
+
+void HostProtocolChre::encodePulseResponse(ChreFlatBufferBuilder &builder) {
+  auto response = fbs::CreatePulseResponse(builder);
+  finalize(builder, fbs::ChreMessage::PulseResponse, response.Union());
 }
 
 void HostProtocolChre::encodeLoadNanoappResponse(ChreFlatBufferBuilder &builder,

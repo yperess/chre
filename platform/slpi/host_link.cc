@@ -908,6 +908,8 @@ void HostMessageHandlers::handleSelfTestRequest(uint16_t hostClientId) {
   sendSelfTestResponse(hostClientId, success);
 }
 
+void HostMessageHandlers::handlePulseRequest() {}
+
 void HostMessageHandlers::handleNanConfigurationUpdate(bool enabled) {
 #ifdef CHRE_WIFI_NAN_SUPPORT_ENABLED
   EventLoopManagerSingleton::get()

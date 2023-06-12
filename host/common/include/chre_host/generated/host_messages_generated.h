@@ -129,6 +129,14 @@ struct DebugConfiguration;
 struct DebugConfigurationBuilder;
 struct DebugConfigurationT;
 
+struct PulseRequest;
+struct PulseRequestBuilder;
+struct PulseRequestT;
+
+struct PulseResponse;
+struct PulseResponseBuilder;
+struct PulseResponseT;
+
 struct HostAddress;
 
 struct MessageContainer;
@@ -340,11 +348,13 @@ enum class ChreMessage : uint8_t {
   NanConfigurationRequest = 26,
   NanConfigurationUpdate = 27,
   DebugConfiguration = 28,
+  PulseRequest = 29,
+  PulseResponse = 30,
   MIN = NONE,
-  MAX = DebugConfiguration
+  MAX = PulseResponse
 };
 
-inline const ChreMessage (&EnumValuesChreMessage())[29] {
+inline const ChreMessage (&EnumValuesChreMessage())[31] {
   static const ChreMessage values[] = {
     ChreMessage::NONE,
     ChreMessage::NanoappMessage,
@@ -374,13 +384,15 @@ inline const ChreMessage (&EnumValuesChreMessage())[29] {
     ChreMessage::BatchedMetricLog,
     ChreMessage::NanConfigurationRequest,
     ChreMessage::NanConfigurationUpdate,
-    ChreMessage::DebugConfiguration
+    ChreMessage::DebugConfiguration,
+    ChreMessage::PulseRequest,
+    ChreMessage::PulseResponse
   };
   return values;
 }
 
 inline const char * const *EnumNamesChreMessage() {
-  static const char * const names[30] = {
+  static const char * const names[32] = {
     "NONE",
     "NanoappMessage",
     "HubInfoRequest",
@@ -410,13 +422,15 @@ inline const char * const *EnumNamesChreMessage() {
     "NanConfigurationRequest",
     "NanConfigurationUpdate",
     "DebugConfiguration",
+    "PulseRequest",
+    "PulseResponse",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameChreMessage(ChreMessage e) {
-  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::DebugConfiguration)) return "";
+  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::PulseResponse)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesChreMessage()[index];
 }
@@ -535,6 +549,14 @@ template<> struct ChreMessageTraits<chre::fbs::NanConfigurationUpdate> {
 
 template<> struct ChreMessageTraits<chre::fbs::DebugConfiguration> {
   static const ChreMessage enum_value = ChreMessage::DebugConfiguration;
+};
+
+template<> struct ChreMessageTraits<chre::fbs::PulseRequest> {
+  static const ChreMessage enum_value = ChreMessage::PulseRequest;
+};
+
+template<> struct ChreMessageTraits<chre::fbs::PulseResponse> {
+  static const ChreMessage enum_value = ChreMessage::PulseResponse;
 };
 
 struct ChreMessageUnion {
@@ -792,6 +814,22 @@ struct ChreMessageUnion {
   const chre::fbs::DebugConfigurationT *AsDebugConfiguration() const {
     return type == ChreMessage::DebugConfiguration ?
       reinterpret_cast<const chre::fbs::DebugConfigurationT *>(value) : nullptr;
+  }
+  chre::fbs::PulseRequestT *AsPulseRequest() {
+    return type == ChreMessage::PulseRequest ?
+      reinterpret_cast<chre::fbs::PulseRequestT *>(value) : nullptr;
+  }
+  const chre::fbs::PulseRequestT *AsPulseRequest() const {
+    return type == ChreMessage::PulseRequest ?
+      reinterpret_cast<const chre::fbs::PulseRequestT *>(value) : nullptr;
+  }
+  chre::fbs::PulseResponseT *AsPulseResponse() {
+    return type == ChreMessage::PulseResponse ?
+      reinterpret_cast<chre::fbs::PulseResponseT *>(value) : nullptr;
+  }
+  const chre::fbs::PulseResponseT *AsPulseResponse() const {
+    return type == ChreMessage::PulseResponse ?
+      reinterpret_cast<const chre::fbs::PulseResponseT *>(value) : nullptr;
   }
 };
 
@@ -3479,6 +3517,90 @@ inline flatbuffers::Offset<DebugConfiguration> CreateDebugConfiguration(
 
 flatbuffers::Offset<DebugConfiguration> CreateDebugConfiguration(flatbuffers::FlatBufferBuilder &_fbb, const DebugConfigurationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct PulseRequestT : public flatbuffers::NativeTable {
+  typedef PulseRequest TableType;
+  PulseRequestT() {
+  }
+};
+
+struct PulseRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PulseRequestT NativeTableType;
+  typedef PulseRequestBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+  PulseRequestT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(PulseRequestT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<PulseRequest> Pack(flatbuffers::FlatBufferBuilder &_fbb, const PulseRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct PulseRequestBuilder {
+  typedef PulseRequest Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit PulseRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  PulseRequestBuilder &operator=(const PulseRequestBuilder &);
+  flatbuffers::Offset<PulseRequest> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<PulseRequest>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<PulseRequest> CreatePulseRequest(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  PulseRequestBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<PulseRequest> CreatePulseRequest(flatbuffers::FlatBufferBuilder &_fbb, const PulseRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct PulseResponseT : public flatbuffers::NativeTable {
+  typedef PulseResponse TableType;
+  PulseResponseT() {
+  }
+};
+
+struct PulseResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PulseResponseT NativeTableType;
+  typedef PulseResponseBuilder Builder;
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+  PulseResponseT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(PulseResponseT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<PulseResponse> Pack(flatbuffers::FlatBufferBuilder &_fbb, const PulseResponseT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct PulseResponseBuilder {
+  typedef PulseResponse Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  explicit PulseResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  PulseResponseBuilder &operator=(const PulseResponseBuilder &);
+  flatbuffers::Offset<PulseResponse> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<PulseResponse>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<PulseResponse> CreatePulseResponse(
+    flatbuffers::FlatBufferBuilder &_fbb) {
+  PulseResponseBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<PulseResponse> CreatePulseResponse(flatbuffers::FlatBufferBuilder &_fbb, const PulseResponseT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct MessageContainerT : public flatbuffers::NativeTable {
   typedef MessageContainer TableType;
   chre::fbs::ChreMessageUnion message;
@@ -3588,6 +3710,12 @@ struct MessageContainer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   const chre::fbs::DebugConfiguration *message_as_DebugConfiguration() const {
     return message_type() == chre::fbs::ChreMessage::DebugConfiguration ? static_cast<const chre::fbs::DebugConfiguration *>(message()) : nullptr;
+  }
+  const chre::fbs::PulseRequest *message_as_PulseRequest() const {
+    return message_type() == chre::fbs::ChreMessage::PulseRequest ? static_cast<const chre::fbs::PulseRequest *>(message()) : nullptr;
+  }
+  const chre::fbs::PulseResponse *message_as_PulseResponse() const {
+    return message_type() == chre::fbs::ChreMessage::PulseResponse ? static_cast<const chre::fbs::PulseResponse *>(message()) : nullptr;
   }
   void *mutable_message() {
     return GetPointer<void *>(VT_MESSAGE);
@@ -3727,6 +3855,14 @@ template<> inline const chre::fbs::NanConfigurationUpdate *MessageContainer::mes
 
 template<> inline const chre::fbs::DebugConfiguration *MessageContainer::message_as<chre::fbs::DebugConfiguration>() const {
   return message_as_DebugConfiguration();
+}
+
+template<> inline const chre::fbs::PulseRequest *MessageContainer::message_as<chre::fbs::PulseRequest>() const {
+  return message_as_PulseRequest();
+}
+
+template<> inline const chre::fbs::PulseResponse *MessageContainer::message_as<chre::fbs::PulseResponse>() const {
+  return message_as_PulseResponse();
 }
 
 struct MessageContainerBuilder {
@@ -4661,6 +4797,52 @@ inline flatbuffers::Offset<DebugConfiguration> CreateDebugConfiguration(flatbuff
       _health_monitor_failure_crash);
 }
 
+inline PulseRequestT *PulseRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<chre::fbs::PulseRequestT> _o = std::unique_ptr<chre::fbs::PulseRequestT>(new PulseRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void PulseRequest::UnPackTo(PulseRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+}
+
+inline flatbuffers::Offset<PulseRequest> PulseRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PulseRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreatePulseRequest(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<PulseRequest> CreatePulseRequest(flatbuffers::FlatBufferBuilder &_fbb, const PulseRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PulseRequestT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  return chre::fbs::CreatePulseRequest(
+      _fbb);
+}
+
+inline PulseResponseT *PulseResponse::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<chre::fbs::PulseResponseT> _o = std::unique_ptr<chre::fbs::PulseResponseT>(new PulseResponseT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void PulseResponse::UnPackTo(PulseResponseT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+}
+
+inline flatbuffers::Offset<PulseResponse> PulseResponse::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PulseResponseT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreatePulseResponse(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<PulseResponse> CreatePulseResponse(flatbuffers::FlatBufferBuilder &_fbb, const PulseResponseT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PulseResponseT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  return chre::fbs::CreatePulseResponse(
+      _fbb);
+}
+
 inline MessageContainerT *MessageContainer::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
   std::unique_ptr<chre::fbs::MessageContainerT> _o = std::unique_ptr<chre::fbs::MessageContainerT>(new MessageContainerT());
   UnPackTo(_o.get(), _resolver);
@@ -4810,6 +4992,14 @@ inline bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, 
       auto ptr = reinterpret_cast<const chre::fbs::DebugConfiguration *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case ChreMessage::PulseRequest: {
+      auto ptr = reinterpret_cast<const chre::fbs::PulseRequest *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::PulseResponse: {
+      auto ptr = reinterpret_cast<const chre::fbs::PulseResponse *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -4940,6 +5130,14 @@ inline void *ChreMessageUnion::UnPack(const void *obj, ChreMessage type, const f
       auto ptr = reinterpret_cast<const chre::fbs::DebugConfiguration *>(obj);
       return ptr->UnPack(resolver);
     }
+    case ChreMessage::PulseRequest: {
+      auto ptr = reinterpret_cast<const chre::fbs::PulseRequest *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case ChreMessage::PulseResponse: {
+      auto ptr = reinterpret_cast<const chre::fbs::PulseResponse *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -5058,6 +5256,14 @@ inline flatbuffers::Offset<void> ChreMessageUnion::Pack(flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const chre::fbs::DebugConfigurationT *>(value);
       return CreateDebugConfiguration(_fbb, ptr, _rehasher).Union();
     }
+    case ChreMessage::PulseRequest: {
+      auto ptr = reinterpret_cast<const chre::fbs::PulseRequestT *>(value);
+      return CreatePulseRequest(_fbb, ptr, _rehasher).Union();
+    }
+    case ChreMessage::PulseResponse: {
+      auto ptr = reinterpret_cast<const chre::fbs::PulseResponseT *>(value);
+      return CreatePulseResponse(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -5174,6 +5380,14 @@ inline ChreMessageUnion::ChreMessageUnion(const ChreMessageUnion &u) : type(u.ty
     }
     case ChreMessage::DebugConfiguration: {
       value = new chre::fbs::DebugConfigurationT(*reinterpret_cast<chre::fbs::DebugConfigurationT *>(u.value));
+      break;
+    }
+    case ChreMessage::PulseRequest: {
+      value = new chre::fbs::PulseRequestT(*reinterpret_cast<chre::fbs::PulseRequestT *>(u.value));
+      break;
+    }
+    case ChreMessage::PulseResponse: {
+      value = new chre::fbs::PulseResponseT(*reinterpret_cast<chre::fbs::PulseResponseT *>(u.value));
       break;
     }
     default:
@@ -5320,6 +5534,16 @@ inline void ChreMessageUnion::Reset() {
     }
     case ChreMessage::DebugConfiguration: {
       auto ptr = reinterpret_cast<chre::fbs::DebugConfigurationT *>(value);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::PulseRequest: {
+      auto ptr = reinterpret_cast<chre::fbs::PulseRequestT *>(value);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::PulseResponse: {
+      auto ptr = reinterpret_cast<chre::fbs::PulseResponseT *>(value);
       delete ptr;
       break;
     }

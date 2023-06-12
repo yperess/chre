@@ -428,6 +428,10 @@ table DebugConfiguration {
   health_monitor_failure_crash:bool;
 }
 
+// Pulse messages are used to check if CHRE is up running.
+table PulseRequest {}
+table PulseResponse {}
+
 /// A union that joins together all possible messages. Note that in FlatBuffers,
 /// unions have an implicit type
 union ChreMessage {
@@ -475,6 +479,9 @@ union ChreMessage {
   NanConfigurationUpdate,
 
   DebugConfiguration,
+
+  PulseRequest,
+  PulseResponse,
 }
 
 struct HostAddress {

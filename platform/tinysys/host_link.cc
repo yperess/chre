@@ -125,6 +125,8 @@ enum class PendingMessageType {
   SelfTestResponse,
   MetricLog,
   NanConfigurationRequest,
+  PulseRequest,
+  PulseResponse,
 };
 
 struct PendingMessage {
@@ -247,6 +249,7 @@ DRAM_REGION_FUNCTION bool dequeueMessage(PendingMessage pendingMsg) {
     case PendingMessageType::SelfTestResponse:
     case PendingMessageType::MetricLog:
     case PendingMessageType::NanConfigurationRequest:
+    case PendingMessageType::PulseResponse:
       result = generateMessageFromBuilder(pendingMsg.data.builder);
       break;
 
@@ -305,6 +308,14 @@ DRAM_REGION_FUNCTION bool buildAndEnqueueMessage(
   }
 
   return pushed;
+}
+
+/**
+ * FlatBuffer message builder callback used with handleNanoappListRequest()
+ */
+DRAM_REGION_FUNCTION void buildPulseResponse(ChreFlatBufferBuilder &builder,
+                                             void * /*cookie*/) {
+  HostProtocolChre::encodePulseResponse(builder);
 }
 
 /**
@@ -736,6 +747,16 @@ DRAM_REGION_FUNCTION void HostMessageHandlers::sendFragmentResponse(
   constexpr size_t kInitialBufferSize = 52;
   buildAndEnqueueMessage(PendingMessageType::LoadNanoappResponse,
                          kInitialBufferSize, msgBuilder, &response);
+}
+
+DRAM_REGION_FUNCTION void HostMessageHandlers::handlePulseRequest() {
+  auto callback = [](uint16_t /*type*/, void * /*data*/, void * /*extraData*/) {
+    buildAndEnqueueMessage(PendingMessageType::PulseResponse,
+                           /*initialBufferSize= */ 48, buildPulseResponse,
+                           /* cookie= */ nullptr);
+  };
+  EventLoopManagerSingleton::get()->deferCallback(
+      SystemCallbackType::PulseResponse, /* data= */ nullptr, callback);
 }
 
 DRAM_REGION_FUNCTION void HostMessageHandlers::handleLoadNanoappRequest(

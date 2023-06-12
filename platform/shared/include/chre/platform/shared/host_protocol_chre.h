@@ -70,6 +70,8 @@ class HostMessageHandlers {
 
   static void handleNanoappListRequest(uint16_t hostClientId);
 
+  static void handlePulseRequest();
+
   static void handleDebugConfiguration(
       const fbs::DebugConfiguration *debugConfiguration);
 
@@ -198,6 +200,11 @@ class HostProtocolChre : public HostProtocolCommon {
       ChreFlatBufferBuilder &builder,
       DynamicVector<NanoappListEntryOffset> &offsetVector,
       uint16_t hostClientId);
+
+  /**
+   * Encodes a response to the host indicating CHRE is up running.
+   */
+  static void encodePulseResponse(ChreFlatBufferBuilder &builder);
 
   /**
    * Encodes a response to the host communicating the result of dynamically
