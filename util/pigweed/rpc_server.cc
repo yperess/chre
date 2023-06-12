@@ -29,15 +29,6 @@
 
 namespace chre {
 
-RpcServer::~RpcServer() {
-  chreConfigureNanoappInfoEvents(false);
-  // TODO(b/251257328): Disable all notifications at once.
-  while (!mConnectedHosts.empty()) {
-    chreConfigureHostEndpointNotifications(mConnectedHosts[0], false);
-    mConnectedHosts.erase(0);
-  }
-}
-
 bool RpcServer::registerServices(size_t numServices,
                                  RpcServer::Service *services) {
   // Avoid blowing up the stack with chreServices.
@@ -87,6 +78,15 @@ bool RpcServer::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
       return true;
     default:
       return true;
+  }
+}
+
+void RpcServer::close() {
+  chreConfigureNanoappInfoEvents(false);
+  // TODO(b/251257328): Disable all notifications at once.
+  while (!mConnectedHosts.empty()) {
+    chreConfigureHostEndpointNotifications(mConnectedHosts[0], false);
+    mConnectedHosts.erase(0);
   }
 }
 

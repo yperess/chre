@@ -58,7 +58,6 @@ class RpcServer : public NonCopyable {
   };
 
   RpcServer() : mHostOutput(mPermission), mNanoappOutput(mPermission) {}
-  ~RpcServer();
 
   /**
    * Registers services to the server and to CHRE.
@@ -115,6 +114,13 @@ class RpcServer : public NonCopyable {
    */
   bool handleEvent(uint32_t senderInstanceId, uint16_t eventType,
                    const void *eventData);
+
+  /**
+   * Close all connections to the server.
+   *
+   * Must be called from the nanoapp end.
+   */
+  void close();
 
  private:
   /**

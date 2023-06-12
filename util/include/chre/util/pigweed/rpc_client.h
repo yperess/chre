@@ -46,10 +46,6 @@ class RpcClient : public NonCopyable {
   explicit RpcClient(uint64_t serverNanoappId)
       : mServerNanoappId((serverNanoappId)) {}
 
-  ~RpcClient() {
-    chreConfigureNanoappInfoEvents(false);
-  }
-
   /**
    * Handles events related to RPC services.
    *
@@ -86,6 +82,11 @@ class RpcClient : public NonCopyable {
    * @return whether the service is published by the server.
    */
   bool hasService(uint64_t id, uint32_t version);
+
+  /**
+   * Must be called from nanoapp end.
+   */
+  void close();
 
  private:
   /**

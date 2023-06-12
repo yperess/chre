@@ -186,7 +186,7 @@ TEST_F(TestBase, PwRpcRegisterServicesShouldGracefullyFailOnDuplicatedService) {
    public:
     bool start() override {
       static RpcTestService testService;
-      EnvSingleton::init();
+
       chre::RpcServer::Service service = {.service = testService,
                                           .id = 0xca8f7150a3f05847,
                                           .version = 0x01020034};
@@ -201,9 +201,16 @@ TEST_F(TestBase, PwRpcRegisterServicesShouldGracefullyFailOnDuplicatedService) {
 
       return status;
     }
+
+    void end() override {
+      EnvSingleton::get()->closeServer();
+    }
   };
 
+  EnvSingleton::init();
   uint64_t appId = loadNanoapp(MakeUnique<App>());
+  unloadNanoapp(appId);
+  EnvSingleton::deinit();
 }
 
 TEST_F(TestBase, PwRpcGetNanoappInfoByAppIdReturnsServices) {
@@ -302,6 +309,10 @@ TEST_F(TestBase, PwRpcClientNanoappCanRequestServerNanoapp) {
         }
       }
     }
+
+    void end() {
+      EnvSingleton::get()->closeClient();
+    }
   };
 
   class ServerApp : public TestNanoapp {
@@ -309,7 +320,6 @@ TEST_F(TestBase, PwRpcClientNanoappCanRequestServerNanoapp) {
     ServerApp() : TestNanoapp(TestNanoappInfo{.id = kPwRcpServerAppId}) {}
 
     bool start() override {
-      EnvSingleton::init();
       chre::RpcServer::Service service = {
           .service = EnvSingleton::get()->mRpcTestService,
           .id = 0xca8f7150a3f05847,
@@ -322,8 +332,13 @@ TEST_F(TestBase, PwRpcClientNanoappCanRequestServerNanoapp) {
       EnvSingleton::get()->mServer.handleEvent(senderInstanceId, eventType,
                                                eventData);
     }
+
+    void end() {
+      EnvSingleton::get()->closeServer();
+    }
   };
 
+  EnvSingleton::init();
   uint64_t serverId = loadNanoapp(MakeUnique<ServerApp>());
   uint64_t clientId = loadNanoapp(MakeUnique<ClientApp>());
   bool status;
@@ -333,6 +348,9 @@ TEST_F(TestBase, PwRpcClientNanoappCanRequestServerNanoapp) {
   waitForEvent(INCREMENT_REQUEST, &status);
   EXPECT_TRUE(status);
   EXPECT_EQ(EnvSingleton::get()->mNumber, kNumber + 1);
+  unloadNanoapp(serverId);
+  unloadNanoapp(clientId);
+  EnvSingleton::deinit();
 }
 
 TEST_F(TestBase, PwRpcRpcClientHasServiceCheckForAMatchingService) {

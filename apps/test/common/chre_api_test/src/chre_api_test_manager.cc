@@ -459,7 +459,7 @@ bool ChreApiTestManager::start() {
 }
 
 void ChreApiTestManager::end() {
-  // do nothing
+  mServer.close();
 }
 
 void ChreApiTestManager::handleEvent(uint32_t senderInstanceId,

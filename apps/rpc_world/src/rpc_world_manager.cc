@@ -146,6 +146,8 @@ void RpcWorldManager::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
 }
 
 void RpcWorldManager::end() {
+  mServer.close();
+  mClient.close();
   if (mTimerId != CHRE_TIMER_INVALID) {
     chreTimerCancel(mTimerId);
   }

@@ -58,6 +58,10 @@ bool RpcClient::hasService(uint64_t id, uint32_t version) {
   return false;
 }
 
+void RpcClient::close() {
+  chreConfigureNanoappInfoEvents(false);
+}
+
 bool RpcClient::handleMessageFromServer(uint32_t senderInstanceId,
                                         const void *eventData) {
   auto data = static_cast<const chre::ChrePigweedNanoappMessage *>(eventData);
