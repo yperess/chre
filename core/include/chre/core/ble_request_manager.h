@@ -213,8 +213,8 @@ class BleRequestManager : public NonCopyable {
   // Current state of the platform.
   BleRequest mActivePlatformRequest;
 
-  // True if a request from the PAL is currently pending.
-  bool mInternalRequestPending;
+  // True if a platform request is in progress.
+  bool mPlatformRequestInProgress;
 
   // True if a state resync request is pending to be processed.
   bool mResyncPending;
@@ -394,12 +394,6 @@ class BleRequestManager : public NonCopyable {
    * @param forceUpdate if true force the platform BLE request to be made.
    */
   void updatePlatformRequest(bool forceUpdate = false);
-
-  /**
-   * @return true if an async response is pending from BLE. This method should
-   * be used to check if a BLE platform request is in progress.
-   */
-  bool asyncResponsePending() const;
 
   /**
    * Validates the parameters given to ensure that they can be issued to the

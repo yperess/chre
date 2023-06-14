@@ -171,7 +171,7 @@ bool BleRequestManager::configure(BleRequest &&request) {
       success = updateRequests(std::move(request), hasExistingRequest,
                                &requestChanged, &requestIndex);
       if (success) {
-        if (!asyncResponsePending()) {
+        if (!mPlatformRequestInProgress) {
           if (!requestChanged) {
             handleAsyncResult(instanceId, enabled, true /* success */,
                               CHRE_ERROR_NONE);
@@ -219,6 +219,7 @@ bool BleRequestManager::controlPlatform() {
         req.setRequestStatus(RequestStatus::PENDING_RESP);
       }
     }
+    mPlatformRequestInProgress = true;
   }
 
   return success;
@@ -266,27 +267,21 @@ void BleRequestManager::handlePlatformChangeSync(bool enable,
     success = false;
     CHRE_ASSERT_LOG(false, "Unable to stop BLE scan");
   }
-  if (mInternalRequestPending) {
-    mInternalRequestPending = false;
-    if (!success) {
-      LOGE("Failed to resync BLE platform");
-    }
-  } else {
-    for (BleRequest &req : mRequests.getMutableRequests()) {
-      if (req.getRequestStatus() == RequestStatus::PENDING_RESP) {
-        handleAsyncResult(req.getInstanceId(), req.isEnabled(), success,
-                          errorCode);
-        if (success) {
-          req.setRequestStatus(RequestStatus::APPLIED);
-        }
+
+  mPlatformRequestInProgress = false;
+  for (BleRequest &req : mRequests.getMutableRequests()) {
+    if (req.getRequestStatus() == RequestStatus::PENDING_RESP) {
+      handleAsyncResult(req.getInstanceId(), req.isEnabled(), success,
+                        errorCode);
+      if (success) {
+        req.setRequestStatus(RequestStatus::APPLIED);
       }
     }
-
-    if (!success) {
-      mRequests.removeRequests(RequestStatus::PENDING_RESP);
-    }
   }
-  if (success) {
+
+  if (!success) {
+    mRequests.removeRequests(RequestStatus::PENDING_RESP);
+  } else {
     // No need to waste memory for requests that have no effect on the overall
     // maximal request.
     mRequests.removeDisabledRequests();
@@ -301,7 +296,7 @@ void BleRequestManager::handlePlatformChangeSync(bool enable,
   if (mResyncPending) {
     if (success) {
       mResyncPending = false;
-    } else if (!success && !asyncResponsePending()) {
+    } else if (!success && !mPlatformRequestInProgress) {
       mResyncPending = false;
       updatePlatformRequest(true /* forceUpdate */);
     }
@@ -311,7 +306,7 @@ void BleRequestManager::handlePlatformChangeSync(bool enable,
   // If both a resync and a setting change are pending, prioritize the resync.
   // If the resync successfully completes, the PAL will be in the correct state
   // and updatePlatformRequest will not begin a new request.
-  if (mSettingChangePending && !asyncResponsePending()) {
+  if (mSettingChangePending && !mPlatformRequestInProgress) {
     updatePlatformRequest();
     mSettingChangePending = false;
   }
@@ -374,7 +369,7 @@ void BleRequestManager::handleRequestStateResyncCallback() {
 }
 
 void BleRequestManager::handleRequestStateResyncCallbackSync() {
-  if (asyncResponsePending()) {
+  if (mPlatformRequestInProgress) {
     mResyncPending = true;
   } else {
     updatePlatformRequest(true /* forceUpdate */);
@@ -476,7 +471,7 @@ bool BleRequestManager::getScanStatus(struct chreBleScanStatus * /* status */) {
 
 void BleRequestManager::onSettingChanged(Setting setting, bool /* state */) {
   if (setting == Setting::BLE_AVAILABLE) {
-    if (asyncResponsePending()) {
+    if (mPlatformRequestInProgress) {
       mSettingChangePending = true;
     } else {
       updatePlatformRequest();
@@ -492,7 +487,6 @@ void BleRequestManager::updatePlatformRequest(bool forceUpdate) {
 
   if (updatePlatform) {
     if (controlPlatform()) {
-      mInternalRequestPending = true;
       addBleRequestLog(CHRE_INSTANCE_ID, desiredPlatformState,
                        mRequests.getRequests().size(),
                        true /* compliesWithBleSetting */);
@@ -500,11 +494,6 @@ void BleRequestManager::updatePlatformRequest(bool forceUpdate) {
       FATAL_ERROR("Failed to send update BLE platform request");
     }
   }
-}
-
-bool BleRequestManager::asyncResponsePending() const {
-  return (mInternalRequestPending ||
-          mRequests.hasRequests(RequestStatus::PENDING_RESP));
 }
 
 bool BleRequestManager::validateParams(const BleRequest &request) {
@@ -557,7 +546,7 @@ void BleRequestManager::logStateToBuffer(DebugDumpWrapper &debugDump) const {
   debugDump.print(" Active Platform Request:\n");
   mActivePlatformRequest.logStateToBuffer(debugDump,
                                           true /* isPlatformRequest */);
-  if (asyncResponsePending()) {
+  if (mPlatformRequestInProgress) {
     debugDump.print(" Pending Platform Request:\n");
     mPendingPlatformRequest.logStateToBuffer(debugDump,
                                              true /* isPlatformRequest */);
