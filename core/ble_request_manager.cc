@@ -290,47 +290,35 @@ void BleRequestManager::handlePlatformChangeSync(bool enable,
     mActivePlatformRequest = std::move(mPendingPlatformRequest);
   }
 
-  dispatchPendingRequests();
+  if (mRequests.hasRequests(RequestStatus::PENDING_REQ)) {
+    dispatchPendingRequests();
+  } else if (!success && mResyncPending) {
+    updatePlatformRequest(true /* forceUpdate */);
+  }
 
-  // Only clear mResyncPending if the request succeeded or after all pending
-  // requests are dispatched and a resync request can be issued with only the
-  // requests that were previously applied.
-  if (mResyncPending) {
-    if (success) {
-      mResyncPending = false;
-    } else if (!success && !mPlatformRequestInProgress) {
-      mResyncPending = false;
-      updatePlatformRequest(true /* forceUpdate */);
-    }
-  }
-  // Finish dispatching pending requests before processing the setting change
-  // request to ensure nanoapps receive CHRE_ERROR_FUNCTION_DISABLED responses.
-  // If both a resync and a setting change are pending, prioritize the resync.
-  // If the resync successfully completes, the PAL will be in the correct state
-  // and updatePlatformRequest will not begin a new request.
-  if (mSettingChangePending && !mPlatformRequestInProgress) {
+  if (!mPlatformRequestInProgress && mSettingChangePending) {
     updatePlatformRequest();
-    mSettingChangePending = false;
   }
+
+  mResyncPending = false;
+  mSettingChangePending = false;
 }
 
 void BleRequestManager::dispatchPendingRequests() {
-  if (mRequests.hasRequests(RequestStatus::PENDING_REQ)) {
-    uint8_t errorCode = CHRE_ERROR_NONE;
-    if (!bleSettingEnabled() && mRequests.isMaximalRequestEnabled()) {
-      errorCode = CHRE_ERROR_FUNCTION_DISABLED;
-    } else if (!controlPlatform()) {
-      errorCode = CHRE_ERROR;
-    }
-    if (errorCode != CHRE_ERROR_NONE) {
-      for (const BleRequest &req : mRequests.getRequests()) {
-        if (req.getRequestStatus() == RequestStatus::PENDING_REQ) {
-          handleAsyncResult(req.getInstanceId(), req.isEnabled(),
-                            false /* success */, errorCode);
-        }
+  uint8_t errorCode = CHRE_ERROR_NONE;
+  if (!bleSettingEnabled() && mRequests.isMaximalRequestEnabled()) {
+    errorCode = CHRE_ERROR_FUNCTION_DISABLED;
+  } else if (!controlPlatform()) {
+    errorCode = CHRE_ERROR;
+  }
+  if (errorCode != CHRE_ERROR_NONE) {
+    for (const BleRequest &req : mRequests.getRequests()) {
+      if (req.getRequestStatus() == RequestStatus::PENDING_REQ) {
+        handleAsyncResult(req.getInstanceId(), req.isEnabled(),
+                          false /* success */, errorCode);
       }
-      mRequests.removeRequests(RequestStatus::PENDING_REQ);
     }
+    mRequests.removeRequests(RequestStatus::PENDING_REQ);
   }
 }
 
