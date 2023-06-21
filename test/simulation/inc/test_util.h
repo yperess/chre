@@ -27,6 +27,9 @@
 #include "test_event_queue.h"
 
 namespace chre {
+
+constexpr uint64_t kDefaultTestNanoappId = 0x0123456789abcdef;
+
 /**
  * Unregister all nanoapps.
  *
@@ -40,7 +43,7 @@ void unregisterAllTestNanoapps();
  */
 struct TestNanoappInfo {
   const char *name = "Test";
-  uint64_t id = 0x0123456789abcdef;
+  uint64_t id = kDefaultTestNanoappId;
   uint32_t version = 0;
   uint32_t perms = NanoappPermissions::CHRE_PERMS_NONE;
 };
