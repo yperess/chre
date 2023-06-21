@@ -136,11 +136,12 @@ ScopedAStatus MultiClientContextHubBase::loadNanoapp(
       transactionId, appBinary.nanoappId, appBinary.nanoappVersion,
       appBinary.flags, targetApiVersion, appBinary.customBinary,
       mConnection->getLoadFragmentSizeBytes());
+  pid_t pid = AIBinder_getCallingPid();
   if (!mHalClientManager->registerPendingLoadTransaction(
-          std::move(transaction))) {
+          pid, std::move(transaction))) {
     return fromResult(false);
   }
-  auto clientId = mHalClientManager->getClientId();
+  auto clientId = mHalClientManager->getClientId(pid);
   auto request = mHalClientManager->getNextFragmentedLoadRequest();
 
   if (request.has_value() &&
@@ -173,10 +174,12 @@ ScopedAStatus MultiClientContextHubBase::unloadNanoapp(int32_t contextHubId,
   if (!isValidContextHubId(contextHubId)) {
     return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
   }
-  if (!mHalClientManager->registerPendingUnloadTransaction(transactionId)) {
+  pid_t pid = AIBinder_getCallingPid();
+  if (!mHalClientManager->registerPendingUnloadTransaction(pid,
+                                                           transactionId)) {
     return fromResult(false);
   }
-  HalClientId clientId = mHalClientManager->getClientId();
+  HalClientId clientId = mHalClientManager->getClientId(pid);
   flatbuffers::FlatBufferBuilder builder(64);
   HostProtocolHost::encodeUnloadNanoappRequest(
       builder, transactionId, appId, /* allowSystemNanoappUnload= */ false);
@@ -263,9 +266,9 @@ ScopedAStatus MultiClientContextHubBase::queryNanoapps(int32_t contextHubId) {
   }
   flatbuffers::FlatBufferBuilder builder(64);
   HostProtocolHost::encodeNanoappListRequest(builder);
-  HostProtocolHost::mutateHostClientId(builder.GetBufferPointer(),
-                                       builder.GetSize(),
-                                       mHalClientManager->getClientId());
+  HostProtocolHost::mutateHostClientId(
+      builder.GetBufferPointer(), builder.GetSize(),
+      mHalClientManager->getClientId(AIBinder_getCallingPid()));
   return fromResult(mConnection->sendMessage(builder));
 }
 
@@ -299,12 +302,18 @@ ScopedAStatus MultiClientContextHubBase::registerCallback(
     LOGE("Callback of context hub HAL must not be null");
     return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
   }
-  // If everything is successful cookie will be released by the callback of
-  // binder unlinking (callback overridden).
-  auto *cookie = new HalDeathRecipientCookie(this, AIBinder_getCallingPid());
-  if (!mHalClientManager->registerCallback(callback, mDeathRecipient, cookie)) {
-    LOGE("Unable to register the callback");
+  pid_t pid = AIBinder_getCallingPid();
+  auto *cookie = new HalDeathRecipientCookie(this, pid);
+  if (AIBinder_linkToDeath(callback->asBinder().get(), mDeathRecipient.get(),
+                           cookie) != STATUS_OK) {
+    LOGE("Failed to link a client binder (pid=%d) to the death recipient", pid);
     delete cookie;
+    return fromResult(false);
+  }
+  // If AIBinder_linkToDeath is successful the cookie will be released by the
+  // callback of binder unlinking (callback overridden).
+  if (!mHalClientManager->registerCallback(pid, callback, cookie)) {
+    LOGE("Unable to register a client (pid=%d) callback", pid);
     return fromResult(false);
   }
   return ScopedAStatus::ok();
@@ -348,9 +357,9 @@ ScopedAStatus MultiClientContextHubBase::onHostEndpointConnected(
   }
 
   uint16_t endpointId = info.hostEndpointId;
-  if (!mHalClientManager->registerEndpointId(info.hostEndpointId) ||
-      !mHalClientManager->mutateEndpointIdFromHostIfNeeded(
-          AIBinder_getCallingPid(), endpointId)) {
+  pid_t pid = AIBinder_getCallingPid();
+  if (!mHalClientManager->registerEndpointId(pid, info.hostEndpointId) ||
+      !mHalClientManager->mutateEndpointIdFromHostIfNeeded(pid, endpointId)) {
     return fromServiceError(HalErrorCode::INVALID_ARGUMENT);
   }
   flatbuffers::FlatBufferBuilder builder(64);
@@ -363,10 +372,11 @@ ScopedAStatus MultiClientContextHubBase::onHostEndpointConnected(
 ScopedAStatus MultiClientContextHubBase::onHostEndpointDisconnected(
     char16_t in_hostEndpointId) {
   HostEndpointId hostEndpointId = in_hostEndpointId;
+  pid_t pid = AIBinder_getCallingPid();
   bool isSuccessful = false;
-  if (mHalClientManager->removeEndpointId(hostEndpointId) &&
-      mHalClientManager->mutateEndpointIdFromHostIfNeeded(
-          AIBinder_getCallingPid(), hostEndpointId)) {
+  if (mHalClientManager->removeEndpointId(pid, hostEndpointId) &&
+      mHalClientManager->mutateEndpointIdFromHostIfNeeded(pid,
+                                                          hostEndpointId)) {
     flatbuffers::FlatBufferBuilder builder(64);
     HostProtocolHost::encodeHostEndpointDisconnected(builder, hostEndpointId);
     isSuccessful = mConnection->sendMessage(builder);
@@ -674,7 +684,7 @@ void MultiClientContextHubBase::handleClientDeath(pid_t clientPid) {
       mConnection->sendMessage(builder);
     }
   }
-  mHalClientManager->handleClientDeath(clientPid, mDeathRecipient);
+  mHalClientManager->handleClientDeath(clientPid);
 }
 
 void MultiClientContextHubBase::onChreRestarted() {

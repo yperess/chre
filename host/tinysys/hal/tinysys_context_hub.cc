@@ -26,7 +26,16 @@ TinysysContextHub::TinysysContextHub() {
         delete static_cast<HalDeathRecipientCookie *>(cookie);
       });
   mConnection = std::make_unique<TinysysChreConnection>(this);
-  mHalClientManager = std::make_unique<HalClientManager>();
+  auto deadClientUnlinker =
+      [&deathRecipient = mDeathRecipient](
+          const std::shared_ptr<IContextHubCallback> &callback,
+          void *deathRecipientCookie) {
+        return AIBinder_unlinkToDeath(callback->asBinder().get(),
+                                      deathRecipient.get(),
+                                      deathRecipientCookie) == STATUS_OK;
+      };
+  mHalClientManager = std::make_unique<HalClientManager>(
+      deadClientUnlinker, kClientIdMappingFilePath);
   mPreloadedNanoappLoader = std::make_unique<PreloadedNanoappLoader>(
       mConnection.get(), kPreloadedNanoappsConfigPath);
   if (mConnection->init()) {

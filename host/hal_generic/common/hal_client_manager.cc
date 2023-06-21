@@ -26,9 +26,11 @@ using aidl::android::hardware::contexthub::AsyncEventType;
 using aidl::android::hardware::contexthub::ContextHubMessage;
 using aidl::android::hardware::contexthub::HostEndpointInfo;
 using aidl::android::hardware::contexthub::IContextHubCallback;
+using HalClient = HalClientManager::HalClient;
 
 namespace {
-bool getClientMappingsFromFile(const char *filePath, Json::Value &mappings) {
+bool getClientMappingsFromFile(const std::string &filePath,
+                               Json::Value &mappings) {
   std::fstream file(filePath);
   Json::CharReaderBuilder builder;
   return file.good() &&
@@ -36,175 +38,160 @@ bool getClientMappingsFromFile(const char *filePath, Json::Value &mappings) {
 }
 }  // namespace
 
-std::optional<HalClientId> HalClientManager::createClientIdLocked(
-    const std::string &processName) {
-  if (mPIdsToClientIds.size() > kMaxNumOfHalClients ||
+HalClient *HalClientManager::getClientByField(
+    const std::function<bool(const HalClient &client)> &fieldMatcher) {
+  for (auto &client : mClients) {
+    if (fieldMatcher(client)) {
+      return &client;
+    }
+  }
+  return nullptr;
+}
+
+HalClient *HalClientManager::getClientByClientIdLocked(HalClientId clientId) {
+  return getClientByField([&clientId](const HalClient &client) {
+    return client.clientId == clientId;
+  });
+}
+
+HalClient *HalClientManager::getClientByUuidLocked(const std::string &uuid) {
+  return getClientByField(
+      [&uuid](const HalClient &client) { return client.uuid == uuid; });
+}
+
+HalClient *HalClientManager::getClientByProcessIdLocked(pid_t pid) {
+  return getClientByField(
+      [&pid](const HalClient &client) { return client.pid == pid; });
+}
+
+bool HalClientManager::createClientLocked(
+    const std::string &uuid, pid_t pid,
+    const std::shared_ptr<IContextHubCallback> &callback,
+    void *deathRecipientCookie) {
+  if (mClients.size() > kMaxNumOfHalClients ||
       mNextClientId > kMaxHalClientId) {
     LOGE("Too many HAL clients registered which should never happen.");
-    return std::nullopt;
+    return false;
   }
-  if (mProcessNamesToClientIds.find(processName) !=
-      mProcessNamesToClientIds.end()) {
-    return mProcessNamesToClientIds[processName];
-  }
+  mClients.emplace_back(uuid, mNextClientId, pid, callback,
+                        deathRecipientCookie);
   // Update the json list with the new mapping
-  mProcessNamesToClientIds.emplace(processName, mNextClientId);
   Json::Value mappings;
-  for (const auto &[name, clientId] : mProcessNamesToClientIds) {
+  for (const auto &client : mClients) {
     Json::Value mapping;
-    mapping[kJsonProcessName] = name;
-    mapping[kJsonClientId] = clientId;
+    mapping[kJsonUuid] = client.uuid;
+    mapping[kJsonClientId] = client.clientId;
     mappings.append(mapping);
   }
   // write to the file; Create the file if it doesn't exist
   Json::StreamWriterBuilder factory;
   std::unique_ptr<Json::StreamWriter> const writer(factory.newStreamWriter());
-  std::ofstream fileStream(kClientMappingFilePath);
+  std::ofstream fileStream(mClientMappingFilePath);
   writer->write(mappings, &fileStream);
   fileStream << std::endl;
-  return {mNextClientId++};
+  mNextClientId++;
+  return true;
 }
 
-HalClientId HalClientManager::getClientId() {
-  pid_t pid = AIBinder_getCallingPid();
+HalClientId HalClientManager::getClientId(pid_t pid) {
   const std::lock_guard<std::mutex> lock(mLock);
-  if (isKnownPIdLocked(pid)) {
-    return mPIdsToClientIds[pid];
+  const HalClient *client = getClientByProcessIdLocked(pid);
+  if (client == nullptr) {
+    LOGE("Failed to find the client id for pid %d", pid);
+    return kDefaultHalClientId;
   }
-  LOGE("Failed to find the client id for pid %d", pid);
-  return kDefaultHalClientId;
+  return client->clientId;
 }
 
 std::shared_ptr<IContextHubCallback> HalClientManager::getCallback(
     HalClientId clientId) {
   const std::lock_guard<std::mutex> lock(mLock);
-  if (isAllocatedClientIdLocked(clientId)) {
-    return mClientIdsToClientInfo.at(clientId).callback;
+  const HalClient *client = getClientByClientIdLocked(clientId);
+  if (client == nullptr) {
+    LOGE("Failed to find the callback for the client id %" PRIu16, clientId);
+    return nullptr;
   }
-  LOGE("Failed to find the callback for the client id %" PRIu16, clientId);
-  return nullptr;
+  return client->callback;
 }
 
 bool HalClientManager::registerCallback(
-    const std::shared_ptr<IContextHubCallback> &callback,
-    const ndk::ScopedAIBinder_DeathRecipient &deathRecipient,
-    void *deathRecipientCookie) {
-  pid_t pid = AIBinder_getCallingPid();
-  const std::lock_guard<std::mutex> lock(mLock);
-  if (AIBinder_linkToDeath(callback->asBinder().get(), deathRecipient.get(),
-                           deathRecipientCookie) != STATUS_OK) {
-    LOGE("Failed to link client binder to death recipient.");
-    return false;
-  }
-  if (isKnownPIdLocked(pid)) {
-    LOGW("The pid %d has already registered. Overriding its callback.", pid);
-    return overrideCallbackLocked(pid, callback, deathRecipient,
-                                  deathRecipientCookie);
-  }
-  std::string processName = getProcessName(pid);
-  std::optional<HalClientId> clientIdOptional =
-      createClientIdLocked(processName);
-  if (clientIdOptional == std::nullopt) {
-    LOGE("Failed to generate a valid client id for process %s",
-         processName.c_str());
-    return false;
-  }
-  HalClientId clientId = clientIdOptional.value();
-  if (mClientIdsToClientInfo.find(clientId) != mClientIdsToClientInfo.end()) {
-    LOGE("Process %s already has a connection to HAL.", processName.c_str());
-    return false;
-  }
-  mPIdsToClientIds[pid] = clientId;
-  mClientIdsToClientInfo.emplace(clientId,
-                                 HalClientInfo(callback, deathRecipientCookie));
-  if (mFrameworkServiceClientId == kDefaultHalClientId &&
-      processName == kSystemServerName) {
-    mFrameworkServiceClientId = clientId;
-  }
-  return true;
-}
-
-bool HalClientManager::overrideCallbackLocked(
     pid_t pid, const std::shared_ptr<IContextHubCallback> &callback,
-    const ndk::ScopedAIBinder_DeathRecipient &deathRecipient,
     void *deathRecipientCookie) {
-  LOGI("Overriding the callback for pid %d", pid);
-  HalClientInfo &clientInfo =
-      mClientIdsToClientInfo.at(mPIdsToClientIds.at(pid));
-  if (AIBinder_unlinkToDeath(clientInfo.callback->asBinder().get(),
-                             deathRecipient.get(),
-                             clientInfo.deathRecipientCookie) != STATUS_OK) {
-    LOGE("Unable to unlink the old callback for pid %d", pid);
-    return false;
+  const std::lock_guard<std::mutex> lock(mLock);
+  HalClient *client = getClientByProcessIdLocked(pid);
+  if (client != nullptr) {
+    LOGW("The pid %d has already registered. Overriding its callback.", pid);
+    if (!mDeadClientUnlinker(client->callback, client->deathRecipientCookie)) {
+      LOGE("Unable to unlink the old callback for pid %d", pid);
+      return false;
+    }
+    client->callback.reset();
+    client->callback = callback;
+    client->deathRecipientCookie = deathRecipientCookie;
+    return true;
   }
-  clientInfo.callback.reset();
-  clientInfo.callback = callback;
-  clientInfo.deathRecipientCookie = deathRecipientCookie;
-  return true;
+  std::string uuid = getUuidLocked();
+  client = getClientByUuidLocked(uuid);
+  if (client != nullptr) {
+    if (client->pid != HalClient::PID_UNSET) {
+      // A client is trying to connect to HAL from a different process. But the
+      // previous connection is still active because otherwise the pid will be
+      // cleared in handleClientDeath().
+      LOGE("Client (uuid=%s) already has a connection to HAL.", uuid.c_str());
+      return false;
+    }
+    // For a known client the previous assigned clientId will be reused.
+    client->reset(/* processId= */ pid,
+                  /* contextHubCallback= */ callback,
+                  /* cookie= */ deathRecipientCookie);
+    return true;
+  }
+  return createClientLocked(uuid, pid, callback, deathRecipientCookie);
 }
 
-void HalClientManager::handleClientDeath(
-    pid_t pid, const ndk::ScopedAIBinder_DeathRecipient &deathRecipient) {
+void HalClientManager::handleClientDeath(pid_t pid) {
   const std::lock_guard<std::mutex> lock(mLock);
-  if (!isKnownPIdLocked(pid)) {
+  HalClient *client = getClientByProcessIdLocked(pid);
+  if (client == nullptr) {
     LOGE("Failed to locate the dead pid %d", pid);
     return;
   }
-  HalClientId clientId = mPIdsToClientIds[pid];
-  mPIdsToClientIds.erase(mPIdsToClientIds.find(pid));
-  if (!isAllocatedClientIdLocked(clientId)) {
-    LOGE("Failed to locate the dead client id %" PRIu16, clientId);
-    return;
-  }
 
-  for (const auto &[procName, id] : mProcessNamesToClientIds) {
-    if (id == clientId && procName == kSystemServerName) {
-      LOGE("System server is disconnected");
-      mIsFirstClient = true;
-    }
-  }
-
-  HalClientInfo &clientInfo = mClientIdsToClientInfo.at(clientId);
-  if (AIBinder_unlinkToDeath(clientInfo.callback->asBinder().get(),
-                             deathRecipient.get(),
-                             clientInfo.deathRecipientCookie) != STATUS_OK) {
+  if (!mDeadClientUnlinker(client->callback, client->deathRecipientCookie)) {
     LOGE("Unable to unlink the old callback for pid %d in death handler", pid);
   }
-  clientInfo.callback.reset();
+  client->reset(/* processId= */ HalClient::PID_UNSET,
+                /* contextHubCallback= */ nullptr, /* cookie= */ nullptr);
+
   if (mPendingLoadTransaction.has_value() &&
-      mPendingLoadTransaction->clientId == clientId) {
+      mPendingLoadTransaction->clientId == client->clientId) {
     mPendingLoadTransaction.reset();
   }
   if (mPendingUnloadTransaction.has_value() &&
-      mPendingUnloadTransaction->clientId == clientId) {
+      mPendingUnloadTransaction->clientId == client->clientId) {
     mPendingLoadTransaction.reset();
-  }
-  mClientIdsToClientInfo.erase(clientId);
-  if (mFrameworkServiceClientId == clientId) {
-    mFrameworkServiceClientId = kDefaultHalClientId;
   }
   LOGI("Process %" PRIu32 " is disconnected from HAL.", pid);
 }
 
 bool HalClientManager::registerPendingLoadTransaction(
-    std::unique_ptr<chre::FragmentedLoadTransaction> transaction) {
+    pid_t pid, std::unique_ptr<chre::FragmentedLoadTransaction> transaction) {
   if (transaction->isComplete()) {
     LOGW("No need to register a completed load transaction.");
     return false;
   }
-  pid_t pid = AIBinder_getCallingPid();
 
   const std::lock_guard<std::mutex> lock(mLock);
-  if (!isKnownPIdLocked(pid)) {
+  const HalClient *client = getClientByProcessIdLocked(pid);
+  if (client == nullptr) {
     LOGE("Unknown HAL client when registering its pending load transaction.");
     return false;
   }
-  auto clientId = mPIdsToClientIds[pid];
-  if (!isNewTransactionAllowedLocked(clientId)) {
+  if (!isNewTransactionAllowedLocked(client->clientId)) {
     return false;
   }
   mPendingLoadTransaction.emplace(
-      clientId, /* registeredTimeMs= */ android::elapsedRealtime(),
+      client->clientId, /* registeredTimeMs= */ android::elapsedRealtime(),
       /* currentFragmentId= */ 0, std::move(transaction));
   return true;
 }
@@ -228,19 +215,18 @@ HalClientManager::getNextFragmentedLoadRequest() {
 }
 
 bool HalClientManager::registerPendingUnloadTransaction(
-    uint32_t transactionId) {
-  pid_t pid = AIBinder_getCallingPid();
+    pid_t pid, uint32_t transactionId) {
   const std::lock_guard<std::mutex> lock(mLock);
-  if (!isKnownPIdLocked(pid)) {
+  const HalClient *client = getClientByProcessIdLocked(pid);
+  if (client == nullptr) {
     LOGE("Unknown HAL client when registering its pending unload transaction.");
     return false;
   }
-  auto clientId = mPIdsToClientIds[pid];
-  if (!isNewTransactionAllowedLocked(clientId)) {
+  if (!isNewTransactionAllowedLocked(client->clientId)) {
     return false;
   }
   mPendingUnloadTransaction.emplace(
-      clientId, transactionId,
+      client->clientId, transactionId,
       /* registeredTimeMs= */ android::elapsedRealtime());
   return true;
 }
@@ -293,79 +279,84 @@ bool HalClientManager::isNewTransactionAllowedLocked(HalClientId clientId) {
   return true;
 }
 
-bool HalClientManager::registerEndpointId(const HostEndpointId &endpointId) {
-  pid_t pid = AIBinder_getCallingPid();
+bool HalClientManager::registerEndpointId(pid_t pid,
+                                          const HostEndpointId &endpointId) {
   const std::lock_guard<std::mutex> lock(mLock);
-  if (!isKnownPIdLocked(pid)) {
+  HalClient *client = getClientByProcessIdLocked(pid);
+  if (client == nullptr) {
     LOGE(
         "Unknown HAL client (pid %d). Register the callback before registering "
         "an endpoint.",
         pid);
     return false;
   }
-  HalClientId clientId = mPIdsToClientIds[pid];
-  if (!isValidEndpointId(clientId, endpointId)) {
+  if (!isValidEndpointId(client, endpointId)) {
     LOGE("Endpoint id %" PRIu16 " from process %d is out of range.", endpointId,
          pid);
     return false;
   }
-  if (mClientIdsToClientInfo[clientId].endpointIds.find(endpointId) !=
-      mClientIdsToClientInfo[clientId].endpointIds.end()) {
+  if (client->endpointIds.find(endpointId) != client->endpointIds.end()) {
     LOGW("The endpoint %" PRIu16 " is already connected.", endpointId);
     return false;
   }
-  mClientIdsToClientInfo[clientId].endpointIds.insert(endpointId);
+  client->endpointIds.insert(endpointId);
   LOGI("Endpoint id %" PRIu16 " is connected to client %" PRIu16, endpointId,
-       clientId);
+       client->clientId);
   return true;
 }
 
-bool HalClientManager::removeEndpointId(const HostEndpointId &endpointId) {
-  pid_t pid = AIBinder_getCallingPid();
+bool HalClientManager::removeEndpointId(pid_t pid,
+                                        const HostEndpointId &endpointId) {
   const std::lock_guard<std::mutex> lock(mLock);
-  if (!isKnownPIdLocked(pid)) {
+  HalClient *client = getClientByProcessIdLocked(pid);
+  if (client == nullptr) {
     LOGE(
         "Unknown HAL client (pid %d). A callback should have been registered "
         "before removing an endpoint.",
         pid);
     return false;
   }
-  HalClientId clientId = mPIdsToClientIds[pid];
-  if (!isValidEndpointId(clientId, endpointId)) {
+  if (!isValidEndpointId(client, endpointId)) {
     LOGE("Endpoint id %" PRIu16 " from process %d is out of range.", endpointId,
          pid);
     return false;
   }
-  if (mClientIdsToClientInfo[clientId].endpointIds.find(endpointId) ==
-      mClientIdsToClientInfo[clientId].endpointIds.end()) {
+  if (client->endpointIds.find(endpointId) == client->endpointIds.end()) {
     LOGW("The endpoint %" PRIu16 " is not connected.", endpointId);
     return false;
   }
-  mClientIdsToClientInfo[clientId].endpointIds.erase(endpointId);
+  client->endpointIds.erase(endpointId);
   LOGI("Endpoint id %" PRIu16 " is removed from client %" PRIu16, endpointId,
-       clientId);
+       client->clientId);
   return true;
 }
 
 std::shared_ptr<IContextHubCallback> HalClientManager::getCallbackForEndpoint(
-    const HostEndpointId &endpointId) {
+    const HostEndpointId mutatedEndpointId) {
   const std::lock_guard<std::mutex> lock(mLock);
-  HalClientId clientId = getClientIdFromEndpointId(endpointId);
-  if (!isAllocatedClientIdLocked(clientId)) {
+  HalClient *client;
+  if (mutatedEndpointId & kVendorEndpointIdBitMask) {
+    HalClientId clientId =
+        mutatedEndpointId >> kNumOfBitsForEndpointId & kMaxHalClientId;
+    client = getClientByClientIdLocked(clientId);
+  } else {
+    client = getClientByUuidLocked(kSystemServerUuid);
+  }
+  if (client == nullptr) {
     LOGE("Unknown endpoint id %" PRIu16 ". Please register the callback first.",
-         endpointId);
+         mutatedEndpointId);
     return nullptr;
   }
-  return mClientIdsToClientInfo[clientId].callback;
+  return client->callback;
 }
 
 void HalClientManager::sendMessageForAllCallbacks(
     const ContextHubMessage &message,
     const std::vector<std::string> &messageParams) {
   const std::lock_guard<std::mutex> lock(mLock);
-  for (const auto &[_, clientInfo] : mClientIdsToClientInfo) {
-    if (clientInfo.callback != nullptr) {
-      clientInfo.callback->handleContextHubMessage(message, messageParams);
+  for (const auto &client : mClients) {
+    if (client.callback != nullptr) {
+      client.callback->handleContextHubMessage(message, messageParams);
     }
   }
 }
@@ -373,30 +364,26 @@ void HalClientManager::sendMessageForAllCallbacks(
 const std::unordered_set<HostEndpointId>
     *HalClientManager::getAllConnectedEndpoints(pid_t pid) {
   const std::lock_guard<std::mutex> lock(mLock);
-  if (!isKnownPIdLocked(pid)) {
+  const HalClient *client = getClientByProcessIdLocked(pid);
+  if (client == nullptr) {
     LOGE("Unknown HAL client with pid %d", pid);
     return nullptr;
   }
-  HalClientId clientId = mPIdsToClientIds[pid];
-  if (mClientIdsToClientInfo.find(clientId) == mClientIdsToClientInfo.end()) {
-    LOGE("Can't find any information for client id %" PRIu16, clientId);
-    return nullptr;
-  }
-  return &mClientIdsToClientInfo[clientId].endpointIds;
+  return &(client->endpointIds);
 }
 
 bool HalClientManager::mutateEndpointIdFromHostIfNeeded(
-    const pid_t &pid, HostEndpointId &endpointId) {
+    pid_t pid, HostEndpointId &endpointId) {
   const std::lock_guard<std::mutex> lock(mLock);
-  if (!isKnownPIdLocked(pid)) {
+  const HalClient *client = getClientByProcessIdLocked(pid);
+  if (client == nullptr) {
     LOGE("Unknown HAL client with pid %d", pid);
     return false;
   }
   // no need to mutate client id for framework service
-  if (mPIdsToClientIds[pid] != mFrameworkServiceClientId) {
-    HalClientId clientId = mPIdsToClientIds[pid];
+  if (client->uuid != kSystemServerUuid) {
     endpointId = kVendorEndpointIdBitMask |
-                 clientId << kNumOfBitsForEndpointId | endpointId;
+                 client->clientId << kNumOfBitsForEndpointId | endpointId;
   }
   return true;
 }
@@ -409,26 +396,28 @@ HostEndpointId HalClientManager::convertToOriginalEndpointId(
   return endpointId;
 }
 
-HalClientManager::HalClientManager() {
+HalClientManager::HalClientManager(DeadClientUnlinker deadClientUnlinker,
+                                   const std::string &clientIdMappingFilePath) {
+  mDeadClientUnlinker = std::move(deadClientUnlinker);
+  mClientMappingFilePath = clientIdMappingFilePath;
   // Parses the file to construct a mapping from process names to client ids.
   Json::Value mappings;
-  if (!getClientMappingsFromFile(kClientMappingFilePath, mappings)) {
+  if (!getClientMappingsFromFile(mClientMappingFilePath, mappings)) {
     // TODO(b/247124878): When the device was firstly booted up the file doesn't
     //   exist which is expected. Consider to create a default file to avoid
     //   confusions.
-    LOGW("Unable to find and read %s.", kClientMappingFilePath);
+    LOGW("Unable to find and read %s.", mClientMappingFilePath.c_str());
     return;
   }
   for (int i = 0; i < mappings.size(); i++) {
     Json::Value mapping = mappings[i];
-    if (!mapping.isMember(kJsonClientId) ||
-        !mapping.isMember(kJsonProcessName)) {
+    if (!mapping.isMember(kJsonClientId) || !mapping.isMember(kJsonUuid)) {
       LOGE("Unable to find expected key name for the entry %d", i);
       continue;
     }
-    std::string processName = mapping[kJsonProcessName].asString();
+    std::string uuid = mapping[kJsonUuid].asString();
     auto clientId = static_cast<HalClientId>(mapping[kJsonClientId].asUInt());
-    mProcessNamesToClientIds[processName] = clientId;
+    mClients.emplace_back(uuid, clientId);
     // mNextClientId should always hold the next available client id
     if (mNextClientId <= clientId) {
       mNextClientId = clientId + 1;
@@ -490,13 +479,13 @@ void HalClientManager::handleChreRestart() {
     const std::lock_guard<std::mutex> lock(mLock);
     mPendingLoadTransaction.reset();
     mPendingUnloadTransaction.reset();
-    for (auto &[_, clientInfo] : mClientIdsToClientInfo) {
-      clientInfo.endpointIds.clear();
+    for (auto &client : mClients) {
+      client.endpointIds.clear();
     }
   }
   // Incurs callbacks without holding the lock to avoid deadlocks.
-  for (auto &[_, clientInfo] : mClientIdsToClientInfo) {
-    clientInfo.callback->handleContextHubAsyncEvent(AsyncEventType::RESTARTED);
+  for (auto &client : mClients) {
+    client.callback->handleContextHubAsyncEvent(AsyncEventType::RESTARTED);
   }
 }
 }  // namespace android::hardware::contexthub::common::implementation
