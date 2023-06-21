@@ -86,12 +86,14 @@ COMMAND ARGS...:
                                 in android/hardware/contexthub/Setting.aidl.
   enableTestMode              - enable test mode.
   getContextHubs              - get all the context hubs.
+  getPreloadedNanoappIds      - get a list of ids for the preloaded nanoapps
   list <PATH_OF_NANOAPPS>     - list all the nanoapps' header info in the path.
   load <APP_NAME>             - load the nanoapp specified by the name.
                                 If an absolute path like /path/to/awesome.so,
                                 which is optional, is not provided then default
                                 locations are searched.
   query                       - show all loaded nanoapps (system apps excluded)
+  registerCallback            - register a callback for the current client
   sendMessage <HEX_HOST_ENDPOINT_ID> <HEX_NANOAPP_ID | APP_NAME> <HEX_PAYLOAD>
                               - send a payload to a nanoapp.
   unload <HEX_NANOAPP_ID | APP_NAME>
@@ -193,7 +195,6 @@ class ContextHubCallback : public BnContextHubCallback {
       std::cout << std::hex << static_cast<uint32_t>(data);
     }
     std::cout << std::endl;
-    setPromiseAndRefresh();
     return ScopedAStatus::ok();
   }
 
@@ -228,6 +229,16 @@ class ContextHubCallback : public BnContextHubCallback {
 std::shared_ptr<IContextHub> gContextHub = nullptr;
 std::shared_ptr<ContextHubCallback> gCallback = nullptr;
 
+void registerHostCallback() {
+  if (gCallback != nullptr) {
+    gCallback.reset();
+  }
+  gCallback = ContextHubCallback::make<ContextHubCallback>();
+  if (!gContextHub->registerCallback(kContextHubId, gCallback).isOk()) {
+    throwError("Failed to register the callback");
+  }
+}
+
 /** Initializes gContextHub and register gCallback. */
 std::shared_ptr<IContextHub> getContextHub() {
   if (gContextHub == nullptr) {
@@ -238,11 +249,9 @@ std::shared_ptr<IContextHub> getContextHub() {
       throwError("Could not find Context Hub HAL");
     }
     gContextHub = IContextHub::fromBinder(binder);
-    gCallback = ContextHubCallback::make<ContextHubCallback>();
-
-    if (!gContextHub->registerCallback(kContextHubId, gCallback).isOk()) {
-      throwError("Failed to register the callback");
-    }
+  }
+  if (gCallback == nullptr) {
+    registerHostCallback();
   }
   return gContextHub;
 }
@@ -514,6 +523,15 @@ void disableTestModeOnContextHub() {
   std::cout << "Test mode is disabled" << std::endl;
 }
 
+void getAllPreloadedNanoappIds() {
+  std::vector<int64_t> appIds{};
+  verifyStatus("get preloaded nanoapp ids",
+               getContextHub()->getPreloadedNanoappIds(kContextHubId, &appIds));
+  for (const auto &appId : appIds) {
+    std::cout << "0x" << std::hex << appId << std::endl;
+  }
+}
+
 // Please keep Command in alphabetical order
 enum Command {
   connect,
@@ -524,9 +542,11 @@ enum Command {
   enableSetting,
   enableTestMode,
   getContextHubs,
+  getPreloadedNanoappIds,
   list,
   load,
   query,
+  registerCallback,
   sendMessage,
   unload,
   unsupported
@@ -547,9 +567,11 @@ Command parseCommand(const std::vector<std::string> &cmdLine) {
       {"enableSetting", {enableSetting, 2}},
       {"enableTestMode", {enableTestMode, 1}},
       {"getContextHubs", {getContextHubs, 1}},
+      {"getPreloadedNanoappIds", {getPreloadedNanoappIds, 1}},
       {"list", {list, 2}},
       {"load", {load, 2}},
       {"query", {query, 1}},
+      {"registerCallback", {registerCallback, 1}},
       {"sendMessage", {sendMessage, 4}},
       {"unload", {unload, 2}},
   };
@@ -590,6 +612,10 @@ void executeCommand(std::vector<std::string> cmdLine) {
       getAllContextHubs();
       break;
     }
+    case getPreloadedNanoappIds: {
+      getAllPreloadedNanoappIds();
+      break;
+    }
     case list: {
       std::map<std::string, NanoAppBinaryHeader> nanoapps{};
       readNanoappHeaders(nanoapps, cmdLine[1]);
@@ -605,6 +631,10 @@ void executeCommand(std::vector<std::string> cmdLine) {
     }
     case query: {
       queryNanoapps();
+      break;
+    }
+    case registerCallback: {
+      registerHostCallback();
       break;
     }
     case sendMessage: {
@@ -673,11 +703,11 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     cmdLine.emplace_back(argv[i]);
   }
-  if (cmdLine.size() == 1 && cmdLine[0] == "connect") {
-    connectToHal();
-    return 0;
-  }
   try {
+    if (cmdLine.size() == 1 && cmdLine[0] == "connect") {
+      connectToHal();
+      return 0;
+    }
     executeCommand(cmdLine);
   } catch (std::system_error &e) {
     std::cerr << e.what() << std::endl;
