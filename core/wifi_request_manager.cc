@@ -307,6 +307,7 @@ bool WifiRequestManager::requestRanging(RangingType rangingType,
 }
 
 void WifiRequestManager::handleScanRequestTimeout() {
+  mScanRequestTimeoutHandle = CHRE_TIMER_INVALID;
   if (mPendingScanRequests.empty()) {
     LOGE("Scan Request timer timedout with no pending request.");
   } else {
@@ -315,7 +316,6 @@ void WifiRequestManager::handleScanRequestTimeout() {
     mPendingScanRequests.pop();
     dispatchQueuedScanRequests(true /* postAsyncResult */);
   }
-  mScanRequestTimeoutHandle = CHRE_TIMER_INVALID;
 }
 
 TimerHandle WifiRequestManager::setScanRequestTimer() {
