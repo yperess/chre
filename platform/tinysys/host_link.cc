@@ -29,8 +29,6 @@
 #include "chre/util/flatbuffers/helpers.h"
 #include "chre/util/nested_data_ptr.h"
 
-// TODO(b/265046038): MTK headers are not c++ friendly,
-// should be modified to wrap function proto with "extern C"
 #include "dma_api.h"
 #include "ipi.h"
 #include "ipi_id.h"
@@ -84,7 +82,7 @@ size_t gChreSubregionRecvSize;
 void *gChreSubregionSendAddr;
 size_t gChreSubregionSendSize;
 
-// TODO(b/263958729): move it to HostLinkBase, and revisit buffer size
+// TODO(b/277235389): move it to HostLinkBase, and revisit buffer size
 // payload buffers
 #define CHRE_IPI_RECV_BUFFER_SIZE (CHRE_MESSAGE_TO_HOST_MAX_SIZE + 128)
 uint32_t gChreRecvBuffer[CHRE_IPI_RECV_BUFFER_SIZE / sizeof(uint32_t)]
@@ -175,7 +173,7 @@ bool generateMessageFromBuilder(ChreFlatBufferBuilder *builder) {
 
 bool generateMessageToHost(const HostMessage *message) {
   LOGV("%s: message size %zu", __func__, message->message.size());
-  // TODO(b/263958729): ideally we'd construct our flatbuffer directly in the
+  // TODO(b/285219398): ideally we'd construct our flatbuffer directly in the
   // host-supplied buffer
   constexpr size_t kFixedReserveSize = 80;
   ChreFlatBufferBuilder builder(message->message.size() + kFixedReserveSize);
@@ -292,8 +290,6 @@ bool buildAndEnqueueMessage(PendingMessageType msgType,
   } else {
     msgBuilder(*builder, cookie);
 
-    // TODO(b/263958729): if this fails, ideally we should block for some
-    // timeout until there's space in the queue
     if (!enqueueMessage(PendingMessage(msgType, builder.get()))) {
       LOGE("Couldn't push message type %d to outbound queue",
            static_cast<int>(msgType));
@@ -535,7 +531,7 @@ void HostLinkBase::receive(HostLinkBase *instance, void *message,
                            int messageLen) {
   LOGV("%s: message len %d", __func__, messageLen);
 
-  // TODO(b/263958729): A crude way to initially determine daemon's up - set
+  // TODO(b/277128368): A crude way to initially determine daemon's up - set
   // a flag on the first message received. This is temporary until a better
   // way to do this is available.
   instance->setInitialized(true);
@@ -562,7 +558,7 @@ bool HostLinkBase::send(uint8_t *data, size_t dataLen) {
       ap_to_scp(reinterpret_cast<uint32_t>(gChreSubregionSendAddr)));
 
 #ifdef SCP_CHRE_USE_DMA
-  // TODO(b/263958729): use DMA for larger payload
+  // TODO(b/288415339): use DMA for larger payload
   // No need cache operation, because src_dst handled by SCP CPU and dstAddr is
   // non-cacheable
 #else
@@ -597,7 +593,6 @@ bool HostLinkBase::send(uint8_t *data, size_t dataLen) {
 
 void HostLinkBase::sendTimeSyncRequest() {
   LOGV("%s", __func__);
-  // TODO(b/263958729): Implement this.
 }
 
 void HostLinkBase::sendLogMessageV2(const uint8_t *logMessage,
@@ -649,7 +644,7 @@ bool HostLink::sendMessage(HostMessage const *message) {
   return success;
 }
 
-// TODO(b/263958729): HostMessageHandlers member function implementations are
+// TODO(b/285219398): HostMessageHandlers member function implementations are
 // expected to be (mostly) identical for any platform that uses flatbuffers
 // to encode messages - refactor the host link to merge the multiple copies
 // we currently have.
@@ -663,7 +658,6 @@ void HostMessageHandlers::handleNanoappMessage(uint64_t appId,
        "0x%" PRIx16 ", msgType %" PRIu32 ", payload size %zu",
        appId, hostEndpoint, messageType, messageDataLen);
 
-  // TODO(b/263958729): Implement this.
   getHostCommsManager().sendMessageToNanoappFromHost(
       appId, messageType, hostEndpoint, messageData, messageDataLen);
 }
@@ -786,7 +780,7 @@ void HostMessageHandlers::handleDebugDumpRequest(uint16_t hostClientId) {
 
 void HostMessageHandlers::handleSettingChangeMessage(fbs::Setting setting,
                                                      fbs::SettingState state) {
-  // TODO(b/267207477): Refactor handleSettingChangeMessage to shared code
+  // TODO(b/285219398): Refactor handleSettingChangeMessage to shared code
   Setting chreSetting;
   bool chreSettingEnabled;
   if (HostProtocolChre::getSettingFromFbs(setting, &chreSetting) &&
@@ -798,7 +792,6 @@ void HostMessageHandlers::handleSettingChangeMessage(fbs::Setting setting,
 
 void HostMessageHandlers::handleSelfTestRequest(uint16_t hostClientId) {
   LOGV("%s: host client id %d", __func__, hostClientId);
-  // TODO(b/263958729): Implement this.
 }
 
 void HostMessageHandlers::handleNanConfigurationUpdate(bool /* enabled */) {
