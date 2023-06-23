@@ -149,10 +149,10 @@ class TimerPool : public NonCopyable {
     uint16_t instanceId;
 
     /**
-     * Provides a greater than comparison of TimerRequests.
+     * Returns whether the current request expires after the passed one.
      *
-     * @param request The other request to compare against.
-     * @return Returns true if this request is greater than the provided
+     * @param request The other request.
+     * @return Returns whether this request expires after the provided
      *         request.
      */
     bool operator>(const TimerRequest &request) const;
