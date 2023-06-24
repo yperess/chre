@@ -264,7 +264,7 @@ bool TimerPool::handleExpiredTimersAndScheduleNextLocked() {
         // insert operation (thereby invalidating it).
         TimerRequest cyclicTimerRequest = currentTimerRequest;
         cyclicTimerRequest.expirationTime =
-            currentTime + currentTimerRequest.duration;
+            currentTimerRequest.expirationTime + currentTimerRequest.duration;
         popTimerRequestLocked();
         CHRE_ASSERT(insertTimerRequestLocked(cyclicTimerRequest));
       } else {
