@@ -65,6 +65,7 @@ std::unique_ptr<Detokenizer> LogMessageParser::logDetokenizerInit() {
 
 void LogMessageParser::init() {
   mDetokenizer = logDetokenizerInit();
+  mBtLogParser.init();
 }
 
 void LogMessageParser::dump(const uint8_t *buffer, size_t size) {
@@ -134,7 +135,13 @@ uint8_t LogMessageParser::getLogLevelFromMetadata(uint8_t metadata) {
 bool LogMessageParser::isLogMessageEncoded(uint8_t metadata) {
   // The upper nibble of the metadata denotes the encoding, as indicated
   // by the schema in host_messages.fbs.
-  return (metadata & 0xf0) != 0;
+  return (metadata & 0x10) != 0;
+}
+
+bool LogMessageParser::isBtSnoopLogMessage(uint8_t metadata) {
+  // The upper nibble of the metadata denotes the encoding, as indicated
+  // by the schema in host_messages.fbs.
+  return (metadata & 0x20) != 0;
 }
 
 void LogMessageParser::log(const uint8_t *logBuffer, size_t logBufferSize) {
@@ -212,8 +219,10 @@ void LogMessageParser::logV2(const uint8_t *logBuffer, size_t logBufferSize,
     auto message =
         reinterpret_cast<const LogMessageV2 *>(&logBuffer[bufferIndex]);
 
-    size_t logMessageSize;
-    if (isLogMessageEncoded(message->metadata)) {
+    size_t logMessageSize = 0;
+    if (isBtSnoopLogMessage(message->metadata)) {
+      logMessageSize = mBtLogParser.log(message->logMessage);
+    } else if (isLogMessageEncoded(message->metadata)) {
       logMessageSize = parseAndEmitTokenizedLogMessageAndGetSize(message);
     } else {
       size_t maxLogMessageLen =

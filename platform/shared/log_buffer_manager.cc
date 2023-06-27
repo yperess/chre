@@ -17,6 +17,7 @@
 #include "chre/platform/shared/log_buffer_manager.h"
 
 #include "chre/core/event_loop_manager.h"
+#include "chre/platform/shared/bt_snoop_log.h"
 #include "chre/util/lock_guard.h"
 
 void chrePlatformLogToBuffer(chreLogLevel chreLogLevel, const char *format,
@@ -34,6 +35,11 @@ void chrePlatformEncodedLogToBuffer(chreLogLevel level, const uint8_t *msg,
   if (chre::LogBufferManagerSingleton::isInitialized()) {
     chre::LogBufferManagerSingleton::get()->logEncoded(level, msg, msgSize);
   }
+}
+
+void chrePlatformBtSnoopLog(BtSnoopDirection direction, const uint8_t *buffer,
+                            size_t size) {
+  chre::LogBufferManagerSingleton::get()->logBtSnoop(direction, buffer, size);
 }
 
 namespace chre {
@@ -139,6 +145,18 @@ void LogBufferManager::logVa(chreLogLevel logLevel, const char *formatStr,
   bufferOverflowGuard(logSize);
   mPrimaryLogBuffer.handleLogVa(chreToLogBufferLogLevel(logLevel),
                                 getTimestampMs(), formatStr, args);
+}
+
+void LogBufferManager::logBtSnoop(BtSnoopDirection direction,
+                                  const uint8_t *buffer, size_t size) {
+#ifdef CHRE_BLE_SUPPORT_ENABLED
+  bufferOverflowGuard(size);
+  mPrimaryLogBuffer.handleBtLog(direction, getTimestampMs(), buffer, size);
+#else
+  UNUSED_VAR(direction);
+  UNUSED_VAR(buffer);
+  UNUSED_VAR(size);
+#endif  // CHRE_BLE_SUPPORT_ENABLED
 }
 
 void LogBufferManager::logEncoded(chreLogLevel logLevel,
