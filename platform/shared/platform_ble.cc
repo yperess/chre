@@ -20,6 +20,7 @@
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/log.h"
+#include "chre/platform/shared/bt_snoop_log.h"
 #include "chre/platform/shared/pal_system_api.h"
 #include "chre_api/chre/ble.h"
 
@@ -31,6 +32,7 @@ const chrePalBleCallbacks PlatformBleBase::sBleCallbacks = {
     PlatformBleBase::advertisingEventCallback,
     PlatformBleBase::readRssiCallback,
     PlatformBleBase::flushCallback,
+    PlatformBleBase::handleBtSnoopLog,
 };
 
 PlatformBle::~PlatformBle() {
@@ -153,6 +155,14 @@ bool PlatformBle::flushAsync() {
 void PlatformBleBase::flushCallback(uint8_t errorCode) {
   EventLoopManagerSingleton::get()->getBleRequestManager().handleFlushComplete(
       errorCode);
+}
+
+void PlatformBleBase::handleBtSnoopLog(bool isTxToBtController,
+                                       const uint8_t *buffer, size_t size) {
+  BtSnoopDirection direction =
+      isTxToBtController ? BtSnoopDirection::OUTGOING_TO_ARBITER
+                         : BtSnoopDirection::INCOMING_FROM_BT_CONTROLLER;
+  chrePlatformBtSnoopLog(direction, buffer, size);
 }
 
 }  // namespace chre
