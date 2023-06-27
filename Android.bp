@@ -331,10 +331,16 @@ cc_test_host {
     vendor: true,
     srcs: [
         "host/test/**/*_test.cc",
+        "host/hal_generic/common/hal_client_manager.cc",
+        "host/common/fragmented_load_transaction.cc",
     ],
     local_include_dirs: [
         "util/include",
         "host/common/include",
+        "host/hal_generic/common/",
+        "util/include/",
+        "host/hal_generic/aidl/",
+        "platform/shared/include/",
     ],
     static_libs: [
         "android.hardware.contexthub-V3-ndk",
@@ -344,9 +350,14 @@ cc_test_host {
     shared_libs: [
         "libcutils",
         "libutils",
+        "android.hardware.contexthub-V3-ndk",
+        "liblog",
+        "libjsoncpp",
+        "libbinder_ndk",
     ],
     header_libs: [
         "chre_flatbuffers",
+        "chre_api",
     ],
     defaults: [
         "chre_linux_cflags",
@@ -356,6 +367,9 @@ cc_test_host {
         "-Werror",
         "-DCHRE_IS_HOST_BUILD",
     ],
+    test_options: {
+        unit_test: true,
+    },
 }
 
 genrule {
