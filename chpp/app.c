@@ -50,10 +50,6 @@ static bool chppProcessPredefinedClientRequest(struct ChppAppState *context,
                                                uint8_t *buf, size_t len);
 static bool chppProcessPredefinedServiceResponse(struct ChppAppState *context,
                                                  uint8_t *buf, size_t len);
-static bool chppProcessPredefinedClientNotification(
-    struct ChppAppState *context, uint8_t *buf, size_t len);
-static bool chppProcessPredefinedServiceNotification(
-    struct ChppAppState *context, uint8_t *buf, size_t len);
 
 static bool chppDatagramLenIsOk(struct ChppAppState *context,
                                 struct ChppAppHeader *rxHeader, size_t len);
@@ -185,44 +181,6 @@ static bool chppProcessPredefinedServiceResponse(struct ChppAppState *context,
   }
 
   return handleValid;
-}
-
-/**
- * Processes a client notification that is determined to be for a predefined
- * CHPP service.
- *
- * @param context State of the app layer.
- * @param buf Input data. Cannot be null.
- * @param len Length of input data in bytes.
- *
- * @return False if handle is invalid. True otherwise.
- */
-static bool chppProcessPredefinedClientNotification(
-    struct ChppAppState *context, uint8_t *buf, size_t len) {
-  UNUSED_VAR(context);
-  UNUSED_VAR(len);
-  UNUSED_VAR(buf);
-  // No predefined services support these.
-  return false;
-}
-
-/**
- * Processes a service notification that is determined to be for a predefined
- * CHPP client.
- *
- * @param context State of the app layer.
- * @param buf Input data. Cannot be null.
- * @param len Length of input data in bytes.
- *
- * @return False if handle is invalid. True otherwise.
- */
-static bool chppProcessPredefinedServiceNotification(
-    struct ChppAppState *context, uint8_t *buf, size_t len) {
-  UNUSED_VAR(context);
-  UNUSED_VAR(len);
-  UNUSED_VAR(buf);
-  // No predefined clients support these.
-  return false;
 }
 
 /**
@@ -503,31 +461,25 @@ static void *chppClientServiceContextOfHandle(struct ChppAppState *appContext,
 static void chppProcessPredefinedHandleDatagram(struct ChppAppState *context,
                                                 uint8_t *buf, size_t len) {
   struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
-  bool success = true;
+  bool success = false;
 
   switch (CHPP_APP_GET_MESSAGE_TYPE(rxHeader->type)) {
     case CHPP_MESSAGE_TYPE_CLIENT_REQUEST: {
       success = chppProcessPredefinedClientRequest(context, buf, len);
       break;
     }
+    case CHPP_MESSAGE_TYPE_SERVICE_NOTIFICATION:
     case CHPP_MESSAGE_TYPE_CLIENT_NOTIFICATION: {
-      success = chppProcessPredefinedClientNotification(context, buf, len);
+      // No predefined services/clients support these.
       break;
     }
     case CHPP_MESSAGE_TYPE_SERVICE_RESPONSE: {
       success = chppProcessPredefinedServiceResponse(context, buf, len);
       break;
     }
-    case CHPP_MESSAGE_TYPE_SERVICE_NOTIFICATION: {
-      success = chppProcessPredefinedServiceNotification(context, buf, len);
-      break;
-    }
-    default: {
-      success = false;
-    }
   }
 
-  if (success == false) {
+  if (!success) {
     CHPP_LOGE("H#%" PRIu8 " undefined msg type=0x%" PRIx8 " (len=%" PRIuSIZE
               ", ID=%" PRIu8 ")",
               rxHeader->handle, rxHeader->type, len, rxHeader->transaction);
