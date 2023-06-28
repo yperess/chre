@@ -59,7 +59,7 @@ cc_binary {
         "libutils",
         "libbase",
         "libbinder_ndk",
-        "android.hardware.contexthub-V2-ndk",
+        "android.hardware.contexthub-V3-ndk",
         "chremetrics-cpp",
         "chre_atoms_log",
     ],
