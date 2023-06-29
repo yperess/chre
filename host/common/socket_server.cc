@@ -19,6 +19,7 @@
 #include <poll.h>
 
 #include <cassert>
+#include <cerrno>
 #include <cinttypes>
 #include <csignal>
 #include <cstdlib>
@@ -172,6 +173,9 @@ void SocketServer::handleClientData(int clientSocket) {
   if (packetSize < 0) {
     LOGE("Couldn't get packet from client %" PRIu16 ": %s", clientId,
          strerror(errno));
+    if (ENOTCONN == errno) {
+      disconnectClient(clientSocket);
+    }
   } else if (packetSize == 0) {
     LOGI("Client %" PRIu16 " disconnected", clientId);
     disconnectClient(clientSocket);
