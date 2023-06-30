@@ -52,7 +52,7 @@ class TaskManager : public NonCopyable {
   /**
    * Adds a task to the queue for execution. The manager calls the function func
    * during execution. If repeatInterval > 0, the task will repeat every
-   * repeatInterval milliseconds. If repeatInterval == 0, the task will be
+   * repeatInterval nanoseconds. If repeatInterval == 0, the task will be
    * executed only once.
    *
    * @param func                     the function to call.
@@ -62,7 +62,7 @@ class TaskManager : public NonCopyable {
    */
   std::optional<uint32_t> addTask(
       const Task::TaskFunction &func,
-      std::chrono::milliseconds repeatInterval = std::chrono::milliseconds(0));
+      std::chrono::nanoseconds repeatInterval = std::chrono::nanoseconds(0));
 
   /**
    * Cancels the task with the taskId.

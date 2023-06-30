@@ -29,7 +29,7 @@
  */
 namespace {
 
-using chre::TaskManagerSingleton;
+using ::chre::TaskManagerSingleton;
 
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalWwanCallbacks *gCallbacks = nullptr;

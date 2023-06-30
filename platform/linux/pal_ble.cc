@@ -30,14 +30,14 @@
  */
 namespace {
 
-using chre::TaskManagerSingleton;
+using ::chre::TaskManagerSingleton;
 
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalBleCallbacks *gCallbacks = nullptr;
 
 bool gBleEnabled = false;
 bool gDelayScanStart = false;
-std::chrono::milliseconds gScanInterval(1400);
+std::chrono::nanoseconds gScanInterval = std::chrono::milliseconds(1400);
 
 // Tasks for startScan, sendAdReportEvents, and stopScan.
 std::optional<uint32_t> gBleAdReportEventTaskId;

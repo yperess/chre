@@ -34,7 +34,7 @@
  */
 namespace {
 
-using chre::TaskManagerSingleton;
+using ::chre::TaskManagerSingleton;
 
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalWifiCallbacks *gCallbacks = nullptr;
@@ -58,7 +58,7 @@ std::optional<uint32_t> gRequestRangingTaskId;
 
 //! How long should each the PAL hold before response.
 //! Use to mimic real world hardware process time.
-std::chrono::milliseconds gAsyncRequestDelayResponseTime[chre::asBaseType(
+std::chrono::nanoseconds gAsyncRequestDelayResponseTime[chre::asBaseType(
     PalWifiAsyncRequestTypes::NUM_WIFI_REQUEST_TYPE)];
 
 void sendScanResponse() {
@@ -257,7 +257,7 @@ bool chrePalWifiIsScanMonitoringActive() {
 void chrePalWifiDelayResponse(PalWifiAsyncRequestTypes requestType,
                               std::chrono::seconds seconds) {
   gAsyncRequestDelayResponseTime[chre::asBaseType(requestType)] =
-      std::chrono::duration_cast<std::chrono::milliseconds>(seconds);
+      std::chrono::duration_cast<std::chrono::nanoseconds>(seconds);
 }
 
 const struct chrePalWifiApi *chrePalWifiGetApi(uint32_t requestedApiVersion) {

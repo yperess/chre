@@ -32,7 +32,7 @@
  */
 namespace {
 
-using chre::TaskManagerSingleton;
+using ::chre::TaskManagerSingleton;
 
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalGnssCallbacks *gCallbacks = nullptr;
@@ -77,7 +77,7 @@ void startSendingLocationEvents(uint32_t minIntervalMs) {
 
   gLocationEventsChangeCallbackTaskId = TaskManagerSingleton::get()->addTask(
       []() { gCallbacks->locationStatusChangeCallback(true, CHRE_ERROR_NONE); },
-      std::chrono::milliseconds(0));
+      std::chrono::nanoseconds(0));
 
   gLocationEventsTaskId = TaskManagerSingleton::get()->addTask(
       sendLocationEvents, std::chrono::milliseconds(minIntervalMs));
@@ -179,7 +179,7 @@ bool chrePalControlMeasurementSession(bool enable, uint32_t minIntervalMs) {
               gCallbacks->measurementStatusChangeCallback(true,
                                                           CHRE_ERROR_NONE);
             },
-            std::chrono::milliseconds(0));
+            std::chrono::nanoseconds(0));
     if (!gMeasurementEventsChangeCallbackTaskId.has_value()) {
       return false;
     }

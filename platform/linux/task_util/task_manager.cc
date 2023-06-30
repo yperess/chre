@@ -46,7 +46,7 @@ TaskManager::~TaskManager() {
 }
 
 std::optional<uint32_t> TaskManager::addTask(
-    const Task::TaskFunction &func, std::chrono::milliseconds repeatInterval) {
+    const Task::TaskFunction &func, std::chrono::nanoseconds repeatInterval) {
   std::lock_guard<std::mutex> lock(mMutex);
   bool success = false;
 

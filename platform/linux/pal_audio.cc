@@ -31,7 +31,7 @@
  */
 namespace {
 
-using chre::TaskManagerSingleton;
+using ::chre::TaskManagerSingleton;
 
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalAudioCallbacks *gCallbacks = nullptr;
@@ -96,8 +96,7 @@ bool chrePalAudioApiRequestAudioDataEvent(uint32_t handle, uint32_t numSamples,
     gIsHandle0Enabled = true;
     gHandle0TaskId = TaskManagerSingleton::get()->addTask(
         [numSamples]() { sendHandle0Events(numSamples); },
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::nanoseconds(eventDelayNs)));
+        std::chrono::nanoseconds(eventDelayNs));
     if (!gHandle0TaskId.has_value()) {
       return false;
     }

@@ -28,7 +28,7 @@ namespace task_manager_internal {
 
 /**
  * Represents a task to execute (a function to call) that can be executed once
- * or repeatedly with interval: repeatInterval in milliseconds until
+ * or repeatedly with interval: repeatInterval in nanoseconds until
  * cancel() is called.
  *
  * Note: The Task class is not thread-safe nor synchronized properly. It is
@@ -51,11 +51,10 @@ class Task {
    * Construct a new Task object.
    *
    * @param func              the function to execute.
-   * @param repeatInterval    the interval in which to repeat execution in
-   *                          milliseconds.
+   * @param repeatInterval    the interval in which to repeat execution.
    * @param id                the unique ID for use with the Task Manager.
    */
-  Task(const TaskFunction &func, std::chrono::milliseconds repeatInterval,
+  Task(const TaskFunction &func, std::chrono::nanoseconds repeatInterval,
        uint32_t id);
 
   /**
@@ -158,7 +157,7 @@ class Task {
   /**
    * The amount of time to wait in between repeating the task.
    */
-  std::chrono::milliseconds mRepeatInterval;
+  std::chrono::nanoseconds mRepeatInterval;
 
   /**
    * The function to execute.
