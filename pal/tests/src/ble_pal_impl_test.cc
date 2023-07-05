@@ -53,6 +53,10 @@ constexpr uint32_t kBleBatchDurationMs = 0;
 
 class Callbacks {
  public:
+  Callbacks() = delete;
+
+  explicit Callbacks(const struct chrePalBleApi *api) : mApi(api) {}
+
   void requestStateResync() {}
 
   void scanStatusChangeCallback(bool enabled, uint8_t errorCode) {
@@ -71,6 +75,8 @@ class Callbacks {
       if (mEventData.full()) {
         mCondVarEvents.notify_one();
       }
+    } else {
+      mApi->releaseAdvertisingEvent(event);
     }
   }
 
@@ -83,6 +89,9 @@ class Callbacks {
   Mutex mMutex;
   ConditionVariable mCondVarStatus;
   ConditionVariable mCondVarEvents;
+
+  //! CHRE PAL implementation API.
+  const struct chrePalBleApi *mApi;
 };
 
 UniquePtr<Callbacks> gCallbacks = nullptr;
@@ -108,10 +117,10 @@ void advertisingEventCallback(struct chreBleAdvertisementEvent *event) {
 class PalBleTest : public testing::Test {
  protected:
   void SetUp() override {
-    gCallbacks = MakeUnique<Callbacks>();
     chre::TaskManagerSingleton::deinit();
     chre::TaskManagerSingleton::init();
     mApi = chrePalBleGetApi(CHRE_PAL_BLE_API_CURRENT_VERSION);
+    gCallbacks = MakeUnique<Callbacks>(mApi);
     ASSERT_NE(mApi, nullptr);
     EXPECT_EQ(mApi->moduleVersion, CHRE_PAL_BLE_API_CURRENT_VERSION);
     ASSERT_TRUE(mApi->open(&gChrePalSystemApi, &mPalCallbacks));

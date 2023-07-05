@@ -126,7 +126,7 @@ TEST_F(PalAudioTest, GetDataEvent) {
   EXPECT_TRUE(mApi->requestAudioDataEvent(0 /*handle*/, 1000 /*numSamples*/,
                                           100 /*eventDelaysNs*/));
   gCallbacks->mCondVarDataEvents.wait_for(
-      gCallbacks->mMutex, Nanoseconds(25 * kOneMillisecondInNanoseconds));
+      gCallbacks->mMutex, Nanoseconds(kOneMillisecondInNanoseconds));
   ASSERT_TRUE(gCallbacks->mDataEvent.has_value());
   struct chreAudioDataEvent *event = gCallbacks->mDataEvent.value();
   EXPECT_EQ(event->handle, 0);
