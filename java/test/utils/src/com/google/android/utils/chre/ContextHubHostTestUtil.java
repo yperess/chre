@@ -88,18 +88,11 @@ public class ContextHubHostTestUtil {
      * @param timeout                     the timeout duration
      * @param unit                        the timeout unit
      * @param timeoutErrorMessage         the message to display on timeout assert
-     * @param interruptedExceptionMessage the message to display on InterruptedException assert
      */
     public static void awaitCountDownLatchAssertOnFailure(
-            CountDownLatch latch, long timeout, TimeUnit unit, String timeoutErrorMessage,
-            String interruptedExceptionMessage) {
-        boolean result = false;
-        try {
-            result = latch.await(timeout, unit);
-        } catch (InterruptedException e) {
-            Assert.fail(interruptedExceptionMessage);
-        }
-
+            CountDownLatch latch, long timeout, TimeUnit unit, String timeoutErrorMessage)
+                    throws InterruptedException {
+        boolean result = latch.await(timeout, unit);
         Assert.assertTrue(timeoutErrorMessage, result);
     }
 

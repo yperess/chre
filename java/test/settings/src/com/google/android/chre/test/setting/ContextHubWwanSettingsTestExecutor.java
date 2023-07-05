@@ -51,7 +51,7 @@ public class ContextHubWwanSettingsTestExecutor {
         mExecutor.init();
     }
 
-    public void runWwanTest() {
+    public void runWwanTest() throws InterruptedException {
         runTest(false /* enableFeature */);
         runTest(true /* enableFeature */);
     }
@@ -68,7 +68,7 @@ public class ContextHubWwanSettingsTestExecutor {
      * Helper function to run the test.
      * @param enableFeature True for enable.
      */
-    private void runTest(boolean enableFeature) {
+    private void runTest(boolean enableFeature) throws InterruptedException {
         boolean airplaneModeExpected = !enableFeature;
         mSettingsUtil.setAirplaneMode(airplaneModeExpected);
 

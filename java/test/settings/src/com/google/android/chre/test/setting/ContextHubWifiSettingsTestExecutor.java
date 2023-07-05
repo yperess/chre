@@ -29,8 +29,6 @@ import androidx.test.InstrumentationRegistry;
 import com.google.android.chre.nanoapp.proto.ChreSettingsTest;
 import com.google.android.utils.chre.SettingsUtil;
 
-import org.junit.Assert;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -95,12 +93,12 @@ public class ContextHubWifiSettingsTestExecutor {
         mExecutor.init();
     }
 
-    public void runWifiScanningTest() {
+    public void runWifiScanningTest() throws InterruptedException {
         runWifiScanningTest(false /* enableFeature */);
         runWifiScanningTest(true /* enableFeature */);
     }
 
-    public void runWifiRangingTest() {
+    public void runWifiRangingTest() throws InterruptedException {
         runWifiRangingTest(false /* enableFeature */);
         runWifiRangingTest(true /* enableFeature */);
     }
@@ -108,7 +106,7 @@ public class ContextHubWifiSettingsTestExecutor {
     /**
      * Should be called in an @After method.
      */
-    public void tearDown() {
+    public void tearDown() throws InterruptedException {
         mExecutor.deinit();
         mSettingsUtil.setWifi(mInitialWifiEnabled);
         mSettingsUtil.setWifiScanningSettings(mInitialWifiScanningAlwaysEnabled);
@@ -119,7 +117,7 @@ public class ContextHubWifiSettingsTestExecutor {
      * Sets the WiFi scanning settings on the device.
      * @param enable true to enable WiFi settings, false to disable it.
      */
-    private void setWifiSettings(boolean enable) {
+    private void setWifiSettings(boolean enable) throws InterruptedException {
         WifiUpdateListener wifiUpdateListener = new WifiUpdateListener(enable);
         mContext.registerReceiver(
                 wifiUpdateListener.mWifiUpdateReceiver,
@@ -128,14 +126,10 @@ public class ContextHubWifiSettingsTestExecutor {
         mSettingsUtil.setWifiScanningSettings(enable);
         mSettingsUtil.setWifi(enable);
 
-        try {
-            wifiUpdateListener.mWifiLatch.await(30, TimeUnit.SECONDS);
+        wifiUpdateListener.mWifiLatch.await(30, TimeUnit.SECONDS);
 
-            // Wait a few seconds to ensure setting is propagated to CHRE path
-            Thread.sleep(10000);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
-        }
+        // Wait a few seconds to ensure setting is propagated to CHRE path
+        Thread.sleep(10000);
 
         mContext.unregisterReceiver(wifiUpdateListener.mWifiUpdateReceiver);
     }
@@ -144,7 +138,7 @@ public class ContextHubWifiSettingsTestExecutor {
      * Helper function to run the test.
      * @param enableFeature True for enable.
      */
-    private void runWifiScanningTest(boolean enableFeature) {
+    private void runWifiScanningTest(boolean enableFeature) throws InterruptedException {
         setWifiSettings(enableFeature);
 
         ChreSettingsTest.TestCommand.State state = enableFeature
@@ -158,7 +152,7 @@ public class ContextHubWifiSettingsTestExecutor {
      * Helper function to run the test.
      * @param enableFeature True for enable.
      */
-    private void runWifiRangingTest(boolean enableFeature) {
+    private void runWifiRangingTest(boolean enableFeature) throws InterruptedException {
         if (!mSettingsUtil.isWifiEnabled() || !mSettingsUtil.isWifiScanningAlwaysEnabled()) {
             setWifiSettings(true /* enable */);
         }

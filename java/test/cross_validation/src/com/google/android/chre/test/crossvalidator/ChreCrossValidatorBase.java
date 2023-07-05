@@ -103,7 +103,7 @@ abstract class ChreCrossValidatorBase {
      * @param samplingDurationInMs The amount of time in milliseconds to collect samples from AP and
      * CHRE.
      */
-    public abstract void validate() throws AssertionError;
+    public abstract void validate() throws AssertionError, InterruptedException;
 
     /**
     * Clean up resources allocated for cross validation. Subclasses should override this method and

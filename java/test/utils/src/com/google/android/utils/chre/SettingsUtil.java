@@ -116,7 +116,7 @@ public class SettingsUtil {
      * @param enable True to enable location, false to disable it.
      * @param timeoutSeconds The maximum amount of time in seconds to wait.
      */
-    public void setLocationMode(boolean enable, long timeoutSeconds) {
+    public void setLocationMode(boolean enable, long timeoutSeconds) throws InterruptedException {
         if (isLocationEnabled() != enable) {
             LocationUpdateListener listener = new LocationUpdateListener();
 
@@ -125,14 +125,10 @@ public class SettingsUtil {
                     new IntentFilter(LocationManager.MODE_CHANGED_ACTION));
             mLocationManager.setLocationEnabledForUser(enable, UserHandle.CURRENT);
 
-            try {
-                listener.mLocationLatch.await(timeoutSeconds, TimeUnit.SECONDS);
+            listener.mLocationLatch.await(timeoutSeconds, TimeUnit.SECONDS);
 
-                // Wait 1 additional second to make sure setting gets propagated to CHRE
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                Assert.fail("InterruptedException while waiting for location update");
-            }
+            // Wait 1 additional second to make sure setting gets propagated to CHRE
+            Thread.sleep(1000);
 
             Assert.assertTrue(isLocationEnabled() == enable);
 

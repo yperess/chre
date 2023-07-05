@@ -212,7 +212,7 @@ public abstract class ContextHubGeneralTestExecutor extends ContextHubClientCall
     /**
      * Run the test.
      */
-    public void run(long timeoutSeconds) {
+    public void run(long timeoutSeconds) throws InterruptedException {
         mThreadId = Thread.currentThread().getId();
 
         for (GeneralTestNanoApp test : mGeneralTestNanoAppList) {
@@ -222,13 +222,7 @@ public abstract class ContextHubGeneralTestExecutor extends ContextHubClientCall
             }
         }
 
-        boolean success = false;
-        try {
-            success = mCountDownLatch.await(timeoutSeconds, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
-        }
-
+        boolean success = mCountDownLatch.await(timeoutSeconds, TimeUnit.SECONDS);
         Assert.assertTrue("Test timed out", success);
     }
 

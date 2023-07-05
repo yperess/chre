@@ -97,7 +97,7 @@ public class ContextHubBleSettingsTestExecutor {
         mExecutor.init();
     }
 
-    public void runBleScanningTest() {
+    public void runBleScanningTest() throws InterruptedException {
         runBleScanningTest(false /* enableBluetooth */, false /* enableBluetoothScanning */);
         runBleScanningTest(true /* enableBluetooth */, false /* enableBluetoothScanning */);
         runBleScanningTest(false /* enableBluetooth */, true /* enableBluetoothScanning */);
@@ -164,7 +164,7 @@ public class ContextHubBleSettingsTestExecutor {
      * @param enableBluetoothScanning if bluetooth scanning is always enabled
      */
     private void runBleScanningTest(boolean enableBluetooth,
-            boolean enableBluetoothScanning) {
+            boolean enableBluetoothScanning) throws InterruptedException {
         setBluetoothSettings(enableBluetooth, enableBluetoothScanning);
 
         boolean enableFeature = enableBluetooth || enableBluetoothScanning;

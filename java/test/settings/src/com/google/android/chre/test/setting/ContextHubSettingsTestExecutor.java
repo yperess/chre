@@ -138,7 +138,8 @@ public class ContextHubSettingsTestExecutor extends ContextHubClientCallback {
      *
      * @param feature The feature to set the test up for.
      */
-    public void setupTestAssertSuccess(ChreSettingsTest.TestCommand.Feature feature) {
+    public void setupTestAssertSuccess(ChreSettingsTest.TestCommand.Feature feature)
+            throws InterruptedException {
         mTestResult.set(null);
         mTestSetupComplete.set(false);
         mCountDownLatch = new CountDownLatch(1);
@@ -155,12 +156,7 @@ public class ContextHubSettingsTestExecutor extends ContextHubClientCallback {
             Assert.fail("Failed to send message: result = " + result);
         }
 
-        try {
-            mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
-        }
-
+        mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         Assert.assertTrue(
                 "Failed to set up test", mTestSetupComplete.get() || mTestResult.get() != null);
     }
@@ -173,7 +169,7 @@ public class ContextHubSettingsTestExecutor extends ContextHubClientCallback {
      */
     public void startTestAssertSuccess(
             ChreSettingsTest.TestCommand.Feature feature,
-            ChreSettingsTest.TestCommand.State state) {
+            ChreSettingsTest.TestCommand.State state) throws InterruptedException {
         mTestResult.set(null);
         mCountDownLatch = new CountDownLatch(1);
 
@@ -188,11 +184,7 @@ public class ContextHubSettingsTestExecutor extends ContextHubClientCallback {
             Assert.fail("Failed to send message: result = " + result);
         }
 
-        try {
-            mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
-        }
+        mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
         if (mTestResult.get() == null) {
             Assert.fail("No test result received");

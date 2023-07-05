@@ -175,7 +175,7 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
      * @param timeout The amount of time to run the stress test.
      * @param unit    The unit for timeout.
      */
-    public void runStressTest(long timeout, TimeUnit unit) {
+    public void runStressTest(long timeout, TimeUnit unit) throws InterruptedException {
         ChreStressTest.TestCommand.Feature[] features = {
                 ChreStressTest.TestCommand.Feature.WIFI_ON_DEMAND_SCAN,
                 ChreStressTest.TestCommand.Feature.GNSS_LOCATION,
@@ -194,11 +194,7 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
         }
 
         if (!mLoadAndStartOnly) {
-            try {
-                mCountDownLatch.await(timeout, unit);
-            } catch (InterruptedException e) {
-                Assert.fail(e.getMessage());
-            }
+            mCountDownLatch.await(timeout, unit);
 
             checkTestFailure();
 
@@ -233,7 +229,7 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
      * 4. Keep the nanoapp loaded, and then run this test.
      * 5. Unload the nanoapp after this test ends.
      */
-    public void runWifiScanMonitorRestartTest() {
+    public void runWifiScanMonitorRestartTest() throws InterruptedException {
         // Since the host connection may have reset, inform the nanoapp about this event.
         NanoAppMessage message = NanoAppMessage.createMessageToNanoApp(
                 mNanoAppId, ChreStressTest.MessageType.TEST_HOST_RESTARTED_VALUE,
@@ -246,11 +242,7 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
                 new byte[0]);
         sendMessageToNanoApp(message);
 
-        try {
-            mCountDownLatch.await(30, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
-        }
+        mCountDownLatch.await(30, TimeUnit.SECONDS);
 
         if ((mCapabilities.getWifi() & WIFI_CAPABILITIES_SCAN_MONITORING) != 0) {
             WifiManager manager =
@@ -262,11 +254,7 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
             mCountDownLatch = new CountDownLatch(1);
             Assert.assertTrue(manager.startScan());
 
-            try {
-                mCountDownLatch.await(30, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                Assert.fail(e.getMessage());
-            }
+            mCountDownLatch.await(30, TimeUnit.SECONDS);
             Assert.assertTrue(mWifiScanMonitorTriggered.get());
             checkTestFailure();
         }
