@@ -32,6 +32,7 @@
 #include "dma_api.h"
 #include "ipi.h"
 #include "ipi_id.h"
+#include "resource_req.h"
 #include "scp_dram_region.h"
 
 // Because the LOGx macros are being redirected to logcat through
@@ -472,8 +473,10 @@ void HostLinkBase::chreIpiHandler(unsigned int id, void *prdata, void *data,
   mrv_dcache_invalid_multi_addr(reinterpret_cast<uint32_t>(&gChreRecvBuffer[0]),
                                 align(msg.size, CACHE_LINE_SIZE));
 #else
+  dvfs_enable_DRAM_resource(CHRE_MEM_ID);
   memcpy(static_cast<void *>(gChreRecvBuffer),
          reinterpret_cast<void *>(srcAddr), msg.size);
+  dvfs_disable_DRAM_resource(CHRE_MEM_ID);
 #endif
 
   // process the message
@@ -562,7 +565,9 @@ bool HostLinkBase::send(uint8_t *data, size_t dataLen) {
   // No need cache operation, because src_dst handled by SCP CPU and dstAddr is
   // non-cacheable
 #else
+  dvfs_enable_DRAM_resource(CHRE_MEM_ID);
   memcpy(dstAddr, data, dataLen);
+  dvfs_disable_DRAM_resource(CHRE_MEM_ID);
 #endif
 
   // NB: len param for ipi_send is in number of 32-bit words
