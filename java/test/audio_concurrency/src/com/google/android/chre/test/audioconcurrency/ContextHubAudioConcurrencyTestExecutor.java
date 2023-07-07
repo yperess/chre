@@ -142,7 +142,8 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         // Send a message to the nanoapp to enable CHRE audio
         mCountDownLatch = new CountDownLatch(1);
         sendTestCommandMessage(ChreAudioConcurrencyTest.TestCommand.Step.ENABLE_AUDIO);
-        mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        boolean success = mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: ENABLE_AUDIO", success);
         Assert.assertTrue("Failed to enable CHRE audio",
                 mChreAudioEnabled.get() || mTestResult.get() != null);
 
@@ -151,7 +152,8 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         // Send a message to the nanoapp to verify that CHRE audio resumes
         mCountDownLatch = new CountDownLatch(1);
         sendTestCommandMessage(ChreAudioConcurrencyTest.TestCommand.Step.VERIFY_AUDIO_RESUME);
-        mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        success = mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: VERIFY_AUDIO_RESUME", success);
 
         if (mTestResult.get() == null) {
             Assert.fail("No test result received");

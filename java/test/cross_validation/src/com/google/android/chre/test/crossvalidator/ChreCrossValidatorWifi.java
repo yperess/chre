@@ -184,7 +184,9 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
      * Wait for a messaage from the nanoapp.
      */
     private void waitForMessageFromNanoapp() throws InterruptedException {
-        mAwaitDataLatch.await(AWAIT_STEP_RESULT_MESSAGE_TIMEOUT_SEC, TimeUnit.SECONDS);
+        boolean success =
+                mAwaitDataLatch.await(AWAIT_STEP_RESULT_MESSAGE_TIMEOUT_SEC, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: wait for message from nanoapp", success);
         mAwaitDataLatch = new CountDownLatch(1);
         Assert.assertTrue("Timed out while waiting for step result in " + getCurrentStepName()
                 + " step", mDidReceiveNanoAppMessage.get());
@@ -204,7 +206,9 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
     }
 
     private void waitForApScanResults() throws InterruptedException {
-        mAwaitApWifiSetupScan.await(AWAIT_WIFI_SCAN_RESULT_TIMEOUT_SEC, TimeUnit.SECONDS);
+        boolean success =
+                mAwaitApWifiSetupScan.await(AWAIT_WIFI_SCAN_RESULT_TIMEOUT_SEC, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: wait for ap scan results", success);
         Assert.assertTrue("AP wifi scan result failed asynchronously", mApWifiScanSuccess.get());
     }
 

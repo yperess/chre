@@ -194,7 +194,8 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
         }
 
         if (!mLoadAndStartOnly) {
-            mCountDownLatch.await(timeout, unit);
+            boolean success = mCountDownLatch.await(timeout, unit);
+            Assert.assertTrue("Timeout waiting for signal", success);
 
             checkTestFailure();
 
@@ -242,7 +243,8 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
                 new byte[0]);
         sendMessageToNanoApp(message);
 
-        mCountDownLatch.await(30, TimeUnit.SECONDS);
+        boolean success = mCountDownLatch.await(30, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: wifi scan monitor restart test", success);
 
         if ((mCapabilities.getWifi() & WIFI_CAPABILITIES_SCAN_MONITORING) != 0) {
             WifiManager manager =
@@ -254,7 +256,8 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
             mCountDownLatch = new CountDownLatch(1);
             Assert.assertTrue(manager.startScan());
 
-            mCountDownLatch.await(30, TimeUnit.SECONDS);
+            success = mCountDownLatch.await(30, TimeUnit.SECONDS);
+            Assert.assertTrue("Timeout waiting for signal: trigger scan monitor", success);
             Assert.assertTrue(mWifiScanMonitorTriggered.get());
             checkTestFailure();
         }

@@ -86,7 +86,7 @@ public class ContextHubBleSettingsTestExecutor {
     /**
      * Should be called in a @Before method.
      */
-    public void setUp() {
+    public void setUp() throws InterruptedException {
         mInitialBluetoothEnabled = mSettingsUtil.isBluetoothEnabled();
         mInitialBluetoothScanningEnabled = mSettingsUtil.isBluetoothScanningAlwaysEnabled();
         mInitialAirplaneMode = mSettingsUtil.isAirplaneModeOn();
@@ -107,7 +107,7 @@ public class ContextHubBleSettingsTestExecutor {
     /**
      * Should be called in an @After method.
      */
-    public void tearDown() {
+    public void tearDown() throws InterruptedException {
         mExecutor.deinit();
         mSettingsUtil.setBluetooth(mInitialBluetoothEnabled);
         mSettingsUtil.setBluetoothScanningSettings(mInitialBluetoothScanningEnabled);
@@ -143,7 +143,8 @@ public class ContextHubBleSettingsTestExecutor {
             Assert.assertTrue(bluetoothAdapter.enableBLE());
         }
         try {
-            bluetoothUpdateListener.mBluetoothLatch.await(10, TimeUnit.SECONDS);
+            boolean success = bluetoothUpdateListener.mBluetoothLatch.await(10, TimeUnit.SECONDS);
+            Assert.assertTrue("Timeout waiting for signal: bluetooth update listener", success);
             Assert.assertTrue(enable == mSettingsUtil.isBluetoothEnabled());
             Assert.assertTrue(enableBluetoothScanning
                     == mSettingsUtil.isBluetoothScanningAlwaysEnabled());

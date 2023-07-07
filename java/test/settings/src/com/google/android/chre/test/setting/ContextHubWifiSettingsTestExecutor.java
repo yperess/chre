@@ -29,6 +29,8 @@ import androidx.test.InstrumentationRegistry;
 import com.google.android.chre.nanoapp.proto.ChreSettingsTest;
 import com.google.android.utils.chre.SettingsUtil;
 
+import org.junit.Assert;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -126,7 +128,8 @@ public class ContextHubWifiSettingsTestExecutor {
         mSettingsUtil.setWifiScanningSettings(enable);
         mSettingsUtil.setWifi(enable);
 
-        wifiUpdateListener.mWifiLatch.await(30, TimeUnit.SECONDS);
+        boolean success = wifiUpdateListener.mWifiLatch.await(30, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: set wifi settings", success);
 
         // Wait a few seconds to ensure setting is propagated to CHRE path
         Thread.sleep(10000);

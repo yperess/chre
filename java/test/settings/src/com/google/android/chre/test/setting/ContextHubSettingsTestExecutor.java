@@ -156,7 +156,8 @@ public class ContextHubSettingsTestExecutor extends ContextHubClientCallback {
             Assert.fail("Failed to send message: result = " + result);
         }
 
-        mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        boolean success = mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: test setup", success);
         Assert.assertTrue(
                 "Failed to set up test", mTestSetupComplete.get() || mTestResult.get() != null);
     }
@@ -184,7 +185,8 @@ public class ContextHubSettingsTestExecutor extends ContextHubClientCallback {
             Assert.fail("Failed to send message: result = " + result);
         }
 
-        mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        boolean success = mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: wait for test", success);
 
         if (mTestResult.get() == null) {
             Assert.fail("No test result received");

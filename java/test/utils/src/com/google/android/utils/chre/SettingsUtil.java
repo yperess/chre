@@ -125,7 +125,8 @@ public class SettingsUtil {
                     new IntentFilter(LocationManager.MODE_CHANGED_ACTION));
             mLocationManager.setLocationEnabledForUser(enable, UserHandle.CURRENT);
 
-            listener.mLocationLatch.await(timeoutSeconds, TimeUnit.SECONDS);
+            boolean success = listener.mLocationLatch.await(timeoutSeconds, TimeUnit.SECONDS);
+            Assert.assertTrue("Timeout waiting for signal: set location mode", success);
 
             // Wait 1 additional second to make sure setting gets propagated to CHRE
             Thread.sleep(1000);
@@ -186,7 +187,7 @@ public class SettingsUtil {
      * Sets the airplane mode on the device.
      * @param enable True to enable airplane mode, false to disable it.
      */
-    public void setAirplaneMode(boolean enable) {
+    public void setAirplaneMode(boolean enable) throws InterruptedException {
         if (isAirplaneModeOn() != enable) {
             AirplaneModeListener listener = new AirplaneModeListener();
             mContext.registerReceiver(
@@ -197,13 +198,10 @@ public class SettingsUtil {
             ChreTestUtil.executeShellCommand(
                     mInstrumentation, "cmd connectivity airplane-mode " + value);
 
-            try {
-                listener.mAirplaneModeLatch.await(10, TimeUnit.SECONDS);
-                // Wait 1 additional second to make sure setting gets propagated to CHRE
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                Assert.fail(e.getMessage());
-            }
+            boolean success = listener.mAirplaneModeLatch.await(10, TimeUnit.SECONDS);
+            Assert.assertTrue("Timeout waiting for signal: set airplane mode", success);
+            // Wait 1 additional second to make sure setting gets propagated to CHRE
+            Thread.sleep(1000);
             Assert.assertTrue(isAirplaneModeOn() == enable);
             mContext.unregisterReceiver(listener.mAirplaneModeReceiver);
         }

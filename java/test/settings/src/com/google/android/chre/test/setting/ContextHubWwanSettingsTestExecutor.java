@@ -59,7 +59,7 @@ public class ContextHubWwanSettingsTestExecutor {
     /**
      * Should be called in an @After method.
      */
-    public void tearDown() {
+    public void tearDown() throws InterruptedException {
         mExecutor.deinit();
         mSettingsUtil.setAirplaneMode(mInitialAirplaneMode);
     }
