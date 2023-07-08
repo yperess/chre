@@ -444,8 +444,11 @@ bool AppManager::UpdateFilterExtension(const chreMessageFromHostData *event) {
       }
       filter_extension_.Update(host_info, *event, &generic_filters,
                                &config_result);
-      if (!ble_scanner_.UpdateFilters(event->hostEndpoint, &generic_filters)) {
-        config_result.result = CHREX_NEARBY_RESULT_INTERNAL_ERROR;
+      if (config_result.result == CHREX_NEARBY_RESULT_OK) {
+        if (!ble_scanner_.UpdateFilters(event->hostEndpoint,
+                                        &generic_filters)) {
+          config_result.result = CHREX_NEARBY_RESULT_INTERNAL_ERROR;
+        }
       }
     } else {
       LOGE("host package name invalid.");

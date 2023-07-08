@@ -44,18 +44,6 @@ void FilterExtension::Update(
   config_result->has_result = true;
   config_result->has_vendor_status = true;
 
-  chrexNearbyExtendedFilterConfig config;
-  config.data = filter_config.oem_filter;
-  config.data_length = filter_config.oem_filter_length;
-
-  config_result->result =
-      static_cast<int32_t>(chrexNearbySetExtendedFilterConfig(
-          &host, &config, &config_result->vendor_status));
-  if (config_result->result != CHREX_NEARBY_RESULT_OK) {
-    LOGE("Failed to config filters, result %" PRId32, config_result->result);
-    host_list_.erase(static_cast<size_t>(host_index));
-    return;
-  }
   // Returns hardware filters.
   for (int i = 0; i < filter_config.hardware_filter_count; i++) {
     const nearby_extension_ChreBleGenericFilter &hw_filter =
@@ -67,6 +55,23 @@ void FilterExtension::Update(
     memcpy(generic_filter.dataMask, hw_filter.data_mask,
            kChreBleGenericFilterDataSize);
     generic_filters->push_back(generic_filter);
+  }
+  chreBleScanFilter scan_filter;
+  scan_filter.rssiThreshold = CHRE_BLE_RSSI_THRESHOLD_NONE;
+  scan_filter.scanFilterCount = generic_filters->size();
+  scan_filter.scanFilters = generic_filters->data();
+
+  chrexNearbyExtendedFilterConfig config;
+  config.data = filter_config.oem_filter;
+  config.data_length = filter_config.oem_filter_length;
+
+  config_result->result =
+      static_cast<int32_t>(chrexNearbySetExtendedFilterConfig(
+          &host, &scan_filter, &config, &config_result->vendor_status));
+  if (config_result->result != CHREX_NEARBY_RESULT_OK) {
+    LOGE("Failed to config filters, result %" PRId32, config_result->result);
+    host_list_.erase(static_cast<size_t>(host_index));
+    return;
   }
   // Removes the host if both hardware and oem filters are empty.
   if (filter_config.hardware_filter_count == 0 &&

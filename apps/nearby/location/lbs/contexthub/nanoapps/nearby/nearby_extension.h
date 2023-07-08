@@ -47,22 +47,29 @@ enum chrexNearbyResult {
  * default and automatically disabled if the vendor/OEM service disconnects from
  * ContextHubService, so the vendor/OEM service must send a configuration
  * request at initialization time to register the extended filter in the system,
- * even if there is no configuration payload.
+ * even if there is no configuration payload. The pointers supplied for the
+ * parameters are not guaranteed to be valid after this call. The OEM library
+ * should perform a deep copy of the structure if we want to store them in the
+ * library.
  *
  * @param host_info The meta data for a host end point that sent the message,
  *     obtained from chreHostEndpointInfo. The implementation must ensure that
  *     messages from a given host end point are only provided to the vendor
  *     library explicitly associated with that host end point.
+ * @param scan_filter Contains hardware scan filter configured from the host.
+ *     The library is responsible for filtering received reports using hardware
+ *     filters.
  * @param config Configuration data in a vendor-defined format.
  * @param[out] vendorStatusCode Optional vendor-defined status code that will be
  *     returned to the vendor service regardless of the return value of this
  *     function. The value 0 is reserved to indicate that a vendor status code
  * was not provided or is not relevant. All other values have a vendor-defined
  *     meaning.
- * @return A value from enum chrexNearbyResult
+ * @return A value from enum chrexNearbyResult.
  */
 uint32_t chrexNearbySetExtendedFilterConfig(
-    const chreHostEndpointInfo *host_info,
+    const struct chreHostEndpointInfo *host_info,
+    const struct chreBleScanFilter *scan_filter,
     const struct chrexNearbyExtendedFilterConfig *config,
     uint32_t *vendorStatusCode);
 
@@ -94,15 +101,18 @@ enum chrexNearbyFilterAction {
  * an active connection to ContextHubService (incl. via PendingIntent). In other
  * words, extended filtering for a given package is activated by sending
  * ChreNearbyExtendedFilterConfig to the Nearby nanoapp and deactivated when the
- * Nearby nanoapp is notified that the host endpoint has disconnected.
+ * Nearby nanoapp is notified that the host endpoint has disconnected. The
+ * pointers supplied for the parameters are not guaranteed to be valid after
+ * this call. The OEM library should perform a deep copy of the structure if we
+ * want to store them in the library.
  *
  * @param host_info The meta data for a host end point with an active extended
  *     filtering configuration, where the result will be sent if it is matched.
- * @param report Contains data for a BLE advertisement
- * @return A value from enum chrexNearbyFilterAction
+ * @param report Contains data for a BLE advertisement.
+ * @return A value from enum chrexNearbyFilterAction.
  */
 uint32_t chrexNearbyMatchExtendedFilter(
-    const chreHostEndpointInfo *host_info,
+    const struct chreHostEndpointInfo *host_info,
     const struct chreBleAdvertisingReport *report);
 
 #ifdef __cplusplus
