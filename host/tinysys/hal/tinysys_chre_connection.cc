@@ -98,7 +98,7 @@ bool TinysysChreConnection::init() {
       if (payloadSize == 0) {
         // Payload size 0 is a fake signal from kernel which is normal if the
         // device is in sleep.
-        LOGW("%s: Received a payload size 0. Ignored. errno=%d", __func__,
+        LOGV("%s: Received a payload size 0. Ignored. errno=%d", __func__,
              errno);
         continue;
       }
@@ -120,14 +120,16 @@ bool TinysysChreConnection::init() {
   ChreStateMessage chreMessage{.nextStateAddress =
                                    reinterpret_cast<long>(&nextState)};
   while (true) {
-    LOGI("The current CHRE state is %" PRIu32, chreCurrentState);
     if (TEMP_FAILURE_RETRY(ioctl(chreFd, getRequestCode(chreCurrentState),
                                  (unsigned long)&chreMessage)) < 0) {
       LOGE("Unable to get an update for the CHRE state: errno=%d", errno);
       continue;
     }
-    LOGI("Retrieved the next state: %" PRIu32, nextState);
     auto chreNextState = static_cast<ChreState>(nextState);
+    if (chreCurrentState != chreNextState) {
+      LOGI("CHRE state changes from %" PRIu32 " to %" PRIu32, chreCurrentState,
+           chreNextState);
+    }
     if (chreCurrentState == SCP_CHRE_STOP && chreNextState == SCP_CHRE_START) {
       // TODO(b/277128368): We should have an explicit indication from CHRE for
       // restart recovery.
