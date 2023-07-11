@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+
 #include "chre_api_test_manager.h"
 
 #include "chre.h"
@@ -27,6 +29,7 @@ constexpr uint64_t kSyncFunctionTimeout = 2 * chre::kOneSecondInNanoseconds;
  * The following constants are defined in chre_api_test.options.
  */
 constexpr uint32_t kThreeAxisDataReadingsMaxCount = 10;
+constexpr uint32_t kChreBleAdvertisementReportMaxCount = 10;
 
 /**
  * Closes the writer and invalidates the writer.
@@ -386,7 +389,6 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
           chre_rpc_GeneralEventsMessage_chreSensorSamplingStatusEvent_tag;
       break;
     }
-
     case CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION: {
       const auto *data =
           static_cast<const struct chreHostEndpointNotification *>(eventData);
@@ -400,7 +402,65 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
           chre_rpc_GeneralEventsMessage_chreHostEndpointNotification_tag;
       break;
     }
+    case CHRE_EVENT_BLE_ADVERTISEMENT: {
+      const auto *data =
+          static_cast<const struct chreBleAdvertisementEvent *>(eventData);
+      message.data.chreBleAdvertisementEvent.reserved = data->reserved;
 
+      uint32_t numReports =
+          MIN(kChreBleAdvertisementReportMaxCount, data->numReports);
+      message.data.chreBleAdvertisementEvent.reports_count = numReports;
+      for (uint32_t i = 0; i < numReports; ++i) {
+        message.data.chreBleAdvertisementEvent.reports[i].timestamp =
+            data->reports[i].timestamp;
+        message.data.chreBleAdvertisementEvent.reports[i]
+            .eventTypeAndDataStatus = data->reports[i].eventTypeAndDataStatus;
+        message.data.chreBleAdvertisementEvent.reports[i].addressType =
+            data->reports[i].addressType;
+
+        message.data.chreBleAdvertisementEvent.reports[i].address.size =
+            CHRE_BLE_ADDRESS_LEN;
+        std::memcpy(
+            message.data.chreBleAdvertisementEvent.reports[i].address.bytes,
+            data->reports[i].address, CHRE_BLE_ADDRESS_LEN);
+
+        message.data.chreBleAdvertisementEvent.reports[i].primaryPhy =
+            data->reports[i].primaryPhy;
+        message.data.chreBleAdvertisementEvent.reports[i].secondaryPhy =
+            data->reports[i].secondaryPhy;
+        message.data.chreBleAdvertisementEvent.reports[i].advertisingSid =
+            data->reports[i].advertisingSid;
+        message.data.chreBleAdvertisementEvent.reports[i].txPower =
+            data->reports[i].txPower;
+        message.data.chreBleAdvertisementEvent.reports[i]
+            .periodicAdvertisingInterval =
+            data->reports[i].periodicAdvertisingInterval;
+        message.data.chreBleAdvertisementEvent.reports[i].rssi =
+            data->reports[i].rssi;
+        message.data.chreBleAdvertisementEvent.reports[i].directAddressType =
+            data->reports[i].directAddressType;
+
+        message.data.chreBleAdvertisementEvent.reports[i].directAddress.size =
+            CHRE_BLE_ADDRESS_LEN;
+        std::memcpy(message.data.chreBleAdvertisementEvent.reports[i]
+                        .directAddress.bytes,
+                    data->reports[i].directAddress, CHRE_BLE_ADDRESS_LEN);
+
+        message.data.chreBleAdvertisementEvent.reports[i].data.size =
+            data->reports[i].dataLength;
+        std::memcpy(
+            message.data.chreBleAdvertisementEvent.reports[i].data.bytes,
+            data->reports[i].data, data->reports[i].dataLength);
+
+        message.data.chreBleAdvertisementEvent.reports[i].reserved =
+            data->reports[i].reserved;
+      }
+
+      message.status = true;
+      message.which_data =
+          chre_rpc_GeneralEventsMessage_chreBleAdvertisementEvent_tag;
+      break;
+    }
     default: {
       LOGE("GatherEvents: event type: %" PRIu16 " not implemented", eventType);
     }
