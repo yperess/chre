@@ -45,6 +45,12 @@ import java.util.concurrent.TimeUnit;
  */
 public class ContextHubHostTestUtil {
     /**
+     * The names of the dynamic configs corresponding to each test suite.
+     */
+    public static String[] DEVICE_DYNAMIC_CONFIG_NAMES =
+            new String[] {"GtsGmscoreHostTestCases", "GtsLocationContextMultiDeviceTestCases"};
+
+    /**
      * Returns the path to the directory containing the nanoapp binaries.
      * It is the external path if passed in, otherwise the relative path
      * to the assets directory of the context of the calling app.
@@ -275,18 +281,24 @@ public class ContextHubHostTestUtil {
     }
 
     /**
-     * @return the device side dynamic config for GtsGmscoreHostTestCases
+     * @return the device side dynamic config for GtsGmscoreHostTestCases or
+     *         GtsLocationContextMultiDeviceTestCases
      */
     private static DynamicConfigDeviceSide getDynamicConfig() {
         DynamicConfigDeviceSide deviceDynamicConfig = null;
-        try {
-            deviceDynamicConfig = new DynamicConfigDeviceSide("GtsGmscoreHostTestCases");
-        } catch (XmlPullParserException e) {
-            Assert.fail(e.getMessage());
-        } catch (IOException e) {
-            Assert.fail(e.getMessage());
+        for (String deviceDynamicConfigName: DEVICE_DYNAMIC_CONFIG_NAMES) {
+            try {
+                deviceDynamicConfig = new DynamicConfigDeviceSide(deviceDynamicConfigName);
+            } catch (XmlPullParserException e) {
+                Assert.fail(e.getMessage());
+            } catch (IOException e) {
+                // Not found - try again
+            }
         }
 
+        if (deviceDynamicConfig == null) {
+            Assert.fail("Could not get the device dynamic config.");
+        }
         return deviceDynamicConfig;
     }
 
