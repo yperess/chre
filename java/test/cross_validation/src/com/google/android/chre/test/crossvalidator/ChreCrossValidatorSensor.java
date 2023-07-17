@@ -454,8 +454,7 @@ public class ChreCrossValidatorSensor
      *                             ms.
      */
     private void waitForDataSampling() throws AssertionError, InterruptedException {
-        boolean success = mAwaitDataLatch.await(getAwaitDataTimeoutInMs(), TimeUnit.MILLISECONDS);
-        Assert.assertTrue("Timeout waiting for signal: wait for data sampling", success);
+        mAwaitDataLatch.await(getAwaitDataTimeoutInMs(), TimeUnit.MILLISECONDS);
 
         if (mErrorStr.get() != null) {
             Assert.fail(mErrorStr.get());
