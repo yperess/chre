@@ -1,7 +1,6 @@
 #include "location/lbs/contexthub/nanoapps/nearby/nearby_extension.h"
 
-#include <cstddef>
-#include <cstring>
+#include "stddef.h"
 
 #include "third_party/contexthub/chre/util/include/chre/util/nanoapp/log.h"
 
@@ -28,7 +27,8 @@ static const uint16_t EXT_FILTER_CONFIG_DATA_INDEX = 0;
 static const uint16_t EXT_FILTER_CONFIG_DATA_MASK_INDEX = 1;
 static uint8_t EXT_FILTER_DATA = 0;
 static uint8_t EXT_FILTER_DATA_MASK = 0;
-static const size_t MAX_GENERIC_FILTER_COUNT = 10;
+#define MAX_GENERIC_FILTER_COUNT 10
+
 struct hwBleScanFilter {
   int8_t rssi_threshold;
   uint8_t scan_filter_count;
@@ -45,7 +45,7 @@ uint32_t chrexNearbySetExtendedFilterConfig(
     const struct chreBleScanFilter *scan_filter,
     const struct chrexNearbyExtendedFilterConfig *config,
     uint32_t *vendorStatusCode) {
-  if (scan_filter == nullptr ||
+  if (scan_filter == NULL ||
       scan_filter->scanFilterCount > MAX_GENERIC_FILTER_COUNT) {
     LOGE("Invalid scan_filter configuration");
     return CHREX_NEARBY_RESULT_INTERNAL_ERROR;
@@ -95,8 +95,7 @@ uint32_t chrexNearbyMatchExtendedFilter(
     return CHREX_NEARBY_FILTER_ACTION_IGNORE;
   }
   uint8_t extData = report->data[EXT_ADV_DATA_FILTER_INDEX];
-  int8_t deliveryMode =
-      static_cast<int8_t>(report->data[EXT_ADV_DELIVERY_MODE_INDEX]);
+  int8_t deliveryMode = (int8_t)(report->data[EXT_ADV_DELIVERY_MODE_INDEX]);
   if ((extData & EXT_FILTER_DATA_MASK) !=
       (EXT_FILTER_DATA & EXT_FILTER_DATA_MASK)) {
     return CHREX_NEARBY_FILTER_ACTION_IGNORE;

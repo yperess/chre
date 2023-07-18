@@ -58,7 +58,7 @@ void FilterExtension::Update(
   }
   chreBleScanFilter scan_filter;
   scan_filter.rssiThreshold = CHRE_BLE_RSSI_THRESHOLD_NONE;
-  scan_filter.scanFilterCount = generic_filters->size();
+  scan_filter.scanFilterCount = static_cast<uint8_t>(generic_filters->size());
   scan_filter.scanFilters = generic_filters->data();
 
   chrexNearbyExtendedFilterConfig config;
