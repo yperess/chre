@@ -496,6 +496,7 @@ void BleRequestManager::updatePlatformRequest(bool forceUpdate) {
   }
 }
 
+// TODO(b/290860901): require data & ~mask == 0
 bool BleRequestManager::validateParams(const BleRequest &request) {
   bool valid = true;
   if (request.isEnabled()) {

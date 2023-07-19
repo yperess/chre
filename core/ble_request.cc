@@ -23,6 +23,17 @@
 
 namespace chre {
 
+namespace {
+
+bool filtersMatch(const chreBleGenericFilter &filter,
+                  const chreBleGenericFilter &otherFilter) {
+  return filter.len == otherFilter.len && filter.type == otherFilter.type &&
+         (memcmp(filter.data, otherFilter.data, filter.len) == 0) &&
+         (memcmp(filter.dataMask, otherFilter.dataMask, filter.len) == 0);
+}
+
+}  // namespace
+
 BleRequest::BleRequest() : BleRequest(0, false) {}
 
 BleRequest::BleRequest(uint16_t instanceId, bool enable)
@@ -66,47 +77,45 @@ BleRequest &BleRequest::operator=(BleRequest &&other) {
 }
 
 bool BleRequest::mergeWith(const BleRequest &request) {
-  bool attributesChanged = false;
   // Only merge parameters of enabled requests.
-  if (request.mEnabled) {
-    // Replace disabled request parameters.
-    if (!mEnabled) {
-      mEnabled = true;
+  if (!request.mEnabled) {
+    return false;
+  }
+  bool attributesChanged = false;
+  // Replace disabled request parameters.
+  if (!mEnabled) {
+    mEnabled = true;
+    mMode = request.mMode;
+    mReportDelayMs = request.mReportDelayMs;
+    mRssiThreshold = request.mRssiThreshold;
+    attributesChanged = true;
+  } else {
+    if (mMode < request.mMode) {
       mMode = request.mMode;
-      mReportDelayMs = request.mReportDelayMs;
-      mRssiThreshold = request.mRssiThreshold;
-      mFilters.clear();
-      if (!mFilters.resize(request.mFilters.size())) {
-        FATAL_ERROR("Unable to reserve filter count");
-      }
-      for (size_t i = 0; i < request.mFilters.size(); i++) {
-        mFilters[i] = request.mFilters[i];
-      }
       attributesChanged = true;
-    } else {
-      if (mMode < request.mMode) {
-        mMode = request.mMode;
-        attributesChanged = true;
+    }
+    if (mReportDelayMs > request.mReportDelayMs) {
+      mReportDelayMs = request.mReportDelayMs;
+      attributesChanged = true;
+    }
+    if (mRssiThreshold > request.mRssiThreshold) {
+      mRssiThreshold = request.mRssiThreshold;
+      attributesChanged = true;
+    }
+  }
+  const DynamicVector<chreBleGenericFilter> &otherFilters = request.mFilters;
+  for (const chreBleGenericFilter &otherFilter : otherFilters) {
+    bool addFilter = true;
+    for (const chreBleGenericFilter &filter : mFilters) {
+      if (filtersMatch(filter, otherFilter)) {
+        addFilter = false;
+        break;
       }
-      if (mReportDelayMs > request.mReportDelayMs) {
-        mReportDelayMs = request.mReportDelayMs;
-        attributesChanged = true;
-      }
-      if (mRssiThreshold > request.mRssiThreshold) {
-        mRssiThreshold = request.mRssiThreshold;
-        attributesChanged = true;
-      }
-      const DynamicVector<chreBleGenericFilter> &otherFilters =
-          request.mFilters;
-      if (!otherFilters.empty()) {
-        attributesChanged = true;
-        size_t originalFilterSize = mFilters.size();
-        if (!mFilters.resize(originalFilterSize + otherFilters.size())) {
-          FATAL_ERROR("Unable to reserve filter count");
-        }
-        for (size_t i = 0; i < otherFilters.size(); i++) {
-          mFilters[originalFilterSize + i] = otherFilters[i];
-        }
+    }
+    if (addFilter) {
+      attributesChanged = true;
+      if (!mFilters.push_back(otherFilter)) {
+        FATAL_ERROR("Unable to merge filters");
       }
     }
   }
@@ -121,10 +130,7 @@ bool BleRequest::isEquivalentTo(const BleRequest &request) {
                        mFilters.size() == otherFilters.size());
   if (isEquivalent) {
     for (size_t i = 0; i < otherFilters.size(); i++) {
-      if (mFilters[i].len != otherFilters[i].len ||
-          mFilters[i].type != otherFilters[i].type ||
-          mFilters[i].data != otherFilters[i].data ||
-          mFilters[i].dataMask != otherFilters[i].dataMask) {
+      if (!filtersMatch(mFilters[i], otherFilters[i])) {
         isEquivalent = false;
         break;
       }
