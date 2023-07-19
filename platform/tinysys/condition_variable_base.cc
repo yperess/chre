@@ -32,8 +32,7 @@ void ConditionVariableBase::conditionVariablTimerCallback(
 }
 
 ConditionVariable::ConditionVariable() {
-  // TODO(b/256870101): Use xSemaphoreCreateBinaryStatic when possible
-  semaphoreHandle = xSemaphoreCreateBinary();
+  semaphoreHandle = xSemaphoreCreateBinaryStatic(&mSemaphoreBuffer);
   if (semaphoreHandle == nullptr) {
     FATAL_ERROR("Failed to create cv semaphore");
   }
