@@ -40,6 +40,9 @@ class AppManager {
 
  public:
   AppManager();
+  // Returns true if AppManager is initialized successfully.
+  bool IsInitialized();
+
   // Handles an event from CHRE.
   void HandleEvent(uint32_t sender_instance_id, uint16_t event_type,
                    const void *event_data);

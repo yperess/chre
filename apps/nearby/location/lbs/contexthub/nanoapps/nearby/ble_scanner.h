@@ -64,6 +64,11 @@ class BleScanner {
     return is_batch_flushing_;
   }
 
+  // Returns true if BLE scan is available in the device.
+  bool isAvailable() {
+    return is_ble_scan_supported_;
+  }
+
   // Returns whether BLE batch scan is supported.
   bool IsBatchSupported() {
     return is_batch_supported_;

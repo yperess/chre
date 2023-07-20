@@ -41,6 +41,10 @@ AppManager::AppManager() {
       false /* report_total_thread_cycles */, true /* printCsvFormat */);
 #endif
 }
+bool AppManager::IsInitialized() {
+  // AppManager initialized successfully only when BLE scan is available.
+  return ble_scanner_.isAvailable();
+}
 
 void AppManager::HandleEvent(uint32_t sender_instance_id, uint16_t event_type,
                              const void *event_data) {
