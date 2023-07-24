@@ -80,9 +80,6 @@ void sendHandle0Events(uint32_t numSamples) {
       static_cast<const uint8_t *>(chre::memoryAlloc(numSamples));
 
   gCallbacks->audioDataEventCallback(data.release());
-
-  // Cancel the task so this is only run once with a delay.
-  TaskManagerSingleton::get()->cancelTask(gHandle0TaskId.value());
 }
 
 bool chrePalAudioApiRequestAudioDataEvent(uint32_t handle, uint32_t numSamples,
@@ -96,7 +93,7 @@ bool chrePalAudioApiRequestAudioDataEvent(uint32_t handle, uint32_t numSamples,
     gIsHandle0Enabled = true;
     gHandle0TaskId = TaskManagerSingleton::get()->addTask(
         [numSamples]() { sendHandle0Events(numSamples); },
-        std::chrono::nanoseconds(eventDelayNs));
+        std::chrono::nanoseconds(eventDelayNs), true /*isOneShot*/);
     if (!gHandle0TaskId.has_value()) {
       return false;
     }
