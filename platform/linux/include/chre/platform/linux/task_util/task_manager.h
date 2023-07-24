@@ -51,24 +51,29 @@ class TaskManager : public NonCopyable {
 
   /**
    * Adds a task to the queue for execution. The manager calls the function func
-   * during execution. If repeatInterval > 0, the task will repeat every
-   * repeatInterval nanoseconds. If repeatInterval == 0, the task will be
-   * executed only once.
+   * during execution. If intervalOrDelay > 0 and isOneShot is false, the task
+   * will repeat every intervalOrDelay nanoseconds. If intervalOrDelay is > 0
+   * and isOneShot is true, the task will be executed only once after a delay of
+   * intervalOrDelay. If intervalOrDelay == 0, the task will be executed only
+   * once with no delay.
    *
    * @param func                     the function to call.
-   * @param repeatInterval           the interval to repeat.
+   * @param intervalOrDelay          the interval to repeat.
+   * @param isOneShot                if true, the task should be executed only
+   * once with a delay of intervalOrDelay.
    * @return                         the ID of the Task object or an empty
    * Optional<> when there is an error.
    */
   std::optional<uint32_t> addTask(
       const Task::TaskFunction &func,
-      std::chrono::nanoseconds repeatInterval = std::chrono::nanoseconds(0));
+      std::chrono::nanoseconds intervalOrDelay = std::chrono::nanoseconds(0),
+      bool isOneShot = false);
 
   /**
    * Cancels the task with the taskId.
    *
-   * @param taskId              the ID of the task.
-   * @return bool               success.
+   * @param taskId                   the ID of the task.
+   * @return bool                    success.
    */
   bool cancelTask(uint32_t taskId);
 
