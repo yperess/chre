@@ -47,8 +47,10 @@ public class ContextHubHostTestUtil {
     /**
      * The names of the dynamic configs corresponding to each test suite.
      */
-    public static String[] DEVICE_DYNAMIC_CONFIG_NAMES =
+    public static final String[] DEVICE_DYNAMIC_CONFIG_NAMES =
             new String[] {"GtsGmscoreHostTestCases", "GtsLocationContextMultiDeviceTestCases"};
+
+    public static String multiDeviceExternalNanoappPath = null;
 
     /**
      * Returns the path to the directory containing the nanoapp binaries.
@@ -309,6 +311,10 @@ public class ContextHubHostTestUtil {
      * @return external nanoapp path, null if no externalNanoAppPath passed in
      */
     public static String getExternalNanoAppPath() {
+        if (multiDeviceExternalNanoappPath != null) {
+            return multiDeviceExternalNanoappPath;
+        }
+
         Bundle extras = InstrumentationRegistry.getArguments();
         return (extras == null) ? null : extras.getString("externalNanoAppPath");
     }
