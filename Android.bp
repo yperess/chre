@@ -621,6 +621,7 @@ cc_test_host {
         "pw_protobuf",
         "pw_rpc_nanopb_chre",
         "pw_rpc_chre",
+        "pw_status",
         "pw_stream",
         "pw_varint",
     ],
