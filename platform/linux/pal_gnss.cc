@@ -40,7 +40,6 @@ const struct chrePalGnssCallbacks *gCallbacks = nullptr;
 // Task to deliver asynchronous location data after a CHRE request.
 std::mutex gLocationEventsMutex;
 std::optional<uint32_t> gLocationEventsTaskId;
-std::optional<uint32_t> gLocationEventsChangeCallbackTaskId;
 uint32_t gLocationEventsMinIntervalMs = 0;
 bool gDelaySendingLocationEvents = false;
 bool gIsLocationEnabled = false;
@@ -49,7 +48,6 @@ bool gIsLocationEnabled = false;
 std::optional<uint32_t> gLocationStatusTaskId;
 
 // Task to deliver asynchronous measurement data after a CHRE request.
-std::optional<uint32_t> gMeasurementEventsChangeCallbackTaskId;
 std::optional<uint32_t> gMeasurementEventsTaskId;
 bool gIsMeasurementEnabled = false;
 
@@ -75,9 +73,9 @@ void startSendingLocationEvents(uint32_t minIntervalMs) {
     TaskManagerSingleton::get()->cancelTask(gLocationEventsTaskId.value());
   }
 
-  gLocationEventsChangeCallbackTaskId = TaskManagerSingleton::get()->addTask(
+  TaskManagerSingleton::get()->addTask(
       []() { gCallbacks->locationStatusChangeCallback(true, CHRE_ERROR_NONE); },
-      std::chrono::nanoseconds(0));
+      std::chrono::nanoseconds(0), true /* isOneShot */);
 
   gLocationEventsTaskId = TaskManagerSingleton::get()->addTask(
       sendLocationEvents, std::chrono::milliseconds(minIntervalMs));
@@ -108,10 +106,6 @@ void stopMeasurement() {
 void stopLocationTasks() {
   {
     std::lock_guard<std::mutex> lock(gLocationEventsMutex);
-    if (gLocationEventsChangeCallbackTaskId.has_value()) {
-      TaskManagerSingleton::get()->cancelTask(
-          gLocationEventsChangeCallbackTaskId.value());
-    }
 
     if (gLocationEventsTaskId.has_value()) {
       TaskManagerSingleton::get()->cancelTask(gLocationEventsTaskId.value());
@@ -124,11 +118,6 @@ void stopLocationTasks() {
 }
 
 void stopMeasurementTasks() {
-  if (gMeasurementEventsChangeCallbackTaskId.has_value()) {
-    TaskManagerSingleton::get()->cancelTask(
-        gMeasurementEventsChangeCallbackTaskId.value());
-  }
-
   if (gMeasurementEventsTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gMeasurementEventsTaskId.value());
   }
@@ -150,8 +139,7 @@ bool chrePalControlLocationSession(bool enable, uint32_t minIntervalMs,
   gLocationEventsMinIntervalMs = minIntervalMs;
   if (enable && !gDelaySendingLocationEvents) {
     startSendingLocationEvents(minIntervalMs);
-    if (!gLocationEventsChangeCallbackTaskId.has_value() ||
-        !gLocationEventsTaskId.has_value()) {
+    if (!gLocationEventsTaskId.has_value()) {
       return false;
     }
   } else if (!enable) {
@@ -173,14 +161,14 @@ bool chrePalControlMeasurementSession(bool enable, uint32_t minIntervalMs) {
   stopMeasurementTasks();
 
   if (enable) {
-    gMeasurementEventsChangeCallbackTaskId =
+    std::optional<uint32_t> measurementEventsChangeCallbackTaskId =
         TaskManagerSingleton::get()->addTask(
             []() {
               gCallbacks->measurementStatusChangeCallback(true,
                                                           CHRE_ERROR_NONE);
             },
-            std::chrono::nanoseconds(0));
-    if (!gMeasurementEventsChangeCallbackTaskId.has_value()) {
+            std::chrono::nanoseconds(0), true /* isOneShot */);
+    if (!measurementEventsChangeCallbackTaskId.has_value()) {
       return false;
     }
 
