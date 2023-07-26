@@ -71,6 +71,7 @@ void startSendingLocationEvents(uint32_t minIntervalMs) {
   std::lock_guard<std::mutex> lock(gLocationEventsMutex);
   if (gLocationEventsTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gLocationEventsTaskId.value());
+    gLocationEventsTaskId.reset();
   }
 
   TaskManagerSingleton::get()->addTask(
@@ -109,21 +110,25 @@ void stopLocationTasks() {
 
     if (gLocationEventsTaskId.has_value()) {
       TaskManagerSingleton::get()->cancelTask(gLocationEventsTaskId.value());
+      gLocationEventsTaskId.reset();
     }
   }
 
   if (gLocationStatusTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gLocationStatusTaskId.value());
+    gLocationStatusTaskId.reset();
   }
 }
 
 void stopMeasurementTasks() {
   if (gMeasurementEventsTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gMeasurementEventsTaskId.value());
+    gMeasurementEventsTaskId.reset();
   }
 
   if (gMeasurementStatusTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gMeasurementStatusTaskId.value());
+    gMeasurementStatusTaskId.reset();
   }
 }
 

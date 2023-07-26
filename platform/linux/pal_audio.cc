@@ -45,6 +45,7 @@ bool gIsHandle0Enabled = false;
 void stopHandle0Task() {
   if (gHandle0TaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gHandle0TaskId.value());
+    gHandle0TaskId.reset();
   }
 }
 

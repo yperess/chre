@@ -57,6 +57,7 @@ bool gIsSensor0Enabled = false;
 void stopSensor0Task() {
   if (gSensor0TaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gSensor0TaskId.value());
+    gSensor0TaskId.reset();
   }
 }
 

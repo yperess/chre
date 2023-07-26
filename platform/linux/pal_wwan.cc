@@ -63,6 +63,7 @@ void sendCellInfoResult() {
 void stopCellInfoTask() {
   if (gCellInfosTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(*gCellInfosTaskId);
+    gCellInfosTaskId.reset();
   }
 }
 

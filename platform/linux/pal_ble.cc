@@ -75,6 +75,7 @@ void sendAdReportEvents() {
 void stopAllTasks() {
   if (gBleAdReportEventTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gBleAdReportEventTaskId.value());
+    gBleAdReportEventTaskId.reset();
   }
 }
 

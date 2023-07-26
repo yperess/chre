@@ -95,18 +95,21 @@ void sendRangingResponse() {
 void stopScanMonitorTask() {
   if (gScanMonitorTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gScanMonitorTaskId.value());
+    gScanMonitorTaskId.reset();
   }
 }
 
 void stopRequestScanTask() {
   if (gRequestScanTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gRequestScanTaskId.value());
+    gRequestScanTaskId.reset();
   }
 }
 
 void stopRequestRangingTask() {
   if (gRequestRangingTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gRequestRangingTaskId.value());
+    gRequestRangingTaskId.reset();
   }
 }
 
