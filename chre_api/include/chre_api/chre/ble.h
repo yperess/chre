@@ -93,6 +93,11 @@ extern "C" {
 //! CHRE BLE supports RSSI filters
 #define CHRE_BLE_FILTER_CAPABILITIES_RSSI UINT32_C(1 << 1)
 
+//! CHRE BLE supports Broadcaster Address filters (Corresponding HCI OCF:
+//! 0x0157, Sub-command: 0x02)
+//! @since v1.9
+#define CHRE_BLE_FILTER_CAPABILITIES_BROADCASTER_ADDRESS UINT32_C(1 << 2)
+
 //! CHRE BLE supports Manufacturer Data filters (Corresponding HCI OCF: 0x0157,
 //! Sub-command: 0x06)
 //! @since v1.8
@@ -310,11 +315,6 @@ enum chreBleScanMode {
  */
 enum chreBleAdType {
   //! Service Data with 16-bit UUID
-  //! @deprecated as of v1.8
-  //! TODO(b/285207430): Remove this enum once CHRE has been updated.
-  CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16 = 0x16,
-
-  //! Service Data with 16-bit UUID
   //! @since v1.8 CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16 was renamed
   //! CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE to reflect that nanoapps
   //! compiled against v1.8+ should use OTA format for service data filters.
@@ -326,42 +326,34 @@ enum chreBleAdType {
 };
 
 /**
- * Generic scan filters definition based on AD Type, mask, and values. The
- * maximum data length is limited to the maximum possible legacy advertisement
- * payload data length (29 bytes).
- *
- * The filter is matched when
- *   data & dataMask == advData & dataMask
- * where advData is the advertisement packet data for the specified AD type.
+ * Generic filters are used to filter for the presence of AD structures in the
+ * data field of LE Extended Advertising Report events (ref: BT Core Spec v5.3,
+ * Vol 3, Part E, Section 11).
  *
  * The CHRE generic filter structure represents a generic filter on an AD Type
  * as defined in the Bluetooth spec Assigned Numbers, Generic Access Profile
  * (ref: https://www.bluetooth.com/specifications/assigned-numbers/). This
- * generic structure is used by the Advertising Packet Content Filter
- * (APCF) HCI generic AD type sub-command 0x09 (ref:
- * https://source.android.com/devices/bluetooth/hci_requirements#le_apcf_command).
+ * generic structure is used by the Android HCI Advertising Packet Content
+ * Filter (APCF) AD Type sub-command 0x09 (ref:
+ * https://source.android.com/docs/core/connect/bluetooth/hci_requirements#le_apcf_command-ad_type_sub_cmd).
+ *
+ * The filter is matched when an advertisement event contains an AD structure in
+ * its data field that matches the following criteria:
+ *   AdStructure.type == type
+ *   AdStructure.data & dataMask == data & dataMask
+ *
+ * The maximum data length is limited to the maximum possible legacy
+ * advertisement payload data length (29 bytes). The data and dataMask must be
+ * in OTA format. For each zero bit of the dataMask, the corresponding
+ * data bit must also be zero.
  *
  * Note that the CHRE implementation may not support every kind of filter that
  * can be represented by this structure. Use chreBleGetFilterCapabilities() to
  * discover supported filtering capabilities at runtime.
  *
- * @since v1.8 The data and dataMask must be in OTA format. The nanoapp support
- * library will handle converting the data and dataMask values to the correct
- * format if a pre v1.8 version of CHRE is running.
- *
- * NOTE: CHRE versions 1.6 and 1.7 expect the 2-byte UUID prefix in
- * CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16 to be given as big-endian. This
- * was corrected in v1.8 to match the OTA format and Bluetooth specification,
- * which uses little-endian. This enum has been removed and replaced with
- * CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE to ensure that nanoapps
- * compiled against v1.8 and later specify their UUID filter using
- * little-endian. Nanoapps compiled against v1.7 or earlier should continue to
- * use big-endian, as CHRE must provide cross-version compatibility for all
- * possible version combinations.
- *
  * Example 1: To filter on a 16 bit service data UUID of 0xFE2C, the following
  * settings would be used:
- *   type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16
+ *   type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE
  *   len = 2
  *   data = {0x2C, 0xFE}
  *   dataMask = {0xFF, 0xFF}
@@ -394,25 +386,43 @@ struct chreBleGenericFilter {
 };
 
 /**
- * CHRE Bluetooth LE scan filters are based on a combination of an RSSI
- * threshold and generic scan filters as defined by AD Type, mask, and values.
+ * Broadcaster address filters are used to filter by the address field of the LE
+ * Extended Advertising Report event which is defined in the BT Core Spec v5.3,
+ * Vol 4, Part E, Section 7.7.65.13.
  *
- * CHRE-provided filters are implemented in a best-effort manner, depending on
- * HW capabilities of the system and available resources. Therefore, provided
- * scan results may be a superset of the specified filters. Nanoapps should try
- * to take advantage of CHRE scan filters as much as possible, but must design
- * their logic as to not depend on CHRE filtering.
+ * The CHRE broadcaster address filter structure is modeled after the
+ * Advertising Packet Content Filter (APCF) HCI broadcaster address sub-command
+ * 0x02 (ref:
+ * https://source.android.com/docs/core/connect/bluetooth/hci_requirements#le_apcf_command-broadcast_address_sub_cmd).
  *
- * The syntax of CHRE scan filter definitions are based on the Android
- * Advertising Packet Content Filter (APCF) HCI requirement subtype 0x08
- * ref:
- * https://source.android.com/devices/bluetooth/hci_requirements#le_apcf_command-set_filtering_parameters_sub_cmd
- * and AD Types as defined in the Bluetooth spec Assigned Numbers, Generic
- * Access Profile
- * ref: https://www.bluetooth.com/specifications/assigned-numbers/
+ * The CHRE broadcaster address filter does not filter by address type at this
+ * time. If a nanoapp wants to filter for a particular address type, it must
+ * check the addressType field of the chreBleAdvertisingReport.
  *
- * Even though the scan filters are defined in a generic manner, CHRE Bluetooth
- * is expected to initially support only a limited set of AD Types.
+ * NOTE: The broadcasterAddress (6-byte) must be in OTA format.
+ *
+ * The filter is matched when an advertisement even meets the following criteria:
+ *   broadcasterAddress == chreBleAdvertisingReport.address.
+ *
+ * Example: To filter on the address (01:02:03:AB:CD:EF), the following
+ * settings would be used:
+ *   broadcasterAddress = {0xEF, 0xCD, 0xAB, 0x03, 0x02, 0x01}
+ *
+ * @since v1.9
+ */
+struct chreBleBroadcasterAddressFilter {
+  //! 6-byte Broadcaster address
+  uint8_t broadcasterAddress[CHRE_BLE_ADDRESS_LEN];
+};
+
+/**
+ * CHRE Bluetooth LE scan filters.
+ *
+ * @see chreBleScanFilterV1_9 for further details.
+ *
+ * @deprecated as of v1.9 due to the addition of the
+ * chreBleBroadcasterAddressFilter. New code should use chreBleScanFilterV1_9
+ * instead of this struct. This struct will be removed in a future version.
  */
 struct chreBleScanFilter {
   //! RSSI threshold filter (Corresponding HCI OCF: 0x0157, Sub: 0x01), where
@@ -429,6 +439,60 @@ struct chreBleScanFilter {
   //! entry, advertisements matching any of the entries will be returned
   //! (functional OR).
   const struct chreBleGenericFilter *scanFilters;
+};
+
+/**
+ * CHRE Bluetooth LE scan filters are based on a combination of an RSSI
+ * threshold, generic filters, and broadcaster address filters.
+ *
+ * When multiple filters are specified, rssiThreshold is combined with the other
+ * filters via functional AND, and the other filters are all combined as
+ * functional OR. In other words, an advertisement matches the filter if:
+ *   rssi >= rssiThreshold
+ *   AND (matchAny(genericFilters) OR matchAny(broadcasterAddressFilters))
+ *
+ * CHRE-provided filters are implemented in a best-effort manner, depending on
+ * HW capabilities of the system and available resources. Therefore, provided
+ * scan results may be a superset of the specified filters. Nanoapps should try
+ * to take advantage of CHRE scan filters as much as possible, but must design
+ * their logic as to not depend on CHRE filtering.
+ *
+ * The syntax of CHRE scan filter definition is modeled after a combination of
+ * multiple Android HCI Advertising Packet Content Filter (APCF) sub commands
+ * including the RSSI threshold from the set filtering parameters sub command
+ * (ref:
+ * https://source.android.com/docs/core/connect/bluetooth/hci_requirements#le_apcf_command-set_filtering_parameters_sub_cmd).
+ * @see chreBleGenericFilter and chreBleBroadcasterAddressFilter for details
+ * about other APCF sub commands referenced.
+ *
+ * @since v1.9
+ */
+struct chreBleScanFilterV1_9 {
+  //! RSSI threshold filter (Corresponding HCI OCF: 0x0157, Sub: 0x01), where
+  //! advertisements with RSSI values below this threshold may be disregarded.
+  //! An rssiThreshold value of CHRE_BLE_RSSI_THRESHOLD_NONE indicates no RSSI
+  //! filtering.
+  int8_t rssiThreshold;
+
+  //! Number of generic filters provided in the scanFilters array. A
+  //! genericFilterCount value of 0 indicates no generic filters.
+  uint8_t genericFilterCount;
+
+  //! Pointer to an array of generic filters. If the array contains more than
+  //! one entry, advertisements matching any of the entries will be returned
+  //! (functional OR). This is expected to be null if genericFilterCount is 0.
+  const struct chreBleGenericFilter *genericFilters;
+
+  //! Number of broadcaster address filters provided in the
+  //! broadcasterAddressFilters array. A broadcasterAddressFilterCount value
+  //! of 0 indicates no broadcaster address filters.
+  uint8_t broadcasterAddressFilterCount;
+
+  //! Pointer to an array of broadcaster address filters. If the array contains
+  //! more than one entry, advertisements matching any of the entries will be
+  //! returned (functional OR). This is expected to be null if
+  //! broadcasterAddressFilterCount is 0.
+  const struct chreBleBroadcasterAddressFilter *broadcasterAddressFilters;
 };
 
 /**
@@ -689,6 +753,19 @@ static inline uint8_t chreBleGetEventTypeAndDataStatus(uint8_t eventType,
 /**
  * Start Bluetooth LE (BLE) scanning on CHRE.
  *
+ * @see chreBleStartScanAsyncV1_9 for further details.
+ *
+ * @deprecated as of v1.9 due to the addition of the chreBleScanFilterV1_9
+ * struct and a cookie parameter. New code should use
+ * chreBleStartScanAsyncV1_9() instead of this function. This function will be
+ * removed in a future version.
+ */
+bool chreBleStartScanAsync(enum chreBleScanMode mode, uint32_t reportDelayMs,
+                           const struct chreBleScanFilter *filter);
+
+/**
+ * Start Bluetooth LE (BLE) scanning on CHRE.
+ *
  * The result of the operation will be delivered asynchronously via the CHRE
  * event CHRE_EVENT_BLE_ASYNC_RESULT.
  *
@@ -720,8 +797,8 @@ static inline uint8_t chreBleGetEventTypeAndDataStatus(uint8_t eventType,
  * Legacy-only: false
  * PHY type: PHY_LE_ALL_SUPPORTED
  *
- * For v1.8 and greater, a CHRE_EVENT_BLE_SCAN_STATUS_CHANGE will be generated
- * if the values in chreBleScanStatus changes as a result of this call.
+ * A CHRE_EVENT_BLE_SCAN_STATUS_CHANGE will be generated if the values in
+ * chreBleScanStatus changes as a result of this call.
  *
  * @param mode Scanning mode selected among enum chreBleScanMode
  * @param reportDelayMs Maximum requested batching delay in ms. 0 indicates no
@@ -731,24 +808,43 @@ static inline uint8_t chreBleGetEventTypeAndDataStatus(uint8_t eventType,
  *               defined by struct chreBleScanFilter. The ownership of filter
  *               and its nested elements remains with the caller, and the caller
  *               may release it as soon as chreBleStartScanAsync() returns.
+ * @param cookie An opaque value that will be included in the chreAsyncResult
+ *               sent as a response to this request.
  *
  * @return True to indicate that the request was accepted. False otherwise.
  *
- * @since v1.6
+ * @since v1.9
  */
-bool chreBleStartScanAsync(enum chreBleScanMode mode, uint32_t reportDelayMs,
-                           const struct chreBleScanFilter *filter);
+bool chreBleStartScanAsyncV1_9(enum chreBleScanMode mode,
+                               uint32_t reportDelayMs,
+                               const struct chreBleScanFilterV1_9 *filter,
+                               const void *cookie);
+
+/**
+ * Stops a CHRE BLE scan.
+ *
+ * @see chreBleStopScanAsyncV1_9 for further details.
+ *
+ * @deprecated as of v1.9 due to the addition of the cookie parameter. New code
+ * should use chreBleStopScanAsyncV1_9() instead of this function. This function
+ * will be removed in a future version.
+ */
+bool chreBleStopScanAsync(void);
+
 /**
  * Stops a CHRE BLE scan.
  *
  * The result of the operation will be delivered asynchronously via the CHRE
  * event CHRE_EVENT_BLE_ASYNC_RESULT.
  *
+ * @param cookie An opaque value that will be included in the chreAsyncResult
+ *               sent as a response to this request.
+ *
  * @return True to indicate that the request was accepted. False otherwise.
  *
- * @since v1.6
+ * @since v1.9
  */
-bool chreBleStopScanAsync(void);
+bool chreBleStopScanAsyncV1_9(const void *cookie);
 
 /**
  * Requests to immediately deliver batched scan results. The nanoapp must
