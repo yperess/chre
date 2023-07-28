@@ -202,6 +202,7 @@ bool BleRequestManager::controlPlatform() {
   bool success = false;
   const BleRequest &maxRequest = mRequests.getCurrentMaximalRequest();
   bool enable = bleSettingEnabled() && maxRequest.isEnabled();
+
   if (enable) {
     chreBleScanFilter filter = maxRequest.getScanFilter();
     success = mPlatformBle.startScanAsync(
@@ -213,6 +214,7 @@ bool BleRequestManager::controlPlatform() {
     success = mPlatformBle.stopScanAsync();
     mPendingPlatformRequest = BleRequest(0, enable);
   }
+
   if (success) {
     for (BleRequest &req : mRequests.getMutableRequests()) {
       if (req.getRequestStatus() == RequestStatus::PENDING_REQ) {
