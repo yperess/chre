@@ -89,8 +89,8 @@ bool BleRequestManager::startScanAsync(Nanoapp *nanoapp, chreBleScanMode mode,
                                        uint32_t reportDelayMs,
                                        const struct chreBleScanFilter *filter) {
   CHRE_ASSERT(nanoapp);
-  BleRequest request(nanoapp->getInstanceId(), true, mode, reportDelayMs,
-                     filter);
+  BleRequest request(nanoapp->getInstanceId(), true /* enable */, mode,
+                     reportDelayMs, filter);
   return configure(std::move(request));
 }
 
