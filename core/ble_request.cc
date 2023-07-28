@@ -34,7 +34,7 @@ bool filtersMatch(const chreBleGenericFilter &filter,
 
 }  // namespace
 
-BleRequest::BleRequest() : BleRequest(0, false) {}
+BleRequest::BleRequest() : BleRequest(0 /* instanceId */, false /* enable */) {}
 
 BleRequest::BleRequest(uint16_t instanceId, bool enable)
     : BleRequest(instanceId, enable, CHRE_BLE_SCAN_MODE_BACKGROUND,

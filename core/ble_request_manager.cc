@@ -208,11 +208,11 @@ bool BleRequestManager::controlPlatform() {
     success = mPlatformBle.startScanAsync(
         maxRequest.getMode(), maxRequest.getReportDelayMs(), &filter);
     mPendingPlatformRequest =
-        BleRequest(0, enable, maxRequest.getMode(),
+        BleRequest(0 /* instanceId */, enable, maxRequest.getMode(),
                    maxRequest.getReportDelayMs(), &filter);
   } else {
     success = mPlatformBle.stopScanAsync();
-    mPendingPlatformRequest = BleRequest(0, enable);
+    mPendingPlatformRequest = BleRequest(0 /* instanceId */, enable);
   }
 
   if (success) {
