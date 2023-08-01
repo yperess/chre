@@ -44,8 +44,16 @@ DLL_EXPORT uint32_t chreBleGetFilterCapabilities() {
 #endif  // CHRE_BLE_SUPPORT_ENABLED
 }
 
-DLL_EXPORT bool chreBleFlushAsync(const void * /* cookie */) {
+DLL_EXPORT bool chreBleFlushAsync(const void *cookie) {
+#ifdef CHRE_BLE_SUPPORT_ENABLED
+  chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
+  return nanoapp->permitPermissionUse(NanoappPermissions::CHRE_PERMS_BLE) &&
+         EventLoopManagerSingleton::get()->getBleRequestManager().flushAsync(
+             nanoapp, cookie);
+#else
+  UNUSED_VAR(cookie);
   return false;
+#endif  // CHRE_BLE_SUPPORT_ENABLED
 }
 
 DLL_EXPORT bool chreBleStartScanAsync(chreBleScanMode mode,

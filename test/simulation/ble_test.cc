@@ -715,5 +715,126 @@ TEST_F(TestBase, BleStartScanTwiceBeforeAsyncResponseTest) {
   waitForEvent(SCAN_STOPPED);
 }
 
+/**
+ * This test validates that a nanoapp can call flush only when an existing scan
+ * is enabled for the nanoapp. This test validates that batching will hold the
+ * data and flush will send the batched data and then a flush complete event.
+ */
+TEST_F(TestBase, BleFlush) {
+  CREATE_CHRE_TEST_EVENT(START_SCAN, 0);
+  CREATE_CHRE_TEST_EVENT(SCAN_STARTED, 1);
+  CREATE_CHRE_TEST_EVENT(STOP_SCAN, 2);
+  CREATE_CHRE_TEST_EVENT(SCAN_STOPPED, 3);
+  CREATE_CHRE_TEST_EVENT(CALL_FLUSH, 4);
+
+  class App : public BleTestNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_BLE_ASYNC_RESULT: {
+          auto *event = static_cast<const struct chreAsyncResult *>(eventData);
+          if (event->errorCode == CHRE_ERROR_NONE) {
+            uint16_t type =
+                (event->requestType == CHRE_BLE_REQUEST_TYPE_START_SCAN)
+                    ? SCAN_STARTED
+                    : SCAN_STOPPED;
+            TestEventQueueSingleton::get()->pushEvent(type);
+          }
+          break;
+        }
+
+        case CHRE_EVENT_BLE_ADVERTISEMENT: {
+          TestEventQueueSingleton::get()->pushEvent(
+              CHRE_EVENT_BLE_ADVERTISEMENT);
+          break;
+        }
+
+        case CHRE_EVENT_BLE_FLUSH_COMPLETE: {
+          auto *event = static_cast<const struct chreAsyncResult *>(eventData);
+          if (event->cookie == &mCookie) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_BLE_FLUSH_COMPLETE, event->success);
+          }
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case START_SCAN: {
+              const bool success = chreBleStartScanAsync(
+                  CHRE_BLE_SCAN_MODE_AGGRESSIVE, 60000, nullptr);
+              TestEventQueueSingleton::get()->pushEvent(START_SCAN, success);
+              break;
+            }
+
+            case STOP_SCAN: {
+              const bool success = chreBleStopScanAsync();
+              TestEventQueueSingleton::get()->pushEvent(STOP_SCAN, success);
+              break;
+            }
+
+            case CALL_FLUSH: {
+              const bool success = chreBleFlushAsync(&mCookie);
+              TestEventQueueSingleton::get()->pushEvent(CALL_FLUSH, success);
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+
+   private:
+    uint32_t mCookie;
+  };
+
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
+  // Flushing before a scan should fail.
+  bool success;
+  sendEventToNanoapp(appId, CALL_FLUSH);
+  waitForEvent(CALL_FLUSH, &success);
+  ASSERT_FALSE(success);
+
+  // Start a scan with batching.
+  sendEventToNanoapp(appId, START_SCAN);
+  waitForEvent(START_SCAN, &success);
+  ASSERT_TRUE(success);
+  waitForEvent(SCAN_STARTED);
+  ASSERT_TRUE(chrePalIsBleEnabled());
+
+  // Call flush again multiple times and get the complete event.
+  // We should only receive data when flush is called as the batch
+  // delay is extremely large.
+  constexpr uint32_t kNumFlushCalls = 3;
+  for (uint32_t i = 0; i < kNumFlushCalls; ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    sendEventToNanoapp(appId, CALL_FLUSH);
+    waitForEvent(CALL_FLUSH, &success);
+    ASSERT_TRUE(success);
+
+    // Wait for some data.
+    waitForEvent(CHRE_EVENT_BLE_ADVERTISEMENT);
+
+    waitForEvent(CHRE_EVENT_BLE_FLUSH_COMPLETE, &success);
+    ASSERT_TRUE(success);
+  }
+
+  // Stop a scan.
+  sendEventToNanoapp(appId, STOP_SCAN);
+  waitForEvent(STOP_SCAN, &success);
+  ASSERT_TRUE(success);
+  waitForEvent(SCAN_STOPPED);
+  ASSERT_FALSE(chrePalIsBleEnabled());
+
+  // Flushing after a scan should fail.
+  sendEventToNanoapp(appId, CALL_FLUSH);
+  waitForEvent(CALL_FLUSH, &success);
+  ASSERT_FALSE(success);
+}
+
 }  // namespace
 }  // namespace chre
