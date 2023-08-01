@@ -42,6 +42,7 @@ bool createBleScanFilterForKnownBeacons(struct chreBleScanFilter &filter,
   if (numGenericFilters < kNumScanFilters) {
     return false;
   }
+  memset(&filter, 0, sizeof(filter));
 
   genericFilters[0] = createBleGenericFilter(
       CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE, kNumScanFilters,
