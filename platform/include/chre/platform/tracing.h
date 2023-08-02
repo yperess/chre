@@ -62,36 +62,4 @@
 
 #endif  // CHRE_TRACING_ENABLED
 
-/**
- * @file
- * Tracing support for CHRE.
- * Platforms must supply an implementation of the trace functions.
- */
-
-namespace chre {
-/**
- * Registers a nanoapp instance with the tracing infrastructure.
- *
- * @param instanceId instance ID of the nanoapp.
- * @param name name of the nanoapp.
- */
-void traceRegisterNanoapp(uint16_t instanceId, const char *name);
-
-/**
- * Marks the start of the nanoappHandleEvent function.
- *
- * @param instanceId instance ID of the nanoapp.
- * @param eventType event being handled.
- */
-void traceNanoappHandleEventStart(uint16_t instanceId, uint16_t eventType);
-
-/**
- * Marks the end of the nanoappHandleEvent function.
- *
- * @param instanceId instance ID of the nanoapp.
- */
-void traceNanoappHandleEventEnd(uint16_t instanceId);
-
-}  // namespace chre
-
 #endif  // CHRE_PLATFORM_TRACING_H_

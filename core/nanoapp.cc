@@ -42,7 +42,8 @@ Nanoapp::Nanoapp() {
 }
 
 bool Nanoapp::start() {
-  traceRegisterNanoapp(getInstanceId(), getAppName());
+  // TODO(b/294116163): update trace with nanoapp instance id and nanoapp name
+  CHRE_TRACE_INSTANT("Nanoapp start");
   mIsInNanoappStart = true;
   bool success = PlatformNanoapp::start();
   mIsInNanoappStart = false;
@@ -134,13 +135,16 @@ void Nanoapp::configureUserSettingEvent(uint8_t setting, bool enable) {
 
 void Nanoapp::processEvent(Event *event) {
   Nanoseconds eventStartTime = SystemTime::getMonotonicTime();
-  traceNanoappHandleEventStart(getInstanceId(), event->eventType);
+  // TODO(b/294116163): update trace with event type and nanoapp name so it can
+  //                    be differentiated from other events
+  CHRE_TRACE_START("Handle event", "nanoapp", getInstanceId());
   if (event->eventType == CHRE_EVENT_GNSS_DATA) {
     handleGnssMeasurementDataEvent(event);
   } else {
     handleEvent(event->senderInstanceId, event->eventType, event->eventData);
   }
-  traceNanoappHandleEventEnd(getInstanceId());
+  // TODO(b/294116163): update trace with nanoapp name
+  CHRE_TRACE_END("Handle event", "nanoapp", getInstanceId());
   Nanoseconds eventProcessTime =
       SystemTime::getMonotonicTime() - eventStartTime;
   if (Milliseconds(eventProcessTime) >= Milliseconds(100)) {
