@@ -26,9 +26,11 @@ DynamicVector<BleRequest> &BleRequestMultiplexer::getMutableRequests() {
 
 const BleRequest *BleRequestMultiplexer::findRequest(uint16_t instanceId,
                                                      size_t *index) {
-  for (size_t i = 0; i < mRequests.size(); i++) {
+  for (size_t i = 0; i < mRequests.size(); ++i) {
     if (mRequests[i].getInstanceId() == instanceId) {
-      *index = i;
+      if (index != nullptr) {
+        *index = i;
+      }
       return &mRequests[i];
     }
   }
