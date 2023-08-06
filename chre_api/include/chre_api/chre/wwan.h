@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// IWYU pragma: private, include "chre_api/chre.h"
+
 #ifndef _CHRE_WWAN_H_
 #define _CHRE_WWAN_H_
 
