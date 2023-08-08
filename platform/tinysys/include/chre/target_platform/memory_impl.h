@@ -24,6 +24,7 @@ extern "C" {
 #endif
 
 #include "encoding.h"
+#include "portable.h"
 #include "sensorhub/heap.h"
 
 #ifdef __cplusplus
@@ -32,12 +33,25 @@ extern "C" {
 
 namespace chre {
 
+inline isInDram(const void *pointer) {
+  return reinterpret_cast<uintptr_t>(pointer) > CFG_L1C_DRAM_ADDR;
+}
+
 inline void *memoryAlloc(size_t size) {
-  return heap_alloc(size);
+  void *address = heap_alloc(size);
+  if (address == nullptr) {
+    // Try dram if allocation from sram fails
+    address = pvPortDramMalloc(size);
+  }
+  return address;
 }
 
 inline void memoryFree(void *pointer) {
-  heap_free(pointer);
+  if (isInDram(pointer)) {
+    vPortDramFree(pointer);
+  } else {
+    heap_free(pointer);
+  }
 }
 
 }  // namespace chre
