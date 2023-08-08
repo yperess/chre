@@ -19,6 +19,7 @@
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
+#include "chre/util/fixed_size_vector.h"
 #include "chre/util/nested_data_ptr.h"
 #include "chre/util/system/event_callbacks.h"
 
@@ -140,6 +141,27 @@ bool BleRequestManager::readRssiAsync(Nanoapp *nanoapp,
   return true;
 }
 #endif
+
+bool BleRequestManager::flushAsync(Nanoapp *nanoapp, const void *cookie) {
+  CHRE_ASSERT(nanoapp);
+
+  bool success = false;
+  size_t requestIndex;
+  const BleRequest *foundRequest =
+      mRequests.findRequest(nanoapp->getInstanceId(), &requestIndex);
+  if (foundRequest == nullptr) {
+    LOGE("Nanoapp with instance ID: %" PRIu16
+         " does not have an existing BLE request and cannot flush",
+         nanoapp->getInstanceId());
+  } else if (mFlushRequestQueue.full()) {
+    LOG_OOM();
+  } else {
+    mFlushRequestQueue.emplace(nanoapp->getInstanceId(), cookie);
+    success = processFlushRequests();
+  }
+
+  return success;
+}
 
 void BleRequestManager::addBleRequestLog(uint32_t instanceId, bool enabled,
                                          size_t requestIndex,
@@ -454,6 +476,21 @@ uint8_t BleRequestManager::readRssi(uint16_t connectionHandle) {
 }
 #endif
 
+void BleRequestManager::handleFlushComplete(uint8_t errorCode) {
+  if (mFlushRequestTimerHandle != CHRE_TIMER_INVALID) {
+    EventLoopManagerSingleton::get()->cancelDelayedCallback(
+        mFlushRequestTimerHandle);
+    mFlushRequestTimerHandle = CHRE_TIMER_INVALID;
+  }
+
+  handleFlushCompleteInternal(errorCode);
+}
+
+void BleRequestManager::handleFlushCompleteTimeout() {
+  mFlushRequestTimerHandle = CHRE_TIMER_INVALID;
+  handleFlushCompleteInternal(CHRE_ERROR_TIMEOUT);
+}
+
 bool BleRequestManager::getScanStatus(struct chreBleScanStatus * /* status */) {
   // TODO(b/266820139): Implement this
   return false;
@@ -484,6 +521,106 @@ void BleRequestManager::updatePlatformRequest(bool forceUpdate) {
       FATAL_ERROR("Failed to send update BLE platform request");
     }
   }
+}
+
+void BleRequestManager::handleFlushCompleteInternal(uint8_t errorCode) {
+  auto callback = [](uint16_t /* type */, void *data, void * /* extraData */) {
+    uint8_t cbErrorCode = NestedDataPtr<uint8_t>(data);
+    EventLoopManagerSingleton::get()
+        ->getBleRequestManager()
+        .handleFlushCompleteSync(cbErrorCode);
+  };
+
+  if (!EventLoopManagerSingleton::get()->deferCallback(
+          SystemCallbackType::BleFlushComplete,
+          NestedDataPtr<uint8_t>(errorCode), callback)) {
+    FATAL_ERROR("Unable to defer flush complete callback");
+  }
+}
+
+void BleRequestManager::handleFlushCompleteSync(uint8_t errorCode) {
+  if (mFlushRequestQueue.empty() || !mFlushRequestQueue.front().isActive) {
+    LOGE(
+        "handleFlushCompleteSync was called, but there is no active flush "
+        "request");
+    return;
+  }
+
+  FlushRequest &flushRequest = mFlushRequestQueue.front();
+  sendFlushCompleteEventOrDie(flushRequest, errorCode);
+  mFlushRequestQueue.pop();
+
+  processFlushRequests();
+}
+
+uint8_t BleRequestManager::doFlushRequest() {
+  CHRE_ASSERT(!mFlushRequestQueue.empty());
+
+  FlushRequest &flushRequest = mFlushRequestQueue.front();
+  if (flushRequest.isActive) {
+    return CHRE_ERROR_NONE;
+  }
+
+  Nanoseconds now = SystemTime::getMonotonicTime();
+  uint8_t errorCode = CHRE_ERROR_NONE;
+  if (now >= flushRequest.deadlineTimestamp) {
+    LOGE("BLE flush request for nanoapp with instance ID: %" PRIu16
+         " failed: deadline exceeded",
+         flushRequest.nanoappInstanceId);
+    errorCode = CHRE_ERROR_TIMEOUT;
+  } else {
+    auto timeoutCallback = [](uint16_t /* type */, void * /* data */,
+                              void * /* extraData */) {
+      EventLoopManagerSingleton::get()
+          ->getBleRequestManager()
+          .handleFlushCompleteTimeout();
+    };
+    mFlushRequestTimerHandle =
+        EventLoopManagerSingleton::get()->setDelayedCallback(
+            SystemCallbackType::BleFlushTimeout, nullptr, timeoutCallback,
+            flushRequest.deadlineTimestamp - now);
+
+    if (!mPlatformBle.flushAsync()) {
+      LOGE("Could not request flush from BLE platform");
+      errorCode = CHRE_ERROR;
+      EventLoopManagerSingleton::get()->cancelDelayedCallback(
+          mFlushRequestTimerHandle);
+      mFlushRequestTimerHandle = CHRE_TIMER_INVALID;
+    } else {
+      flushRequest.isActive = true;
+    }
+  }
+  return errorCode;
+}
+
+void BleRequestManager::sendFlushCompleteEventOrDie(
+    const FlushRequest &flushRequest, uint8_t errorCode) {
+  chreAsyncResult *event = memoryAlloc<chreAsyncResult>();
+  if (event == nullptr) {
+    FATAL_ERROR("Unable to allocate chreAsyncResult");
+  }
+
+  event->requestType = CHRE_BLE_REQUEST_TYPE_FLUSH;
+  event->success = errorCode == CHRE_ERROR_NONE;
+  event->errorCode = errorCode;
+  event->reserved = 0;
+  event->cookie = flushRequest.cookie;
+  EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
+      CHRE_EVENT_BLE_FLUSH_COMPLETE, event, freeEventDataCallback,
+      flushRequest.nanoappInstanceId);
+}
+
+bool BleRequestManager::processFlushRequests() {
+  while (!mFlushRequestQueue.empty()) {
+    uint8_t errorCode = doFlushRequest();
+    if (errorCode == CHRE_ERROR_NONE) {
+      return true;
+    }
+
+    sendFlushCompleteEventOrDie(mFlushRequestQueue.front(), errorCode);
+    mFlushRequestQueue.pop();
+  }
+  return false;
 }
 
 // TODO(b/290860901): require data & ~mask == 0
