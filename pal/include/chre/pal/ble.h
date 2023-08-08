@@ -46,9 +46,14 @@ extern "C" {
 #define CHRE_PAL_BLE_API_V1_8 CHRE_PAL_CREATE_API_VERSION(1, 8)
 
 /**
+ * Introduced alongside CHRE API v1.8, adds flush() API.
+ */
+#define CHRE_PAL_BLE_API_V1_9 CHRE_PAL_CREATE_API_VERSION(1, 9)
+
+/**
  * The version of the CHRE BLE PAL defined in this header file.
  */
-#define CHRE_PAL_BLE_API_CURRENT_VERSION CHRE_PAL_BLE_API_V1_8
+#define CHRE_PAL_BLE_API_CURRENT_VERSION CHRE_PAL_BLE_API_V1_9
 
 /**
  * The maximum amount of time allowed to elapse between the call to
@@ -121,6 +126,18 @@ struct chrePalBleCallbacks {
    * @since v1.8
    */
   void (*readRssiCallback)(uint8_t errorCode, uint16_t handle, int8_t rssi);
+
+  /**
+   * Callback used to inform CHRE of a completed flush event.
+   *
+   * @param errorCode An error code from enum chreError, with CHRE_ERROR_NONE
+   *        indicating a successful response.
+   *
+   * @see chrePalBleApi.flush
+   *
+   * @since v1.9
+   */
+  void (*flushCallback)(uint8_t errorCode);
 };
 
 struct chrePalBleApi {
@@ -232,6 +249,17 @@ struct chrePalBleApi {
    * @since v1.8
    */
   bool (*readRssi)(uint16_t connectionHandle);
+
+  /**
+   * Initiates a flush operation where all batched advertisement events will be
+   * immediately processed.
+   *
+   * @return true if the request was accepted, in which case a subsequent call
+   * to flushCallback() will be used to indicate the result of the operation.
+   *
+   * @since v1.9
+   */
+  bool (*flush)();
 };
 
 /**

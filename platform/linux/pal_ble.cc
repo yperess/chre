@@ -24,6 +24,7 @@
 
 #include <chrono>
 #include <optional>
+#include <vector>
 
 /**
  * A simulated implementation of the BLE PAL for the linux platform.
@@ -37,10 +38,16 @@ const struct chrePalBleCallbacks *gCallbacks = nullptr;
 
 bool gBleEnabled = false;
 bool gDelayScanStart = false;
+
+std::mutex gBatchMutex;
+std::vector<struct chreBleAdvertisementEvent *> gBatchedAdEvents;
+std::chrono::time_point<std::chrono::steady_clock> gLastAdDataTimestamp;
+std::optional<uint32_t> gReportDelayMs;
 std::chrono::nanoseconds gScanInterval = std::chrono::milliseconds(1400);
 
 // Tasks for startScan, sendAdReportEvents, and stopScan.
 std::optional<uint32_t> gBleAdReportEventTaskId;
+std::optional<uint32_t> gBleFlushTaskId;
 
 void updateScanInterval(chreBleScanMode mode) {
   gScanInterval = std::chrono::milliseconds(1400);
@@ -57,6 +64,15 @@ void updateScanInterval(chreBleScanMode mode) {
   }
 }
 
+void flush() {
+  std::lock_guard<std::mutex> lock(gBatchMutex);
+  for (struct chreBleAdvertisementEvent *batchedEvent : gBatchedAdEvents) {
+    gCallbacks->advertisingEventCallback(batchedEvent);
+  }
+  gBatchedAdEvents.clear();
+  gLastAdDataTimestamp = std::chrono::steady_clock::now();
+}
+
 void sendAdReportEvents() {
   auto event = chre::MakeUniqueZeroFill<struct chreBleAdvertisementEvent>();
   auto report = chre::MakeUniqueZeroFill<struct chreBleAdvertisingReport>();
@@ -69,7 +85,13 @@ void sendAdReportEvents() {
   report->dataLength = 2;
   event->reports = report.release();
   event->numReports = 1;
-  gCallbacks->advertisingEventCallback(event.release());
+
+  std::lock_guard<std::mutex> lock(gBatchMutex);
+  if (!gReportDelayMs.has_value() || gReportDelayMs.value() == 0) {
+    gCallbacks->advertisingEventCallback(event.release());
+  } else {
+    gBatchedAdEvents.push_back(event.release());
+  }
 }
 
 void stopAllTasks() {
@@ -77,15 +99,30 @@ void stopAllTasks() {
     TaskManagerSingleton::get()->cancelTask(gBleAdReportEventTaskId.value());
     gBleAdReportEventTaskId.reset();
   }
+
+  if (gBleFlushTaskId.has_value()) {
+    TaskManagerSingleton::get()->cancelTask(gBleFlushTaskId.value());
+    gBleFlushTaskId.reset();
+  }
 }
 
 bool startScan() {
   stopAllTasks();
   gCallbacks->scanStatusChangeCallback(true, CHRE_ERROR_NONE);
   gBleEnabled = true;
+
+  std::lock_guard<std::mutex> lock(gBatchMutex);
+  gLastAdDataTimestamp = std::chrono::steady_clock::now();
+
   gBleAdReportEventTaskId =
       TaskManagerSingleton::get()->addTask(sendAdReportEvents, gScanInterval);
-  return gBleAdReportEventTaskId.has_value();
+  if (gReportDelayMs.has_value() && gBleAdReportEventTaskId.has_value()) {
+    gBleFlushTaskId = TaskManagerSingleton::get()->addTask(
+        flush, std::chrono::duration_cast<std::chrono::nanoseconds>(
+                   std::chrono::milliseconds(gReportDelayMs.value())));
+  }
+  return gBleAdReportEventTaskId.has_value() &&
+         (!gReportDelayMs.has_value() || gBleFlushTaskId.has_value());
 }
 
 uint32_t chrePalBleGetCapabilities() {
@@ -99,9 +136,20 @@ uint32_t chrePalBleGetFilterCapabilities() {
          CHRE_BLE_FILTER_CAPABILITIES_SERVICE_DATA;
 }
 
-bool chrePalBleStartScan(chreBleScanMode mode, uint32_t /* reportDelayMs */,
+bool chrePalBleStartScan(chreBleScanMode mode, uint32_t reportDelayMs,
                          const struct chreBleScanFilter * /* filter */) {
+  {
+    std::lock_guard<std::mutex> lock(gBatchMutex);
+
+    if (gReportDelayMs.has_value()) {
+      gReportDelayMs = std::min(gReportDelayMs.value(), reportDelayMs);
+    } else {
+      gReportDelayMs = reportDelayMs;
+    }
+  }
+
   updateScanInterval(mode);
+  flush();
   if (gDelayScanStart) {
     return true;
   }
@@ -110,6 +158,7 @@ bool chrePalBleStartScan(chreBleScanMode mode, uint32_t /* reportDelayMs */,
 
 bool chrePalBleStopScan() {
   stopAllTasks();
+  flush();
   gCallbacks->scanStatusChangeCallback(false, CHRE_ERROR_NONE);
   gBleEnabled = false;
   return true;
@@ -130,8 +179,26 @@ bool chrePalBleReadRssi(uint16_t connectionHandle) {
   return true;
 }
 
+bool chrePalBleFlush() {
+  std::optional<uint32_t> flushTaskId =
+      TaskManagerSingleton::get()->addTask([]() {
+        flush();
+        gCallbacks->flushCallback(CHRE_ERROR_NONE);
+      });
+
+  return flushTaskId.has_value();
+}
+
 void chrePalBleApiClose() {
   stopAllTasks();
+
+  {
+    std::lock_guard<std::mutex> lock(gBatchMutex);
+
+    for (struct chreBleAdvertisementEvent *batchedEvent : gBatchedAdEvents) {
+      chrePalBleReleaseAdvertisingEvent(batchedEvent);
+    }
+  }
 }
 
 bool chrePalBleApiOpen(const struct chrePalSystemApi *systemApi,
@@ -173,6 +240,7 @@ const struct chrePalBleApi *chrePalBleGetApi(uint32_t requestedApiVersion) {
       .stopScan = chrePalBleStopScan,
       .releaseAdvertisingEvent = chrePalBleReleaseAdvertisingEvent,
       .readRssi = chrePalBleReadRssi,
+      .flush = chrePalBleFlush,
   };
 
   if (!CHRE_PAL_VERSIONS_ARE_COMPATIBLE(kApi.moduleVersion,
