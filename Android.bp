@@ -375,7 +375,15 @@ cc_test_host {
 genrule {
     name: "chre_atoms_log.h",
     tools: ["stats-log-api-gen"],
-    cmd: "$(location stats-log-api-gen) --header $(genDir)/chre_atoms_log.h --module chre --namespace android,chre,Atoms --vendor-proto hardware/google/pixel/pixelstats/pixelatoms.proto",
+    cmd: "$(location stats-log-api-gen) --header $(genDir)/chre_atoms_log.h " +
+         "--module chre " +
+         "--namespace android,chre,Atoms " +
+         "--vendor-proto hardware/google/pixel/pixelstats/pixelatoms.proto",
+    srcs: [
+        "//hardware/google/pixel/pixelstats:pixelatoms_proto",
+        ":libstats_atom_options_protos",
+        ":libprotobuf-internal-descriptor-proto",
+    ],
     out: [
         "chre_atoms_log.h",
     ],
