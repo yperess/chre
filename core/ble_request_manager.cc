@@ -146,9 +146,8 @@ bool BleRequestManager::flushAsync(Nanoapp *nanoapp, const void *cookie) {
   CHRE_ASSERT(nanoapp);
 
   bool success = false;
-  size_t requestIndex;
   const BleRequest *foundRequest =
-      mRequests.findRequest(nanoapp->getInstanceId(), &requestIndex);
+      mRequests.findRequest(nanoapp->getInstanceId(), nullptr);
   if (foundRequest == nullptr) {
     LOGE("Nanoapp with instance ID: %" PRIu16
          " does not have an existing BLE request and cannot flush",
