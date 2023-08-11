@@ -543,6 +543,8 @@ cc_library_static {
         "pw_rpc_cflags_chre",
         "pw_rpc_defaults",
     ],
+    host_supported: true,
+    vendor_available: true,
 }
 
 cc_library_static {
@@ -559,6 +561,7 @@ cc_library_static {
         "pw_rpc_raw_chre",
         "pw_rpc_chre",
     ],
+    host_supported: true,
 }
 
 cc_library_static {
@@ -570,6 +573,7 @@ cc_library_static {
     static_libs: [
         "pw_rpc_chre",
     ],
+    host_supported: true,
 }
 
 genrule {
