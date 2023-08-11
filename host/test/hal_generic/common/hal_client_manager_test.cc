@@ -21,10 +21,16 @@ using aidl::android::hardware::contexthub::BnContextHubCallback;
 using aidl::android::hardware::contexthub::ContextHubMessage;
 using aidl::android::hardware::contexthub::NanoappInfo;
 using aidl::android::hardware::contexthub::NanSessionRequest;
+
 using ndk::ScopedAStatus;
+
+using ::testing::_;
+using ::testing::ByMove;
 using ::testing::IsEmpty;
+using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
+
 using HalClient = HalClientManager::HalClient;
 
 static constexpr pid_t kSystemServerPid = 1000;
@@ -44,6 +50,8 @@ class ContextHubCallbackForTest : public BnContextHubCallback {
       mUuid[i] = strtol(uuid.substr(i * 2, 2).c_str(), /* end_ptr= */ nullptr,
                         /* base= */ 16);
     }
+    ON_CALL(*this, handleContextHubAsyncEvent(_))
+        .WillByDefault(Return(ByMove(ScopedAStatus::ok())));
   }
   ScopedAStatus handleNanoappInfo(
       const std::vector<NanoappInfo> & /*appInfo*/) override {
@@ -56,9 +64,8 @@ class ContextHubCallbackForTest : public BnContextHubCallback {
     return ScopedAStatus::ok();
   }
 
-  ScopedAStatus handleContextHubAsyncEvent(AsyncEventType /*event*/) override {
-    return ScopedAStatus::ok();
-  }
+  MOCK_METHOD(ScopedAStatus, handleContextHubAsyncEvent, (AsyncEventType event),
+              (override));
 
   // Called after loading/unloading a nanoapp.
   ScopedAStatus handleTransactionResult(int32_t /*transactionId*/,
@@ -145,11 +152,11 @@ TEST_F(HalClientManagerTest, ClientIdMappingFile) {
     fileStream << std::endl;
   }
 
-  std::unique_ptr<HalClientManagerForTest> halClientManager =
-      std::make_unique<HalClientManagerForTest>(mockDeadClientUnlinker,
-                                                kClientIdMappingFilePath);
-  auto callback = ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
-      kSystemServerUuid);
+  auto halClientManager = std::make_unique<HalClientManagerForTest>(
+      mockDeadClientUnlinker, kClientIdMappingFilePath);
+  std::shared_ptr<ContextHubCallbackForTest> callback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
   EXPECT_TRUE(halClientManager->registerCallback(kSystemServerPid, callback,
                                                  /* cookie= */ nullptr));
 
@@ -165,11 +172,11 @@ TEST_F(HalClientManagerTest, ClientIdMappingFile) {
 }
 
 TEST_F(HalClientManagerTest, CallbackRegistryBasic) {
-  std::unique_ptr<HalClientManagerForTest> halClientManager =
-      std::make_unique<HalClientManagerForTest>(mockDeadClientUnlinker,
-                                                kClientIdMappingFilePath);
-  auto callback = ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
-      kSystemServerUuid);
+  auto halClientManager = std::make_unique<HalClientManagerForTest>(
+      mockDeadClientUnlinker, kClientIdMappingFilePath);
+  std::shared_ptr<ContextHubCallbackForTest> callback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
 
   EXPECT_TRUE(halClientManager->registerCallback(kSystemServerPid, callback,
                                                  /* cookie= */ nullptr));
@@ -186,13 +193,14 @@ TEST_F(HalClientManagerTest, CallbackRegistryBasic) {
 }
 
 TEST_F(HalClientManagerTest, CallbackRegistryTwiceFromSameClient) {
-  std::unique_ptr<HalClientManagerForTest> halClientManager =
-      std::make_unique<HalClientManagerForTest>(mockDeadClientUnlinker,
-                                                kClientIdMappingFilePath);
-  auto callbackA = ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
-      kSystemServerUuid);
-  auto callbackB = ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
-      kSystemServerUuid);
+  auto halClientManager = std::make_unique<HalClientManagerForTest>(
+      mockDeadClientUnlinker, kClientIdMappingFilePath);
+  std::shared_ptr<ContextHubCallbackForTest> callbackA =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
+  std::shared_ptr<ContextHubCallbackForTest> callbackB =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
 
   EXPECT_TRUE(halClientManager->registerCallback(kSystemServerPid, callbackA,
                                                  /* cookie= */ nullptr));
@@ -208,10 +216,10 @@ TEST_F(HalClientManagerTest, CallbackRegistryTwiceFromSameClient) {
 TEST_F(HalClientManagerTest, CallbackRetrievalByEndpoint) {
   auto halClientManager = std::make_unique<HalClientManagerForTest>(
       mockDeadClientUnlinker, kClientIdMappingFilePath);
-  auto systemCallback =
+  std::shared_ptr<ContextHubCallbackForTest> systemCallback =
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
           kSystemServerUuid);
-  auto vendorCallback =
+  std::shared_ptr<ContextHubCallbackForTest> vendorCallback =
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(kVendorUuid);
   uint16_t vendorEndpointId = 1;
   uint16_t systemServerEndpointId = 1;
@@ -241,8 +249,9 @@ TEST_F(HalClientManagerTest, CallbackRetrievalByEndpoint) {
 TEST_F(HalClientManagerTest, TransactionRegistryAndOverridden) {
   auto halClientManager = std::make_unique<HalClientManagerForTest>(
       mockDeadClientUnlinker, kClientIdMappingFilePath);
-  auto callback = ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
-      kSystemServerUuid);
+  std::shared_ptr<ContextHubCallbackForTest> callback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
   EXPECT_TRUE(halClientManager->registerCallback(
       kSystemServerPid, callback, /* deathRecipientCookie= */ nullptr));
 
@@ -264,8 +273,9 @@ TEST_F(HalClientManagerTest, TransactionRegistryAndOverridden) {
 TEST_F(HalClientManagerTest, TransactionRegistryLoadAndUnload) {
   auto halClientManager = std::make_unique<HalClientManagerForTest>(
       mockDeadClientUnlinker, kClientIdMappingFilePath);
-  auto callback = ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
-      kSystemServerUuid);
+  std::shared_ptr<ContextHubCallbackForTest> callback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
   EXPECT_TRUE(halClientManager->registerCallback(
       kSystemServerPid, callback, /* deathRecipientCookie= */ nullptr));
 
@@ -285,13 +295,12 @@ TEST_F(HalClientManagerTest, TransactionRegistryLoadAndUnload) {
 }
 
 TEST_F(HalClientManagerTest, EndpointRegistry) {
-  std::unique_ptr<HalClientManagerForTest> halClientManager =
-      std::make_unique<HalClientManagerForTest>(mockDeadClientUnlinker,
-                                                kClientIdMappingFilePath);
-  auto systemCallback =
+  auto halClientManager = std::make_unique<HalClientManagerForTest>(
+      mockDeadClientUnlinker, kClientIdMappingFilePath);
+  std::shared_ptr<ContextHubCallbackForTest> systemCallback =
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
           kSystemServerUuid);
-  auto vendorCallback =
+  std::shared_ptr<ContextHubCallbackForTest> vendorCallback =
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(kVendorUuid);
 
   halClientManager->registerCallback(kSystemServerPid, systemCallback,
@@ -314,9 +323,9 @@ TEST_F(HalClientManagerTest, EndpointRegistry) {
 TEST_F(HalClientManagerTest, EndpointIdMutationForVendorClient) {
   auto halClientManager = std::make_unique<HalClientManagerForTest>(
       mockDeadClientUnlinker, kClientIdMappingFilePath);
-  auto vendorCallback =
+  std::shared_ptr<ContextHubCallbackForTest> vendorCallback =
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(kVendorUuid);
-  auto systemCallback =
+  std::shared_ptr<ContextHubCallbackForTest> systemCallback =
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
           kSystemServerUuid);
   const uint16_t originalEndpointId = 10;  // 0b1010;
@@ -343,8 +352,9 @@ TEST_F(HalClientManagerTest, EndpointIdMutationForVendorClient) {
 TEST_F(HalClientManagerTest, EndpointIdMutationForSystemServer) {
   auto halClientManager = std::make_unique<HalClientManagerForTest>(
       mockDeadClientUnlinker, kClientIdMappingFilePath);
-  auto callback = ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
-      kSystemServerUuid);
+  std::shared_ptr<ContextHubCallbackForTest> callback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
   const uint16_t originalEndpointId = 100;
   uint16_t mutatedEndpointId = originalEndpointId;
 
@@ -361,11 +371,11 @@ TEST_F(HalClientManagerTest, EndpointIdMutationForSystemServer) {
 }
 
 TEST_F(HalClientManagerTest, handleDeathClient) {
-  std::unique_ptr<HalClientManagerForTest> halClientManager =
-      std::make_unique<HalClientManagerForTest>(mockDeadClientUnlinker,
-                                                kClientIdMappingFilePath);
-  auto callback = ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
-      kSystemServerUuid);
+  auto halClientManager = std::make_unique<HalClientManagerForTest>(
+      mockDeadClientUnlinker, kClientIdMappingFilePath);
+  std::shared_ptr<ContextHubCallbackForTest> callback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
   halClientManager->registerCallback(kSystemServerPid, callback,
                                      /* cookie= */ nullptr);
   halClientManager->registerEndpointId(kSystemServerPid, /* endpointId= */ 10);
@@ -381,5 +391,33 @@ TEST_F(HalClientManagerTest, handleDeathClient) {
   EXPECT_NE(client.clientId, kDefaultHalClientId);
   EXPECT_THAT(client.endpointIds, IsEmpty());
 }
+
+TEST_F(HalClientManagerTest, handleChreRestartForConnectedClientsOnly) {
+  auto halClientManager = std::make_unique<HalClientManagerForTest>(
+      mockDeadClientUnlinker, kClientIdMappingFilePath);
+  std::shared_ptr<ContextHubCallbackForTest> vendorCallback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(kVendorUuid);
+  std::shared_ptr<ContextHubCallbackForTest> systemCallback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
+  // Register the system callback
+  EXPECT_TRUE(halClientManager->registerCallback(
+      kSystemServerPid, systemCallback, /* deathRecipientCookie= */ nullptr));
+  // Register the vendor callback
+  EXPECT_TRUE(halClientManager->registerCallback(
+      kVendorPid, vendorCallback, /* deathRecipientCookie= */ nullptr));
+
+  // Only connected clients' handleContextHubAsyncEvent should be called.
+  EXPECT_CALL(*systemCallback,
+              handleContextHubAsyncEvent(AsyncEventType::RESTARTED));
+  EXPECT_CALL(*vendorCallback,
+              handleContextHubAsyncEvent(AsyncEventType::RESTARTED))
+      .Times(0);
+
+  // Disconnect the vendor client and handle CHRE restart for the system server
+  halClientManager->handleClientDeath(kVendorPid);
+  halClientManager->handleChreRestart();
+}
+
 }  // namespace
 }  // namespace android::hardware::contexthub::common::implementation

@@ -40,7 +40,7 @@ bool getClientMappingsFromFile(const std::string &filePath,
 
 HalClient *HalClientManager::getClientByField(
     const std::function<bool(const HalClient &client)> &fieldMatcher) {
-  for (auto &client : mClients) {
+  for (HalClient &client : mClients) {
     if (fieldMatcher(client)) {
       return &client;
     }
@@ -479,13 +479,15 @@ void HalClientManager::handleChreRestart() {
     const std::lock_guard<std::mutex> lock(mLock);
     mPendingLoadTransaction.reset();
     mPendingUnloadTransaction.reset();
-    for (auto &client : mClients) {
+    for (HalClient &client : mClients) {
       client.endpointIds.clear();
     }
   }
   // Incurs callbacks without holding the lock to avoid deadlocks.
-  for (auto &client : mClients) {
-    client.callback->handleContextHubAsyncEvent(AsyncEventType::RESTARTED);
+  for (const HalClient &client : mClients) {
+    if (client.callback != nullptr) {
+      client.callback->handleContextHubAsyncEvent(AsyncEventType::RESTARTED);
+    }
   }
 }
 }  // namespace android::hardware::contexthub::common::implementation
