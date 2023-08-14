@@ -25,6 +25,8 @@ import android.hardware.location.NanoAppMessage;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.util.Log;
 
 import com.google.android.chre.nanoapp.proto.ChreAudioConcurrencyTest;
@@ -64,6 +66,8 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
     private CountDownLatch mCountDownLatch;
 
     private boolean mInitialized = false;
+
+    private boolean mVerifyAudioGaps = false;
 
     private final AtomicBoolean mChreAudioEnabled = new AtomicBoolean(false);
 
@@ -132,6 +136,7 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         Assert.assertFalse("init() must not be invoked when already initialized", mInitialized);
         ChreTestUtil.loadNanoAppAssertSuccess(mContextHubManager, mContextHubInfo, mNanoAppBinary);
 
+        mVerifyAudioGaps = isAtLeastAndroidU();
         mInitialized = true;
     }
 
@@ -141,7 +146,12 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
     public void run() throws InterruptedException {
         // Send a message to the nanoapp to enable CHRE audio
         mCountDownLatch = new CountDownLatch(1);
-        sendTestCommandMessage(ChreAudioConcurrencyTest.TestCommand.Step.ENABLE_AUDIO);
+        if (mVerifyAudioGaps) {
+            sendTestCommandMessage(
+                    ChreAudioConcurrencyTest.TestCommand.Step.ENABLE_AUDIO_WITH_GAP_VERIFICATION);
+        } else {
+            sendTestCommandMessage(ChreAudioConcurrencyTest.TestCommand.Step.ENABLE_AUDIO);
+        }
         boolean success = mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         Assert.assertTrue("Timeout waiting for signal: ENABLE_AUDIO", success);
         Assert.assertTrue("Failed to enable CHRE audio",
@@ -224,5 +234,9 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         if (mCountDownLatch != null) {
             mCountDownLatch.countDown();
         }
+    }
+
+    private boolean isAtLeastAndroidU() {
+        return VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE;
     }
 }
