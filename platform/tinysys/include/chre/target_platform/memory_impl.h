@@ -17,43 +17,17 @@
 #ifndef CHRE_PLATFORM_TINYSYS_MEMORY_H_
 #define CHRE_PLATFORM_TINYSYS_MEMORY_H_
 
-#include <cstddef>
+#include "chre/platform/shared/dram_vote_client.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include "encoding.h"
-#include "portable.h"
+#include "mt_heap.h"
 #include "sensorhub/heap.h"
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
-
-namespace chre {
-
-inline isInDram(const void *pointer) {
-  return reinterpret_cast<uintptr_t>(pointer) > CFG_L1C_DRAM_ADDR;
-}
-
-inline void *memoryAlloc(size_t size) {
-  void *address = heap_alloc(size);
-  if (address == nullptr) {
-    // Try dram if allocation from sram fails
-    address = pvPortDramMalloc(size);
-  }
-  return address;
-}
-
-inline void memoryFree(void *pointer) {
-  if (isInDram(pointer)) {
-    vPortDramFree(pointer);
-  } else {
-    heap_free(pointer);
-  }
-}
-
-}  // namespace chre
-
 #endif  // CHRE_PLATFORM_TINYSYS_MEMORY_H_
