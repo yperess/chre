@@ -63,6 +63,10 @@ bool getTestStep(const chre_audio_concurrency_test_TestCommand &command,
       *step = Manager::TestStep::VERIFY_AUDIO_RESUME;
       break;
     }
+    case chre_audio_concurrency_test_TestCommand_Step_ENABLE_AUDIO_WITH_GAP_VERIFICATION: {
+      *step = Manager::TestStep::ENABLE_AUDIO_WITH_GAP_VERIFICATION;
+      break;
+    }
     default: {
       LOGE("Unknown test step %d", command.step);
       success = false;
@@ -93,7 +97,10 @@ bool Manager::handleTestCommandMessage(uint16_t hostEndpointId, TestStep step) {
 
   bool success = false;
   switch (step) {
+    case TestStep::ENABLE_AUDIO_WITH_GAP_VERIFICATION:
     case TestStep::ENABLE_AUDIO: {
+      mVerifyAudioGaps = step == TestStep::ENABLE_AUDIO_WITH_GAP_VERIFICATION;
+
       if (!chreAudioConfigureSource(kAudioHandle, true /* enable */,
                                     mAudioSource.minBufferDuration,
                                     mAudioSource.minBufferDuration)) {
@@ -253,7 +260,7 @@ bool Manager::validateAudioDataEvent(const chreAudioDataEvent *data) {
     mLastAudioBufferEndTimestampNs =
         data->timestamp + data->sampleCount * sampleTimeInNs;
 
-    success = timestampValid && gapValidationValid;
+    success = timestampValid && (!mVerifyAudioGaps || gapValidationValid);
   }
 
   return success;
@@ -272,6 +279,7 @@ void Manager::handleAudioDataEvent(const chreAudioDataEvent *data) {
   }
 
   switch (mTestSession->step) {
+    case TestStep::ENABLE_AUDIO_WITH_GAP_VERIFICATION:
     case TestStep::ENABLE_AUDIO: {
       cancelTimeoutTimer();
       sendEmptyMessageToHost(
@@ -309,6 +317,7 @@ void Manager::handleAudioSourceStatusEvent(
 
     if (mTestSession.has_value() &&
         (mTestSession->step == TestStep::ENABLE_AUDIO ||
+         mTestSession->step == TestStep::ENABLE_AUDIO_WITH_GAP_VERIFICATION ||
          mTestSession->step == TestStep::VERIFY_AUDIO_RESUME) &&
         data->handle == kAudioHandle && data->status.suspended) {
       mSawSuspendAudioEvent = true;
