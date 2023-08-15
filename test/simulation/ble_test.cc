@@ -726,6 +726,7 @@ TEST_F(TestBase, BleFlush) {
   CREATE_CHRE_TEST_EVENT(STOP_SCAN, 2);
   CREATE_CHRE_TEST_EVENT(SCAN_STOPPED, 3);
   CREATE_CHRE_TEST_EVENT(CALL_FLUSH, 4);
+  CREATE_CHRE_TEST_EVENT(SAW_BLE_AD_AND_FLUSH_COMPLETE, 5);
 
   class App : public BleTestNanoapp {
    public:
@@ -745,17 +746,13 @@ TEST_F(TestBase, BleFlush) {
         }
 
         case CHRE_EVENT_BLE_ADVERTISEMENT: {
-          TestEventQueueSingleton::get()->pushEvent(
-              CHRE_EVENT_BLE_ADVERTISEMENT);
+          mSawBleAdvertisementEvent = true;
           break;
         }
 
         case CHRE_EVENT_BLE_FLUSH_COMPLETE: {
           auto *event = static_cast<const struct chreAsyncResult *>(eventData);
-          if (event->cookie == &mCookie) {
-            TestEventQueueSingleton::get()->pushEvent(
-                CHRE_EVENT_BLE_FLUSH_COMPLETE, event->success);
-          }
+          mSawFlushCompleteEvent = event->success && event->cookie == &mCookie;
           break;
         }
 
@@ -784,10 +781,19 @@ TEST_F(TestBase, BleFlush) {
           break;
         }
       }
+
+      if (mSawBleAdvertisementEvent && mSawFlushCompleteEvent) {
+        TestEventQueueSingleton::get()->pushEvent(
+            SAW_BLE_AD_AND_FLUSH_COMPLETE);
+        mSawBleAdvertisementEvent = false;
+        mSawFlushCompleteEvent = false;
+      }
     }
 
    private:
     uint32_t mCookie;
+    bool mSawBleAdvertisementEvent = false;
+    bool mSawFlushCompleteEvent = false;
   };
 
   uint64_t appId = loadNanoapp(MakeUnique<App>());
@@ -816,11 +822,18 @@ TEST_F(TestBase, BleFlush) {
     waitForEvent(CALL_FLUSH, &success);
     ASSERT_TRUE(success);
 
-    // Wait for some data.
-    waitForEvent(CHRE_EVENT_BLE_ADVERTISEMENT);
-
-    waitForEvent(CHRE_EVENT_BLE_FLUSH_COMPLETE, &success);
-    ASSERT_TRUE(success);
+    // Wait for some data and a flush complete.
+    // This ensures we receive both advertisement events
+    // and a flush complete event. We are not guaranteed
+    // that the advertisement events will come after
+    // the CALL_FLUSH event or before. If they come
+    // before, then they will be ignored. This
+    // change allows the advertisement events to come
+    // after during the normal expiration of the
+    // batch timer, which is valid (call flush, get
+    // any advertisement events, flush complete event
+    // might get some advertisement events afterwards).
+    waitForEvent(SAW_BLE_AD_AND_FLUSH_COMPLETE);
   }
 
   // Stop a scan.
