@@ -17,14 +17,24 @@
 #include <cstddef>
 
 #include "chre/platform/memory.h"
+#include "chre/platform/shared/dram_vote_client.h"
 #include "chre/platform/shared/memory.h"
 #include "mt_alloc.h"
 #include "mt_dma.h"
 #include "portable.h"
 
+#ifdef __cplusplus
 extern "C" {
+#endif
+
+#include "encoding.h"
+#include "mt_heap.h"
 #include "resource_req.h"
-}
+#include "sensorhub/heap.h"
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
 
 namespace chre {
 
