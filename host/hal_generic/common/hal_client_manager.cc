@@ -496,7 +496,10 @@ void HalClientManager::handleChreRestart() {
   }
   // Incurs callbacks without holding the lock to avoid deadlocks.
   for (auto &[_, clientInfo] : mClientIdsToClientInfo) {
-    clientInfo.callback->handleContextHubAsyncEvent(AsyncEventType::RESTARTED);
+    if (clientInfo.callback != nullptr) {
+      clientInfo.callback->handleContextHubAsyncEvent(
+          AsyncEventType::RESTARTED);
+    }
   }
 }
 }  // namespace android::hardware::contexthub::common::implementation
