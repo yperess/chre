@@ -25,7 +25,6 @@
 #include "chpp/condition_variable.h"
 #include "chpp/macros.h"
 #include "chpp/mutex.h"
-#include "chre_api/chre/common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,8 +35,8 @@ extern "C" {
  ***********************************************/
 
 /**
- * Uses chppAllocClientRequest() to allocate a client request message of a
- * specific type and its corresponding length.
+ * Allocates a client request message of a specific type and its corresponding
+ * length.
  *
  * @param clientState State variable of the client.
  * @param type Type of response.
@@ -48,8 +47,7 @@ extern "C" {
   (type *)chppAllocClientRequest(clientState, sizeof(type))
 
 /**
- * Uses chppAllocClientRequest() to allocate a variable-length client request
- * message of a specific type.
+ * Allocates a variable-length client request message of a specific type.
  *
  * @param clientState State variable of the client.
  * @param type Type of response which includes an arrayed member.
@@ -63,8 +61,7 @@ extern "C" {
       clientState, sizeof(type) + (count)*sizeof_member(type, arrayField[0]))
 
 /**
- * Uses chppAllocClientNotification() to allocate a variable-length notification
- * of a specific type.
+ * Allocates a variable-length notification of a specific type.
  *
  * @param type Type of notification which includes an arrayed member.
  * @param count number of items in the array of arrayField.
@@ -77,8 +74,7 @@ extern "C" {
       sizeof(type) + (count)*sizeof_member(type, arrayField[0]))
 
 /**
- * Uses chppAllocClientNotification() to allocate a notification of a
- * specific type and its corresponding length.
+ * Allocates a notification of a specific type and its corresponding length.
  *
  * @param type Type of notification.
  *
@@ -94,20 +90,23 @@ extern "C" {
  */
 struct ChppClientState {
   struct ChppAppState *appContext;  // Pointer to app layer context
-  struct ChppRequestResponseState
-      *rRStates;        // Pointer to array of request-response states, if any
+
+  // State for the outgoing requests.
+  // It must accommodate ChppClient.outReqCount elements.
+  // It also tracks corresponding incoming responses.
+  // NULL when ChppClient.outReqCount = 0.
+  struct ChppOutgoingRequestState *outReqStates;
+
   uint8_t index;        // Index of this client
   uint8_t handle;       // Handle number for this client
-  uint8_t transaction;  // Next Transaction ID to be used
+  uint8_t transaction;  // Next Transaction ID to be used (for client requests).
 
   uint8_t openState;         // As defined in enum ChppOpenState
   bool pseudoOpen : 1;       // Client to be opened upon a reset
   bool initialized : 1;      // Is initialized
   bool everInitialized : 1;  // Synchronization primitives initialized
 
-  bool responseReady : 1;  // For sync. request/responses
-  struct ChppMutex responseMutex;
-  struct ChppConditionVariable responseCondVar;
+  struct ChppSyncResponse syncResponse;
 };
 
 #ifdef CHPP_CLIENT_ENABLED_CHRE_WWAN
@@ -128,12 +127,6 @@ struct ChppClientState {
     defined(CHPP_CLIENT_ENABLED_WWAN) || defined(CHPP_CLIENT_ENABLED_WIFI) || \
     defined(CHPP_CLIENT_ENABLED_GNSS)
 #define CHPP_CLIENT_ENABLED
-#endif
-
-#define CHPP_CLIENT_REQUEST_TIMEOUT_INFINITE CHPP_TIME_MAX
-
-#ifndef CHPP_CLIENT_REQUEST_TIMEOUT_DEFAULT
-#define CHPP_CLIENT_REQUEST_TIMEOUT_DEFAULT CHRE_ASYNC_RESULT_TIMEOUT_NS
 #endif
 
 // Default timeout for discovery completion.
@@ -174,6 +167,14 @@ void chppDeregisterCommonClients(struct ChppAppState *context);
  * When a match succeeds, the client's initialization function (pointer) is
  * called, assigning them their handle number.
  *
+ * outReqStates must point to an array of ChppOutgoingRequestState with
+ * ChppClientState.outReqCount elements. It must be NULL when the client
+ * does not send requests (ChppClientState.outReqCount = 0).
+ *
+ * inReqStates must point to an array of ChppIncomingRequestState with
+ * as many elements as the corresponding service can send. It must be NULL when
+ * the service does not send requests (ChppServiceState.outReqCount = 0).
+ *
  * Note that the maximum number of clients that can be registered on a platform
  * can specified as CHPP_MAX_REGISTERED_CLIENTS by the initialization code.
  * Otherwise, a default value will be used.
@@ -181,12 +182,12 @@ void chppDeregisterCommonClients(struct ChppAppState *context);
  * @param appContext State of the app layer.
  * @param clientContext State of the client instance.
  * @param clientState State variable of the client.
- * @param rRStates Pointer to array of request-response states, if any.
+ * @param outReqStates List of outgoing request states.
  * @param newClient The client to be registered on this platform.
  */
 void chppRegisterClient(struct ChppAppState *appContext, void *clientContext,
                         struct ChppClientState *clientState,
-                        struct ChppRequestResponseState *rRStates,
+                        struct ChppOutgoingRequestState *outReqStates,
                         const struct ChppClient *newClient);
 
 /**
@@ -238,8 +239,8 @@ void chppDeinitMatchedClients(struct ChppAppState *context);
  *
  * @param clientState State variable of the client.
  * @param len Length of the response message (including header) in bytes. Note
- * that the specified length must be at least equal to the lendth of the app
- * layer header.
+ *        that the specified length must be at least equal to the length of the
+ *        app layer header.
  *
  * @return Pointer to allocated memory
  */
@@ -247,8 +248,7 @@ struct ChppAppHeader *chppAllocClientRequest(
     struct ChppClientState *clientState, size_t len);
 
 /**
- * Uses chppAllocClientRequest() to allocate a specific client request command
- * without any additional payload.
+ * Allocates a specific client request command without any additional payload.
  *
  * @param clientState State variable of the client.
  * @param command Type of response.
@@ -259,99 +259,63 @@ struct ChppAppHeader *chppAllocClientRequestCommand(
     struct ChppClientState *clientState, uint16_t command);
 
 /**
- * This function shall be called for all outgoing client requests in order to
- * A) Timestamp them, and
- * B) Save their Transaction ID
- * as part of the request/response's ChppRequestResponseState struct.
- *
- * This function prints an error message if a duplicate request is sent
- * while outstanding request is still pending without a response.
- *
- * @param clientState State of the client sending the client request.
- * @param transactionId The transaction ID to use when loading the app.
- * @param rRState Maintains the basic state for each request/response
- * functionality of a client.
- * @param requestHeader Client request header.
- */
-void chppClientTimestampRequest(struct ChppClientState *clientState,
-                                struct ChppRequestResponseState *rRState,
-                                struct ChppAppHeader *requestHeader,
-                                uint64_t timeoutNs);
-
-/**
- * This function shall be called for incoming responses to a client request in
- * order to
- * A) Verify the correct transaction ID
- * B) Timestamp them, and
- * C) Mark them as fulfilled
- * D) TODO: check for timeout
- *
- * This function prints an error message if a response is received without an
- * outstanding request.
- *
- * @param clientState State of the client sending the client request.
- * @param rRState Maintains the basic state for each request/response
- * functionality of a client.
- * @param requestHeader Client request header.
- *
- * @return false if there is an error. True otherwise.
- */
-bool chppClientTimestampResponse(struct ChppClientState *clientState,
-                                 struct ChppRequestResponseState *rRState,
-                                 const struct ChppAppHeader *responseHeader);
-
-/**
- * Timestamps a client request using chppClientTimestampResponse() and enqueues
- * it using chppEnqueueTxDatagramOrFail().
- *
- * Refer to their respective documentation for details.
+ * Timestamps and enqueues a request.
  *
  * Note that the ownership of buf is taken from the caller when this method is
  * invoked.
  *
- * @param clientState State of the client sending the client request.
- * @param rRState Maintains the basic state for each request/response
- * functionality of a client.
+ * @param clientState State of the client sending the request.
+ * @param outReqState State for each request/response
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  * @param timeoutNs Time in nanoseconds before a timeout response is generated.
- * Zero means no timeout response.
+ *        Zero means no timeout response.
  *
  * @return True informs the sender that the datagram was successfully enqueued.
- * False informs the sender that the queue was full and the payload discarded.
+ *         False informs the sender that the queue was full and the payload
+ *         discarded.
  */
-bool chppSendTimestampedRequestOrFail(struct ChppClientState *clientState,
-                                      struct ChppRequestResponseState *rRState,
-                                      void *buf, size_t len,
-                                      uint64_t timeoutNs);
+bool chppClientSendTimestampedRequestOrFail(
+    struct ChppClientState *clientState,
+    struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
+    uint64_t timeoutNs);
 
 /**
- * Similar to chppSendTimestampedRequestOrFail() but blocks execution until a
- * response is received. Used for synchronous requests.
+ * Similar to chppClientSendTimestampedRequestOrFail() but blocks execution
+ * until a response is received. Used for synchronous requests.
  *
  * In order to use this function, clientState->responseNotifier must have been
  * initialized using chppNotifierInit() upon initialization of the client.
  *
- * @param clientState State of the client sending the client request.
- * @param rRState Maintains the basic state for each request/response
- * functionality of a client.
+ * @param clientState State of the client sending the request.
+ * @param outReqState State for each request/response
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  *
  * @return True informs the sender that the datagram was successfully enqueued.
- * False informs the sender that the payload was discarded because either the
- * queue was full, or the request timed out.
+ *         False informs the sender that the payload was discarded because
+ *         either the queue was full, or the request timed out.
  */
-bool chppSendTimestampedRequestAndWait(struct ChppClientState *clientState,
-                                       struct ChppRequestResponseState *rRState,
-                                       void *buf, size_t len);
+bool chppClientSendTimestampedRequestAndWait(
+    struct ChppClientState *clientState,
+    struct ChppOutgoingRequestState *outReqState, void *buf, size_t len);
 
 /**
- * Same as chppSendTimestampedRequestAndWait() but with a specified timeout.
+ * Same as chppClientSendTimestampedRequestAndWait() but with a specified
+ * timeout.
+ *
+ * @param clientState State of the client sending the request.
+ * @param outReqState State for each request/response
+ * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
+ * @param len Datagram length in bytes.
+ *
+ * @return True informs the sender that the datagram was successfully enqueued.
+ *         False informs the sender that the payload was discarded because
+ *         either the queue was full, or the request timed out.
  */
-bool chppSendTimestampedRequestAndWaitTimeout(
+bool chppClientSendTimestampedRequestAndWaitTimeout(
     struct ChppClientState *clientState,
-    struct ChppRequestResponseState *rRState, void *buf, size_t len,
+    struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs);
 
 /**
@@ -369,14 +333,14 @@ void chppClientPseudoOpen(struct ChppClientState *clientState);
  * opening a pseudo-open service.
  *
  * @param clientState State variable of the client.
- * @param openRRState Request/response state for the open command.
+ * @param openReqState Request/response state for the open command.
  * @param openCommand Open command to be sent.
  * @param blocking Indicates a blocking (vs. non-blocking) open request.
  *
  * @return Indicates success or failure.
  */
 bool chppClientSendOpenRequest(struct ChppClientState *clientState,
-                               struct ChppRequestResponseState *openRRState,
+                               struct ChppOutgoingRequestState *openReqState,
                                uint16_t openCommand, bool blocking);
 
 /**

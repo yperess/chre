@@ -264,3 +264,71 @@ The handle which used to be returned is now populated in `serviceState`.
 `service->appContext` is also initialized to the passed `appContext`.
 
 This change makes the signature and behavior consistent with `chreRegisterClient`.
+
+### 2023-08
+
+Services can now send requests and receive responses from clients.
+
+The changes to the public API of the different layers are described below.
+Check the inline documentation for more information.
+
+#### app.c / app.h
+
+**Breaking changes**
+
+- Move all sync primitives to a new `struct ChppSyncResponse`,
+- Renamed `ChppClient.rRStateCount` to `ChppClient.outReqCount`. The content and meaning stay the same,
+- Split `struct ChppRequestResponseState` to `struct ChppOutgoingRequestState` and `struct ChppIncomingRequestState`. Both the struct have the same layout and usage as the former `struct`. Having different types is only to make code clearer as both clients and services now support both incoming and outgoing requests,
+- Renamed `ChppAppState.nextClientRequestTimeoutNs` to `ChppAppState.nextRequestTimeoutNs`. The content and meaning stay the same,
+- Renamed `CHPP_CLIENT_REQUEST_TIMEOUT_INFINITE` to `CHPP_REQUEST_TIMEOUT_INFINITE`.
+
+**Added APIs**
+
+- Added `chppAllocResponseTypedArray` and `chppAllocResponseFixed` to allocate responses. Those can be used by both clients and services. They call the added `chppAllocResponse`,
+- Added `CHPP_MESSAGE_TYPE_SERVICE_REQUEST` and  `CHPP_MESSAGE_TYPE_CLIENT_RESPONSE` to the message types (`ChppMessageType`). Used for requests sent by the services and the corresponding responses sent by the client,
+- Added `ChppService.responseDispatchFunctionPtr` to handle client responses,
+- Added `ChppService.outReqCount` holding the number of commands supported by the service (0 when the service can not send requests),
+- Added `ChppClient.requestDispatchFunctionPtr` to handle service requests,
+- Added `ChppAppState.registeredServiceStates` to track service states,
+- Added `ChppAppState.nextServiceRequestTimeoutNs` to track when the next service sent request will timeout,
+- Added `chppTimestampIncomingRequest` to be used by both clients and services,
+- Added `chppTimestampOutgoingRequest` to be used by both clients and services,
+- Added `chppTimestampIncomingResponse` to be used by both clients and services,
+- Added `chppTimestampOutgoingResponse` to be used by both clients and services,
+- Added `chppSendTimestampedResponseOrFail` to be used by both clients and services,
+- Added `chppSendTimestampedRequestOrFail` to be used by both clients and services,
+- Added `chppWaitForResponseWithTimeout` to be used by both clients and services.
+
+#### clients.c / clients.h
+
+**Breaking changes**
+
+- Renamed `ChppClientState.rRStates` to `outReqStates` - the new type is `ChppOutgoingRequestState`. The content and meaning stay the same,
+- Nest all sync primitive in `ChppClientState` into a `struct ChppSyncResponse syncResponse`,
+- `chppRegisterClient` takes a `ChppOutgoingRequestState` instead of the former `ChppRequestResponseState`,
+- `chppClientTimestampRequest` is replaced with `chppTimestampOutgoingRequest` in the app layer. Parameters are different,
+- `chppClientTimestampResponse` is replaced with `chppTimestampIncomingResponse` in the app layer. Parameters are different,
+- `chppSendTimestampedRequestOrFail` is renamed to `chppClientSendTimestampedRequestOrFail`. It takes a `ChppOutgoingRequestState` instead of the former `ChppRequestResponseState`,
+- `chppSendTimestampedRequestAndWait` is renamed to `chppClientSendTimestampedRequestAndWait`. It takes a `ChppOutgoingRequestState` instead of the former `ChppRequestResponseState`,
+- `chppSendTimestampedRequestAndWaitTimeout` is renamed to `chppClientSendTimestampedRequestAndWaitTimeout`. It takes a `ChppOutgoingRequestState` instead of the former `ChppRequestResponseState`,
+- `chppClientSendOpenRequest` takes a `ChppOutgoingRequestState` instead of the former `ChppRequestResponseState`.
+
+#### services.c / services.h
+
+**Breaking changes**
+
+- Replaced `chppAllocServiceResponseTypedArray` with `chppAllocResponseTypedArray` in the app layer,
+- Replaced `chppAllocServiceResponseFixed` with `chppAllocResponseFixed` in the app layer,
+- Replaced `chppAllocServiceResponse` with `chppAllocResponse` in the app layer,
+- `chppRegisterService` now takes and additional `struct ChppOutgoingRequestState *` to track outgoing requests. `NULL` when the service do not send requests.
+
+**Added APIs**
+
+- Added `chppAllocServiceRequestFixed` and `chppAllocServiceRequestTypedArray` to allocate service requests. They call the added `chppAllocServiceRequest`,
+- Added `ChppServiceState.outReqStates` to track outgoing requests,
+- Added `ChppServiceState.transaction` to track app layer packet number,
+- Added `ChppServiceState.syncResponse` for sync responses,
+- Added `chppAllocServiceRequest`,
+- Added `chppAllocServiceRequestCommand`,
+- Added `chppServiceSendTimestampedRequestOrFail`,
+- Added `chppServiceSendTimestampedRequestAndWaitTimeout`.

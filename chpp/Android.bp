@@ -52,6 +52,8 @@ cc_defaults {
         "-D_POSIX_C_SOURCE=199309L",
         // Required for pthread_setname_np()
         "-D_GNU_SOURCE",
+        // Enable assert (i.e. CHPP_ASSERT, ...)
+        "-UNDEBUG",
     ],
     conlyflags: [
         "-std=c11",

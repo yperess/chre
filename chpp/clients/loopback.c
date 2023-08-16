@@ -43,7 +43,7 @@
  */
 struct ChppLoopbackClientState {
   struct ChppClientState client;                    // Loopback client state
-  struct ChppRequestResponseState runLoopbackTest;  // Loopback test state
+  struct ChppOutgoingRequestState runLoopbackTest;  // Loopback test state
 
   struct ChppLoopbackTestResult testResult;  // Last test result
   const uint8_t *loopbackData;               // Pointer to loopback data
@@ -88,9 +88,9 @@ bool chppDispatchLoopbackServiceResponse(struct ChppAppState *appState,
   CHPP_NOT_NULL(state);
   CHPP_NOT_NULL(state->loopbackData);
 
-  CHPP_ASSERT(
-      chppClientTimestampResponse(&state->client, &state->runLoopbackTest,
-                                  (const struct ChppAppHeader *)response));
+  CHPP_ASSERT(chppTimestampIncomingResponse(
+      state->client.appContext, &state->runLoopbackTest,
+      (const struct ChppAppHeader *)response));
 
   struct ChppLoopbackTestResult *result = &state->testResult;
 
@@ -123,10 +123,10 @@ bool chppDispatchLoopbackServiceResponse(struct ChppAppState *appState,
             result->firstError, result->byteErrors);
 
   // Notify waiting (synchronous) client
-  chppMutexLock(&state->client.responseMutex);
-  state->client.responseReady = true;
-  chppConditionVariableSignal(&state->client.responseCondVar);
-  chppMutexUnlock(&state->client.responseMutex);
+  chppMutexLock(&state->client.syncResponse.mutex);
+  state->client.syncResponse.ready = true;
+  chppConditionVariableSignal(&state->client.syncResponse.condVar);
+  chppMutexUnlock(&state->client.syncResponse.mutex);
 
   return true;
 }
@@ -187,7 +187,7 @@ struct ChppLoopbackTestResult chppRunLoopbackTest(struct ChppAppState *appState,
   state->loopbackData = buf;
   memcpy(&loopbackRequest[CHPP_LOOPBACK_HEADER_LEN], buf, len);
 
-  if (!chppSendTimestampedRequestAndWaitTimeout(
+  if (!chppClientSendTimestampedRequestAndWaitTimeout(
           &state->client, &state->runLoopbackTest, loopbackRequest,
           result->requestLen, 5 * CHPP_NSEC_PER_SEC)) {
     result->error = CHPP_APP_ERROR_UNSPECIFIED;

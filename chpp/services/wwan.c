@@ -77,10 +77,10 @@ struct ChppWwanServiceState {
   struct ChppServiceState service;   // WWAN service state
   const struct chrePalWwanApi *api;  // WWAN PAL API
 
-  struct ChppRequestResponseState open;              // Service init state
-  struct ChppRequestResponseState close;             // Service deinit state
-  struct ChppRequestResponseState getCapabilities;   // Get Capabilities state
-  struct ChppRequestResponseState getCellInfoAsync;  // Get CellInfo Async state
+  struct ChppIncomingRequestState open;              // Service init state
+  struct ChppIncomingRequestState close;             // Service deinit state
+  struct ChppIncomingRequestState getCapabilities;   // Get Capabilities state
+  struct ChppIncomingRequestState getCellInfoAsync;  // Get CellInfo Async state
 };
 
 // Note: This global definition of gWwanServiceContext supports only one
@@ -138,7 +138,7 @@ static enum ChppAppErrorCode chppDispatchWwanRequest(void *serviceContext,
   struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
   struct ChppWwanServiceState *wwanServiceContext =
       (struct ChppWwanServiceState *)serviceContext;
-  struct ChppRequestResponseState *rRState = NULL;
+  struct ChppIncomingRequestState *inReqState = NULL;
   enum ChppAppErrorCode error = CHPP_APP_ERROR_NONE;
   bool dispatched = true;
 
@@ -146,29 +146,29 @@ static enum ChppAppErrorCode chppDispatchWwanRequest(void *serviceContext,
 
   switch (rxHeader->command) {
     case CHPP_WWAN_OPEN: {
-      rRState = &wwanServiceContext->open;
-      chppServiceTimestampRequest(rRState, rxHeader);
+      inReqState = &wwanServiceContext->open;
+      chppTimestampIncomingRequest(inReqState, rxHeader);
       error = chppWwanServiceOpen(wwanServiceContext, rxHeader);
       break;
     }
 
     case CHPP_WWAN_CLOSE: {
-      rRState = &wwanServiceContext->close;
-      chppServiceTimestampRequest(rRState, rxHeader);
+      inReqState = &wwanServiceContext->close;
+      chppTimestampIncomingRequest(inReqState, rxHeader);
       error = chppWwanServiceClose(wwanServiceContext, rxHeader);
       break;
     }
 
     case CHPP_WWAN_GET_CAPABILITIES: {
-      rRState = &wwanServiceContext->getCapabilities;
-      chppServiceTimestampRequest(rRState, rxHeader);
+      inReqState = &wwanServiceContext->getCapabilities;
+      chppTimestampIncomingRequest(inReqState, rxHeader);
       error = chppWwanServiceGetCapabilities(wwanServiceContext, rxHeader);
       break;
     }
 
     case CHPP_WWAN_GET_CELLINFO_ASYNC: {
-      rRState = &wwanServiceContext->getCellInfoAsync;
-      chppServiceTimestampRequest(rRState, rxHeader);
+      inReqState = &wwanServiceContext->getCellInfoAsync;
+      chppTimestampIncomingRequest(inReqState, rxHeader);
       error = chppWwanServiceGetCellInfoAsync(wwanServiceContext, rxHeader);
       break;
     }
@@ -182,8 +182,8 @@ static enum ChppAppErrorCode chppDispatchWwanRequest(void *serviceContext,
 
   if (dispatched == true && error != CHPP_APP_ERROR_NONE) {
     // Request was dispatched but an error was returned. Close out
-    // chppServiceTimestampRequest()
-    chppServiceTimestampResponse(rRState);
+    // chppTimestampIncomingRequest()
+    chppTimestampOutgoingResponse(inReqState);
   }
 
   return error;
@@ -222,14 +222,14 @@ static enum ChppAppErrorCode chppWwanServiceOpen(
     wwanServiceContext->service.openState = CHPP_OPEN_STATE_OPENED;
 
     struct ChppAppHeader *response =
-        chppAllocServiceResponseFixed(requestHeader, struct ChppAppHeader);
+        chppAllocResponseFixed(requestHeader, struct ChppAppHeader);
     size_t responseLen = sizeof(*response);
 
     if (response == NULL) {
       CHPP_LOG_OOM();
       error = CHPP_APP_ERROR_OOM;
     } else {
-      chppSendTimestampedResponseOrFail(&wwanServiceContext->service,
+      chppSendTimestampedResponseOrFail(wwanServiceContext->service.appContext,
                                         &wwanServiceContext->open, response,
                                         responseLen);
     }
@@ -257,14 +257,14 @@ static enum ChppAppErrorCode chppWwanServiceClose(
   CHPP_LOGD("WWAN service closed");
 
   struct ChppAppHeader *response =
-      chppAllocServiceResponseFixed(requestHeader, struct ChppAppHeader);
+      chppAllocResponseFixed(requestHeader, struct ChppAppHeader);
   size_t responseLen = sizeof(*response);
 
   if (response == NULL) {
     CHPP_LOG_OOM();
     error = CHPP_APP_ERROR_OOM;
   } else {
-    chppSendTimestampedResponseOrFail(&wwanServiceContext->service,
+    chppSendTimestampedResponseOrFail(wwanServiceContext->service.appContext,
                                       &wwanServiceContext->close, response,
                                       responseLen);
   }
@@ -304,9 +304,8 @@ static enum ChppAppErrorCode chppWwanServiceGetCapabilities(
     struct ChppAppHeader *requestHeader) {
   enum ChppAppErrorCode error = CHPP_APP_ERROR_NONE;
 
-  struct ChppWwanGetCapabilitiesResponse *response =
-      chppAllocServiceResponseFixed(requestHeader,
-                                    struct ChppWwanGetCapabilitiesResponse);
+  struct ChppWwanGetCapabilitiesResponse *response = chppAllocResponseFixed(
+      requestHeader, struct ChppWwanGetCapabilitiesResponse);
   size_t responseLen = sizeof(*response);
 
   if (response == NULL) {
@@ -318,7 +317,7 @@ static enum ChppAppErrorCode chppWwanServiceGetCapabilities(
     CHPP_LOGD("chppWwanServiceGetCapabilities returning 0x%" PRIx32
               ", %" PRIuSIZE " bytes",
               response->params.capabilities, responseLen);
-    chppSendTimestampedResponseOrFail(&wwanServiceContext->service,
+    chppSendTimestampedResponseOrFail(wwanServiceContext->service.appContext,
                                       &wwanServiceContext->getCapabilities,
                                       response, responseLen);
   }
@@ -366,17 +365,17 @@ static enum ChppAppErrorCode chppWwanServiceGetCellInfoAsync(
 static void chppWwanServiceCellInfoResultCallback(
     struct chreWwanCellInfoResult *result) {
   // Recover state
-  struct ChppRequestResponseState *rRState =
+  struct ChppIncomingRequestState *inReqState =
       &gWwanServiceContext.getCellInfoAsync;
   struct ChppWwanServiceState *wwanServiceContext =
-      container_of(rRState, struct ChppWwanServiceState, getCellInfoAsync);
+      container_of(inReqState, struct ChppWwanServiceState, getCellInfoAsync);
 
   // Craft response per parser script
   struct ChppWwanCellInfoResultWithHeader *response = NULL;
   size_t responseLen = 0;
   if (!chppWwanCellInfoResultFromChre(result, &response, &responseLen)) {
     CHPP_LOGE("CellInfo conversion failed (OOM?) ID=%" PRIu8,
-              rRState->transaction);
+              inReqState->transaction);
 
     response = chppMalloc(sizeof(struct ChppAppHeader));
     if (response == NULL) {
@@ -389,14 +388,14 @@ static void chppWwanServiceCellInfoResultCallback(
   if (response != NULL) {
     response->header.handle = wwanServiceContext->service.handle;
     response->header.type = CHPP_MESSAGE_TYPE_SERVICE_RESPONSE;
-    response->header.transaction = rRState->transaction;
+    response->header.transaction = inReqState->transaction;
     response->header.error = (responseLen > sizeof(struct ChppAppHeader))
                                  ? CHPP_APP_ERROR_NONE
                                  : CHPP_APP_ERROR_CONVERSION_FAILED;
     response->header.command = CHPP_WWAN_GET_CELLINFO_ASYNC;
 
-    chppSendTimestampedResponseOrFail(&wwanServiceContext->service, rRState,
-                                      response, responseLen);
+    chppSendTimestampedResponseOrFail(wwanServiceContext->service.appContext,
+                                      inReqState, response, responseLen);
   }
 
   gWwanServiceContext.api->releaseCellInfoResult(result);
@@ -415,7 +414,8 @@ void chppRegisterWwanService(struct ChppAppState *appContext) {
 
   } else {
     chppRegisterService(appContext, (void *)&gWwanServiceContext,
-                        &gWwanServiceContext.service, &kWwanServiceConfig);
+                        &gWwanServiceContext.service, NULL /*outReqStates*/,
+                        &kWwanServiceConfig);
     CHPP_DEBUG_ASSERT(gWwanServiceContext.service.handle);
   }
 }

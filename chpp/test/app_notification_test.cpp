@@ -70,7 +70,7 @@ constexpr uint16_t kNumCommands = 1;
 
 struct ClientState {
   struct ChppClientState chppClientState;
-  struct ChppRequestResponseState rRState[kNumCommands];
+  struct ChppOutgoingRequestState outReqStates[kNumCommands];
   bool serviceNotificationStatus;
   struct ChppNotifier notifier;
 };
@@ -91,7 +91,7 @@ constexpr struct ChppClient kClient = {
     .notificationDispatchFunctionPtr = &clientDispatchNotification,
     .initFunctionPtr = &clientInit,
     .deinitFunctionPtr = &clientDeinit,
-    .rRStateCount = kNumCommands,
+    .outReqCount = kNumCommands,
     .minLength = sizeof(struct ChppAppHeader),
 };
 
@@ -137,7 +137,7 @@ void clientDeinit(void *clientState) {
 // Service
 struct ServiceState {
   struct ChppServiceState chppServiceState;
-  struct ChppRequestResponseState rRState[kNumCommands];
+  struct ChppIncomingRequestState inReqStates[kNumCommands];
   bool clientNotificationStatus;
   struct ChppNotifier notifier;
 };
@@ -233,8 +233,8 @@ class AppNotificationTest : public testing::Test {
   void BringUpClient() {
     memset(&mClientState, 0, sizeof(mClientState));
     chppRegisterClient(&mClientAppContext, &mClientState,
-                       &mClientState.chppClientState, &mClientState.rRState[0],
-                       &kClient);
+                       &mClientState.chppClientState,
+                       &mClientState.outReqStates[0], &kClient);
 
     pthread_create(&mClientWorkThread, NULL, workThread,
                    &mClientTransportContext);
@@ -243,7 +243,8 @@ class AppNotificationTest : public testing::Test {
   void BringUpService() {
     memset(&mServiceState, 0, sizeof(mServiceState));
     chppRegisterService(&mServiceAppContext, &mServiceState,
-                        &mServiceState.chppServiceState, &kService);
+                        &mServiceState.chppServiceState, NULL /*outReqStates*/,
+                        &kService);
 
     pthread_create(&mServiceWorkThread, NULL, workThread,
                    &mServiceTransportContext);

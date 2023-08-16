@@ -41,7 +41,7 @@
  */
 struct ChppTimesyncClientState {
   struct ChppClientState client;                  // Timesync client state
-  struct ChppRequestResponseState measureOffset;  // Request response state
+  struct ChppOutgoingRequestState measureOffset;  // Request response state
 
   struct ChppTimesyncResult timesyncResult;  // Result of measureOffset
 };
@@ -104,8 +104,8 @@ bool chppDispatchTimesyncServiceResponse(struct ChppAppState *appState,
 
   const struct ChppTimesyncResponse *response =
       (const struct ChppTimesyncResponse *)buf;
-  if (chppClientTimestampResponse(&state->client, &state->measureOffset,
-                                  &response->header)) {
+  if (chppTimestampIncomingResponse(state->client.appContext,
+                                    &state->measureOffset, &response->header)) {
     state->timesyncResult.rttNs = state->measureOffset.responseTimeNs -
                                   state->measureOffset.requestTimeNs;
     int64_t offsetNs =
@@ -164,9 +164,9 @@ bool chppTimesyncMeasureOffset(struct ChppAppState *appState) {
     state->timesyncResult.error = CHPP_APP_ERROR_OOM;
     CHPP_LOG_OOM();
 
-  } else if (!chppSendTimestampedRequestOrFail(
+  } else if (!chppClientSendTimestampedRequestOrFail(
                  &state->client, &state->measureOffset, request, requestLen,
-                 CHPP_CLIENT_REQUEST_TIMEOUT_INFINITE)) {
+                 CHPP_REQUEST_TIMEOUT_INFINITE)) {
     state->timesyncResult.error = CHPP_APP_ERROR_UNSPECIFIED;
 
   } else {

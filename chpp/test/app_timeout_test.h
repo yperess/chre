@@ -30,6 +30,8 @@ extern "C" {
 
 struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
     struct ChppTransportState *context);
+struct ChppAppHeader *chppTransportGetServiceRequestTimeoutResponse(
+    struct ChppTransportState *context);
 
 #ifdef __cplusplus
 }

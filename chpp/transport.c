@@ -31,6 +31,7 @@
 #include "chpp/macros.h"
 #include "chpp/memory.h"
 #include "chpp/platform/platform_link.h"
+#include "chpp/services.h"
 #include "chpp/time.h"
 
 /************************************************
@@ -92,6 +93,10 @@ static void chppReset(struct ChppTransportState *context,
 struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
     struct ChppTransportState *context);
 #endif
+#ifdef CHPP_SERVICE_ENABLED
+struct ChppAppHeader *chppTransportGetServiceRequestTimeoutResponse(
+    struct ChppTransportState *context);
+#endif
 
 /************************************************
  *  Private Functions
@@ -102,7 +107,7 @@ struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
  * counter among that state (rxStatus.locInState) is also reset at the same
  * time.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @param newState Next Rx state.
  */
 static void chppSetRxState(struct ChppTransportState *context,
@@ -122,7 +127,7 @@ static void chppSetRxState(struct ChppTransportState *context,
  * Any future backwards-incompatible versions of CHPP Transport will use a
  * different preamble.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @param buf Input data.
  * @param len Length of input data in bytes.
  *
@@ -169,7 +174,7 @@ static size_t chppConsumePreamble(struct ChppTransportState *context,
  * stream.
  * Moves the Rx state to CHPP_STATE_PAYLOAD afterwards.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @param buf Input data.
  * @param len Length of input data in bytes.
  *
@@ -235,7 +240,7 @@ static size_t chppConsumeHeader(struct ChppTransportState *context,
  * by the header, from the incoming data stream.
  * Moves the Rx state to CHPP_STATE_FOOTER afterwards.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @param buf Input data
  * @param len Length of input data in bytes
  *
@@ -264,7 +269,7 @@ static size_t chppConsumePayload(struct ChppTransportState *context,
  * stream. Checks checksum, triggering the correct response (ACK / NACK).
  * Moves the Rx state to CHPP_STATE_PREAMBLE afterwards.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @param buf Input data.
  * @param len Length of input data in bytes.
  *
@@ -361,7 +366,7 @@ static size_t chppConsumeFooter(struct ChppTransportState *context,
  * Discards of an incomplete Rx packet during receive (e.g. due to a timeout or
  * bad checksum).
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppAbortRxPacket(struct ChppTransportState *context) {
   size_t undoLen = 0;
@@ -422,7 +427,7 @@ static void chppAbortRxPacket(struct ChppTransportState *context) {
 /**
  * Processes a request that is determined to be for a transport-layer loopback.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 #ifdef CHPP_SERVICE_ENABLED_TRANSPORT_LOOPBACK
 static void chppProcessTransportLoopbackRequest(
@@ -467,7 +472,7 @@ static void chppProcessTransportLoopbackRequest(
 /**
  * Processes a response that is determined to be for a transport-layer loopback.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 #ifdef CHPP_CLIENT_ENABLED_TRANSPORT_LOOPBACK
 static void chppProcessTransportLoopbackResponse(
@@ -504,7 +509,7 @@ static void chppProcessTransportLoopbackResponse(
 /**
  * Method to invoke when the reset sequence is completed.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppSetResetComplete(struct ChppTransportState *context) {
   context->resetState = CHPP_RESET_STATE_NONE;
@@ -516,7 +521,7 @@ static void chppSetResetComplete(struct ChppTransportState *context) {
  * An incoming reset-ack packet indicates that a reset is complete at the other
  * end of the CHPP link.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppProcessResetAck(struct ChppTransportState *context) {
   if (context->resetState == CHPP_RESET_STATE_NONE) {
@@ -564,7 +569,7 @@ static void chppProcessResetAck(struct ChppTransportState *context) {
 /**
  * Process a received, checksum-validated packet.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppProcessRxPacket(struct ChppTransportState *context) {
   uint64_t now = chppGetCurrentTimeNs();
@@ -611,7 +616,7 @@ static void chppProcessRxPacket(struct ChppTransportState *context) {
  * Process the payload of a validated payload-bearing packet and send out the
  * ACK.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppProcessRxPayload(struct ChppTransportState *context) {
   context->rxStatus.expectedSeq++;  // chppProcessRxPacket() already confirms
@@ -657,7 +662,7 @@ static void chppProcessRxPayload(struct ChppTransportState *context) {
  * layer to inform the transport layer using chppDatagramProcessDoneCb() once it
  * is done with the buffer so it is freed.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppClearRxDatagram(struct ChppTransportState *context) {
   context->rxStatus.locInDatagram = 0;
@@ -668,7 +673,7 @@ static void chppClearRxDatagram(struct ChppTransportState *context) {
 /**
  * Validates the checksum of an incoming packet.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  *
  * @return True if and only if the checksum is correct.
  */
@@ -696,7 +701,7 @@ static bool chppRxChecksumIsOk(const struct ChppTransportState *context) {
  * Performs consistency checks on received packet header to determine if it is
  * obviously corrupt / invalid / duplicate / out-of-order.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  *
  * @return True if and only if header passes checks
  */
@@ -722,7 +727,7 @@ static enum ChppTransportErrorCode chppRxHeaderCheck(
  * Registers a received ACK. If an outgoing datagram is fully ACKed, it is
  * popped from the TX queue.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppRegisterRxAck(struct ChppTransportState *context) {
   uint8_t rxAckSeq = context->rxHeader.ackSeq;
@@ -789,7 +794,7 @@ static void chppRegisterRxAck(struct ChppTransportState *context) {
  * would only need to send an ACK for the last (correct) packet, hence we only
  * need a queue length of one here.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @param packetCode Error code and packet attributes to be sent.
  */
 static void chppEnqueueTxPacket(struct ChppTransportState *context,
@@ -820,7 +825,7 @@ static size_t chppAddPreamble(uint8_t *buf) {
 /**
  * Adds the packet header to link tx buffer.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  *
  * @return Pointer to the added packet header.
  */
@@ -844,7 +849,7 @@ static struct ChppTransportHeader *chppAddHeader(
 /**
  * Adds the packet payload to link tx buffer.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppAddPayload(struct ChppTransportState *context) {
   uint8_t *linkTxBuffer = context->linkApi->getTxBuffer(context->linkContext);
@@ -884,7 +889,7 @@ static void chppAddPayload(struct ChppTransportState *context) {
 /**
  * Adds a footer (containing the checksum) to a packet.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppAddFooter(struct ChppTransportState *context) {
   struct ChppTransportFooter footer;
@@ -906,7 +911,7 @@ static void chppAddFooter(struct ChppTransportState *context) {
  * Dequeues the datagram at the front of the datagram tx queue, if any, and
  * frees the payload. Returns the number of remaining datagrams in the queue.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @return Number of remaining datagrams in queue.
  */
 size_t chppDequeueTxDatagram(struct ChppTransportState *context) {
@@ -939,7 +944,7 @@ size_t chppDequeueTxDatagram(struct ChppTransportState *context) {
 /**
  * Flushes the Tx datagram queue of any pending packets.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppClearTxDatagramQueue(struct ChppTransportState *context) {
   while (context->txDatagramQueue.pending > 0) {
@@ -959,7 +964,7 @@ static void chppClearTxDatagramQueue(struct ChppTransportState *context) {
  * Repeat payload: If we haven't received an ACK yet for our previous payload,
  * i.e. we have registered an explicit or implicit NACK.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppTransportDoWork(struct ChppTransportState *context) {
   bool havePacketForLinkLayer = false;
@@ -1060,13 +1065,27 @@ static void chppTransportDoWork(struct ChppTransportState *context) {
     }
   }
 #endif  // CHPP_CLIENT_ENABLED
+#ifdef CHPP_SERVICE_ENABLED
+  {  // create a scope to declare timeoutResponse (C89).
+    struct ChppAppHeader *timeoutResponse =
+        chppTransportGetServiceRequestTimeoutResponse(context);
+
+    if (timeoutResponse != NULL) {
+      CHPP_LOGE("Response timeout H#%" PRIu8 " cmd=%" PRIu16 " ID=%" PRIu8,
+                timeoutResponse->handle, timeoutResponse->command,
+                timeoutResponse->transaction);
+      chppAppProcessRxDatagram(context->appContext, (uint8_t *)timeoutResponse,
+                               sizeof(struct ChppAppHeader));
+    }
+  }
+#endif  // CHPP_SERVICE_ENABLED
 }
 
 /**
  * Appends data from a buffer of length len to a link tx buffer, updating its
  * length.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @param buf Input data to be copied from.
  * @param len Length of input data in bytes.
  */
@@ -1109,7 +1128,7 @@ static const char *chppGetPacketAttrStr(uint8_t packetCode) {
  * If enqueueing is unsuccessful, it is up to the caller to decide when or if
  * to free the payload and/or resend it later.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @param packetCode Error code and packet attributes to be sent.
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
@@ -1171,7 +1190,7 @@ static bool chppEnqueueTxDatagram(struct ChppTransportState *context,
  * Sends the pending outgoing packet over to the link
  * layer using Send() and updates the last Tx packet time.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  *
  * @return Result of Send().
  */
@@ -1188,7 +1207,7 @@ enum ChppLinkErrorCode chppSendPendingPacket(
 /**
  * Resets the transport state, maintaining the link layer parameters.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  */
 static void chppResetTransportContext(struct ChppTransportState *context) {
   memset(&context->rxStatus, 0, sizeof(struct ChppRxStatus));
@@ -1212,7 +1231,7 @@ static void chppResetTransportContext(struct ChppTransportState *context) {
  * This function retains and restores the platform-specific values of
  * transportContext.linkContext.
  *
- * @param transportContext Maintains state for each transport layer instance.
+ * @param transportContext State of the transport layer.
  * @param resetType Type of reset to send after resetting CHPP (reset vs.
  * reset-ack), as defined in the ChppTransportPacketAttributes struct.
  * @param error Provides the error that led to the reset.
@@ -1267,41 +1286,41 @@ static void chppReset(struct ChppTransportState *transportContext,
 
 /**
  * Checks for a timed out client request and generates a timeout response if a
- * client request timeout has occurred.
+ * timeout has occurred.
  *
- * @param context Maintains state for each transport layer instance.
+ * @param context State of the transport layer.
  * @return App layer response header if a timeout has occurred. Null otherwise.
  */
 #ifdef CHPP_CLIENT_ENABLED
 struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
     struct ChppTransportState *context) {
+  struct ChppAppState *appState = context->appContext;
   struct ChppAppHeader *response = NULL;
 
   bool timeoutClientFound = false;
-  uint8_t timedOutClient;
+  uint8_t timedOutClientIdx;
   uint16_t timedOutCmd;
 
   chppMutexLock(&context->mutex);
 
-  if (context->appContext->nextRequestTimeoutNs <= chppGetCurrentTimeNs()) {
+  if (appState->nextClientRequestTimeoutNs <= chppGetCurrentTimeNs()) {
     // Determine which request has timed out
+    const uint8_t numClients = appState->registeredClientCount;
+    uint64_t firstTimeout = CHPP_TIME_MAX;
 
-    uint64_t lowestTimeout = CHPP_TIME_MAX;
-    for (uint8_t clientIdx = 0;
-         clientIdx < context->appContext->registeredClientCount; clientIdx++) {
-      for (uint16_t cmdIdx = 0;
-           cmdIdx <
-           context->appContext->registeredClients[clientIdx]->rRStateCount;
-           cmdIdx++) {
-        struct ChppRequestResponseState *rRState =
-            &context->appContext->registeredClientStates[clientIdx]
-                 ->rRStates[cmdIdx];
+    for (uint8_t clientIdx = 0; clientIdx < numClients; clientIdx++) {
+      const uint16_t numCmds =
+          appState->registeredClients[clientIdx]->outReqCount;
+      const struct ChppOutgoingRequestState *reqStates =
+          &appState->registeredClientStates[clientIdx]->outReqStates[0];
+      for (uint16_t cmdIdx = 0; cmdIdx < numCmds; cmdIdx++) {
+        const struct ChppOutgoingRequestState *reqState = &reqStates[cmdIdx];
 
-        if (rRState->requestState == CHPP_REQUEST_STATE_REQUEST_SENT &&
-            rRState->responseTimeNs != CHPP_TIME_NONE &&
-            rRState->responseTimeNs < lowestTimeout) {
-          lowestTimeout = rRState->responseTimeNs;
-          timedOutClient = clientIdx;
+        if (reqState->requestState == CHPP_REQUEST_STATE_REQUEST_SENT &&
+            reqState->responseTimeNs != CHPP_TIME_NONE &&
+            reqState->responseTimeNs < firstTimeout) {
+          firstTimeout = reqState->responseTimeNs;
+          timedOutClientIdx = clientIdx;
           timedOutCmd = cmdIdx;
           timeoutClientFound = true;
         }
@@ -1310,24 +1329,24 @@ struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
 
     if (!timeoutClientFound) {
       CHPP_LOGE("Timeout at %" PRIu64 " but no client",
-                context->appContext->nextRequestTimeoutNs / CHPP_NSEC_PER_MSEC);
-      chppClientRecalculateNextTimeout(context->appContext);
+                appState->nextClientRequestTimeoutNs / CHPP_NSEC_PER_MSEC);
+      chppClientRecalculateNextTimeout(appState);
     }
   }
 
   if (timeoutClientFound) {
-    CHPP_LOGE("Client=%" PRIu8 " cmd=%" PRIu16 " timed out", timedOutClient,
+    CHPP_LOGE("Client=%" PRIu8 " cmd=%" PRIu16 " timed out", timedOutClientIdx,
               timedOutCmd);
     response = chppMalloc(sizeof(struct ChppAppHeader));
     if (response == NULL) {
       CHPP_LOG_OOM();
     } else {
-      response->handle = CHPP_SERVICE_HANDLE_OF_INDEX(timedOutClient);
+      const struct ChppClientState *clientState =
+          appState->registeredClientStates[timedOutClientIdx];
+      response->handle = clientState->handle;
       response->type = CHPP_MESSAGE_TYPE_SERVICE_RESPONSE;
       response->transaction =
-          context->appContext->registeredClientStates[timedOutClient]
-              ->rRStates[timedOutCmd]
-              .transaction;
+          clientState->outReqStates[timedOutCmd].transaction;
       response->error = CHPP_APP_ERROR_TIMEOUT;
       response->command = timedOutCmd;
     }
@@ -1337,7 +1356,81 @@ struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
 
   return response;
 }
-#endif
+#endif  // CHPP_CLIENT_ENABLED
+
+/**
+ * Checks for a timed out service request and generates a timeout response if a
+ * timeout has occurred.
+ *
+ * @param context State of the transport layer.
+ * @return App layer response header if a timeout has occurred. Null otherwise.
+ */
+#ifdef CHPP_SERVICE_ENABLED
+struct ChppAppHeader *chppTransportGetServiceRequestTimeoutResponse(
+    struct ChppTransportState *context) {
+  struct ChppAppState *appState = context->appContext;
+  struct ChppAppHeader *response = NULL;
+
+  bool timeoutServiceFound = false;
+  uint8_t timedOutServiceIdx;
+  uint16_t timedOutCmd;
+
+  chppMutexLock(&context->mutex);
+
+  if (appState->nextServiceRequestTimeoutNs <= chppGetCurrentTimeNs()) {
+    // Determine which request has timed out
+    const uint8_t numServices = appState->registeredServiceCount;
+    uint64_t firstTimeout = CHPP_TIME_MAX;
+
+    for (uint8_t serviceIdx = 0; serviceIdx < numServices; serviceIdx++) {
+      const uint16_t numCmds =
+          appState->registeredServices[serviceIdx]->outReqCount;
+      const struct ChppOutgoingRequestState *reqStates =
+          &appState->registeredServiceStates[serviceIdx]->outReqStates[0];
+      for (uint16_t cmdIdx = 0; cmdIdx < numCmds; cmdIdx++) {
+        const struct ChppOutgoingRequestState *reqState = &reqStates[cmdIdx];
+
+        if (reqState->requestState == CHPP_REQUEST_STATE_REQUEST_SENT &&
+            reqState->responseTimeNs != CHPP_TIME_NONE &&
+            reqState->responseTimeNs < firstTimeout) {
+          firstTimeout = reqState->responseTimeNs;
+          timedOutServiceIdx = serviceIdx;
+          timedOutCmd = cmdIdx;
+          timeoutServiceFound = true;
+        }
+      }
+    }
+
+    if (!timeoutServiceFound) {
+      CHPP_LOGE("Timeout at %" PRIu64 " but no service",
+                appState->nextServiceRequestTimeoutNs / CHPP_NSEC_PER_MSEC);
+      chppServiceRecalculateNextTimeout(appState);
+    }
+  }
+
+  if (timeoutServiceFound) {
+    CHPP_LOGE("Service=%" PRIu8 " cmd=%" PRIu16 " timed out",
+              timedOutServiceIdx, timedOutCmd);
+    response = chppMalloc(sizeof(struct ChppAppHeader));
+    if (response == NULL) {
+      CHPP_LOG_OOM();
+    } else {
+      const struct ChppServiceState *serviceState =
+          appState->registeredServiceStates[timedOutServiceIdx];
+      response->handle = serviceState->handle;
+      response->type = CHPP_MESSAGE_TYPE_CLIENT_RESPONSE;
+      response->transaction =
+          serviceState->outReqStates[timedOutCmd].transaction;
+      response->error = CHPP_APP_ERROR_TIMEOUT;
+      response->command = timedOutCmd;
+    }
+  }
+
+  chppMutexUnlock(&context->mutex);
+
+  return response;
+}
+#endif  // CHPP_SERVICE_ENABLED
 
 /************************************************
  *  Public Functions
@@ -1548,7 +1641,12 @@ void chppEnqueueTxErrorDatagram(struct ChppTransportState *context,
 uint64_t chppTransportGetTimeUntilNextDoWorkNs(
     struct ChppTransportState *context) {
   uint64_t currentTime = chppGetCurrentTimeNs();
-  uint64_t nextDoWorkTime = context->appContext->nextRequestTimeoutNs;
+  // This function is called in the context of the transport worker thread.
+  // As we do not know if the transport is used in the context of a service
+  // or a client, we use the min of both timeouts.
+  uint64_t nextDoWorkTime =
+      MIN(context->appContext->nextClientRequestTimeoutNs,
+          context->appContext->nextServiceRequestTimeoutNs);
 
   if (context->txStatus.hasPacketsToSend ||
       context->resetState == CHPP_RESET_STATE_RESETTING) {
