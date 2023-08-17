@@ -14,17 +14,33 @@
  * limitations under the License.
  */
 
+#include <cstddef>
+
 #include "chre/platform/memory.h"
+#include "chre/platform/shared/dram_vote_client.h"
 #include "chre/platform/shared/memory.h"
 #include "mt_alloc.h"
 #include "mt_dma.h"
 #include "portable.h"
 
+#ifdef __cplusplus
 extern "C" {
+#endif
+
+#include "encoding.h"
+#include "mt_heap.h"
 #include "resource_req.h"
-}
+#include "sensorhub/heap.h"
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
 
 namespace chre {
+
+// On tinysys voting/devoting dram are done automatically by the platform APIs
+// so issueDramVote() should be a no-op.
+void DramVoteClient::issueDramVote(bool /*enabled*/) {}
 
 // no-op since the dma access is controlled by the kernel automatically
 void forceDramAccess() {}
@@ -63,4 +79,31 @@ void *nanoappBinaryDramAlloc(size_t size, size_t alignment) {
   return aligned_dram_malloc(size, alignment);
 }
 
+void *memoryAlloc(size_t size) {
+  void *address = heap_alloc(size);
+  if (address == nullptr && size > 0) {
+    // Try dram if allocation from sram fails.
+    // DramVoteClient tracks the duration of the allocations falling back to
+    // dram. The idea is that only transient allocations are allowed to fall
+    // back to dram. Any long-lived allocation should be done explicitly via
+    // corresponding memory allocation APIs.
+    DramVoteClientSingleton::get()->incrementDramVoteCount();
+    address = pvPortDramMalloc(size);
+
+    // DRAM allocation failed too.
+    if (address == nullptr) {
+      DramVoteClientSingleton::get()->decrementDramVoteCount();
+    }
+  }
+  return address;
+}
+
+void memoryFree(void *pointer) {
+  if (isInDram(pointer)) {
+    vPortDramFree(pointer);
+    DramVoteClientSingleton::get()->decrementDramVoteCount();
+  } else {
+    heap_free(pointer);
+  }
+}
 }  // namespace chre
