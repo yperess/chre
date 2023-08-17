@@ -38,7 +38,7 @@ extern "C" {
  * Allocates a client request message of a specific type and its corresponding
  * length.
  *
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  * @param type Type of response.
  *
  * @return Pointer to allocated memory
@@ -49,7 +49,7 @@ extern "C" {
 /**
  * Allocates a variable-length client request message of a specific type.
  *
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  * @param type Type of response which includes an arrayed member.
  * @param count number of items in the array of arrayField.
  * @param arrayField The arrayed member field.
@@ -181,7 +181,7 @@ void chppDeregisterCommonClients(struct ChppAppState *context);
  *
  * @param appContext State of the app layer.
  * @param clientContext State of the client instance.
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  * @param outReqStates List of outgoing request states.
  * @param newClient The client to be registered on this platform.
  */
@@ -201,7 +201,7 @@ void chppInitBasicClients(struct ChppAppState *context);
  * Initializes a client. This function must be called when a client is matched
  * with a service during discovery to provides its handle number.
  *
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  * @param handle Handle number for this client.
  */
 void chppClientInit(struct ChppClientState *clientState, uint8_t handle);
@@ -209,7 +209,7 @@ void chppClientInit(struct ChppClientState *clientState, uint8_t handle);
 /**
  * Deinitializes a client.
  *
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  */
 void chppClientDeinit(struct ChppClientState *clientState);
 
@@ -228,16 +228,15 @@ void chppDeinitBasicClients(struct ChppAppState *context);
 void chppDeinitMatchedClients(struct ChppAppState *context);
 
 /**
- * Allocates a client request message of a specified length, populating the
- * (app layer) client request header, including the sequence ID. The
- * next-sequence ID stored in the client state variable is subsequently
- * incremented.
+ * Allocates a client request message of a specified length.
  *
- * It is expected that for most use cases, the chppAllocClientRequestFixed()
- * or chppAllocClientRequestTypedArray() macros shall be used rather than
- * calling this function directly.
+ * It populates the request header, including the transaction number which is
+ * then incremented.
  *
- * @param clientState State variable of the client.
+ * For most use cases, the chppAllocClientRequestFixed() or
+ * chppAllocClientRequestTypedArray() macros shall be preferred.
+ *
+ * @param clientState State of the client.
  * @param len Length of the response message (including header) in bytes. Note
  *        that the specified length must be at least equal to the length of the
  *        app layer header.
@@ -250,7 +249,7 @@ struct ChppAppHeader *chppAllocClientRequest(
 /**
  * Allocates a specific client request command without any additional payload.
  *
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  * @param command Type of response.
  *
  * @return Pointer to allocated memory
@@ -322,7 +321,7 @@ bool chppClientSendTimestampedRequestAndWaitTimeout(
  * Marks a closed client as pseudo-open, so that it would be opened upon a
  * reset.
  *
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  */
 void chppClientPseudoOpen(struct ChppClientState *clientState);
 
@@ -332,7 +331,7 @@ void chppClientPseudoOpen(struct ChppClientState *clientState);
  * A non-blocking open is used to for reopening a service after a reset or for
  * opening a pseudo-open service.
  *
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  * @param openReqState Request/response state for the open command.
  * @param openCommand Open command to be sent.
  * @param blocking Indicates a blocking (vs. non-blocking) open request.
@@ -346,7 +345,7 @@ bool chppClientSendOpenRequest(struct ChppClientState *clientState,
 /**
  * Processes a service response for the open command.
  *
- * @param clientState State variable of the client.
+ * @param clientState State of the client.
  */
 void chppClientProcessOpenResponse(struct ChppClientState *clientState,
                                    uint8_t *buf, size_t len);
@@ -359,14 +358,15 @@ void chppClientProcessOpenResponse(struct ChppClientState *clientState,
 void chppClientRecalculateNextTimeout(struct ChppAppState *context);
 
 /**
- * Closes any remaining open requests for a given client by sending a timeout.
+ * Closes any remaining open requests by simulating a timeout.
+
  * This function is used when a client is reset.
  *
- * @param clientState State variable of the client.
- * @param client The client for whech to clear out open requests.
+ * @param clientState State of the client.
+ * @param client The client for which to clear out open requests.
  * @param clearOnly If true, indicates that a timeout response shouldn't be
- *     sent to the client. This must only be set if the requests are being
- *     cleared as part of the client closing.
+ *        sent. This must only be set if the requests are being cleared as part
+ *        of the client closing.
  */
 void chppClientCloseOpenRequests(struct ChppClientState *clientState,
                                  const struct ChppClient *client,
@@ -384,10 +384,10 @@ void chppClientCloseOpenRequests(struct ChppClientState *clientState,
  * ChppAppHeader.
  *
  * @param len Length of the notification (including header) in bytes. Note
- * that the specified length must be at least equal to the length of the app
- * layer header.
+ *        that the specified length must be at least equal to the length of the
+ *        app layer header.
  *
- * @return Pointer to allocated memory
+ * @return Pointer to allocated memory.
  */
 struct ChppAppHeader *chppAllocClientNotification(size_t len);
 

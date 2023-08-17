@@ -209,3 +209,47 @@ void chppServiceRecalculateNextTimeout(struct ChppAppState *context) {
   CHPP_LOGD("nextReqTimeout=%" PRIu64,
             context->nextServiceRequestTimeoutNs / CHPP_NSEC_PER_MSEC);
 }
+
+void chppServiceCloseOpenRequests(struct ChppServiceState *serviceState,
+                                  const struct ChppService *service,
+                                  bool clearOnly) {
+  CHPP_DEBUG_NOT_NULL(serviceState);
+  CHPP_DEBUG_NOT_NULL(service);
+
+  bool recalcNeeded = false;
+
+  for (uint16_t cmdIdx = 0; cmdIdx < service->outReqCount; cmdIdx++) {
+    if (serviceState->outReqStates[cmdIdx].requestState ==
+        CHPP_REQUEST_STATE_REQUEST_SENT) {
+      recalcNeeded = true;
+
+      CHPP_LOGE("Closing open req #%" PRIu16 " clear %d", cmdIdx, clearOnly);
+
+      if (clearOnly) {
+        serviceState->outReqStates[cmdIdx].requestState =
+            CHPP_REQUEST_STATE_RESPONSE_TIMEOUT;
+      } else {
+        struct ChppAppHeader *response =
+            chppMalloc(sizeof(struct ChppAppHeader));
+        if (response == NULL) {
+          CHPP_LOG_OOM();
+        } else {
+          // Simulate receiving a timeout response.
+          response->handle = serviceState->handle;
+          response->type = CHPP_MESSAGE_TYPE_CLIENT_RESPONSE;
+          response->transaction =
+              serviceState->outReqStates[cmdIdx].transaction;
+          response->error = CHPP_APP_ERROR_TIMEOUT;
+          response->command = cmdIdx;
+
+          chppAppProcessRxDatagram(serviceState->appContext,
+                                   (uint8_t *)response,
+                                   sizeof(struct ChppAppHeader));
+        }
+      }
+    }
+  }
+  if (recalcNeeded) {
+    chppServiceRecalculateNextTimeout(serviceState->appContext);
+  }
+}

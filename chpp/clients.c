@@ -471,6 +471,7 @@ void chppClientCloseOpenRequests(struct ChppClientState *clientState,
         if (response == NULL) {
           CHPP_LOG_OOM();
         } else {
+          // Simulate receiving a timeout response.
           response->handle = clientState->handle;
           response->type = CHPP_MESSAGE_TYPE_SERVICE_RESPONSE;
           response->transaction = clientState->outReqStates[cmdIdx].transaction;

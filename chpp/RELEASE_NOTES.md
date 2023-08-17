@@ -331,4 +331,5 @@ Check the inline documentation for more information.
 - Added `chppAllocServiceRequest`,
 - Added `chppAllocServiceRequestCommand`,
 - Added `chppServiceSendTimestampedRequestOrFail`,
-- Added `chppServiceSendTimestampedRequestAndWaitTimeout`.
+- Added `chppServiceSendTimestampedRequestAndWaitTimeout`,
+- Added `chppServiceCloseOpenRequests` to close pending requests on reset.

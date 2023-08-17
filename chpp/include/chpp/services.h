@@ -41,7 +41,7 @@ extern "C" {
  * Allocates a service request message of a specific type and its corresponding
  * length.
  *
- * @param serviceState State variable of the service.
+ * @param serviceState State of the service.
  * @param type Type of response.
  *
  * @return Pointer to allocated memory.
@@ -52,7 +52,7 @@ extern "C" {
 /**
  * Allocate a variable-length service request message of a specific type.
  *
- * @param serviceState State variable of the service.
+ * @param serviceState State of the service.
  * @param type Type of response which includes an arrayed member.
  * @param count number of items in the array of arrayField.
  * @param arrayField The arrayed member field.
@@ -151,7 +151,7 @@ void chppDeregisterCommonServices(struct ChppAppState *context);
  *
  * @param appContext State of the app layer.
  * @param serviceContext State of the service instance.
- * @param serviceState State variable of the client.
+ * @param serviceState State of the client.
  * @param outReqStates List of outgoing request states.
  * @param newService The service to be registered on this platform.
  */
@@ -180,16 +180,15 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
 struct ChppAppHeader *chppAllocServiceNotification(size_t len);
 
 /**
- * Allocates a service request message of a specified length, populating the
- * (app layer) service request header, including the sequence ID. The
- * next-sequence ID stored in the service state variable is subsequently
- * incremented.
+ * Allocates a service request message of a specified length.
  *
- * It is expected that for most use cases, the chppAllocServiceRequestFixed()
- * or chppAllocServiceRequestTypedArray() macros shall be used rather than
- * calling this function directly.
+ * It populates the request header, including the transaction number which is
+ * then incremented.
  *
- * @param serviceState State variable of the service.
+ * For most use cases, the chppAllocServiceRequestFixed() or
+ * chppAllocServiceRequestTypedArray() macros shall be preferred.
+ *
+ * @param serviceState State of the service.
  * @param len Length of the response message (including header) in bytes. Note
  *        that the specified length must be at least equal to the length of the
  *        app layer header.
@@ -202,7 +201,7 @@ struct ChppAppHeader *chppAllocServiceRequest(
 /**
  * Allocates a specific service request command without any additional payload.
  *
- * @param serviceState State variable of the service.
+ * @param serviceState State of the service.
  * @param command Type of response.
  *
  * @return Pointer to allocated memory
@@ -273,6 +272,21 @@ bool chppServiceSendTimestampedRequestAndWaitTimeout(
  * @param context State of the app layer.
  */
 void chppServiceRecalculateNextTimeout(struct ChppAppState *context);
+
+/**
+ * Closes any remaining open requests by simulating a timeout.
+ *
+ * This function is used when a service is reset.
+ *
+ * @param serviceState State of the service.
+ * @param service The service for which to clear out open requests.
+ * @param clearOnly If true, indicates that a timeout response shouldn't be
+ *        sent. This must only be set if the requests are being cleared as
+ *        part of the closing.
+ */
+void chppServiceCloseOpenRequests(struct ChppServiceState *serviceState,
+                                  const struct ChppService *service,
+                                  bool clearOnly);
 
 #ifdef __cplusplus
 }
