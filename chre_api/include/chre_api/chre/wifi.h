@@ -15,6 +15,7 @@
  */
 
 // IWYU pragma: private, include "chre_api/chre.h"
+// IWYU pragma: friend chre/.*\.h
 
 #ifndef _CHRE_WIFI_H_
 #define _CHRE_WIFI_H_
