@@ -287,12 +287,12 @@ class BleRequestManager : public NonCopyable {
 
   // Struct to hold ble request data for logging
   struct BleRequestLog {
-    BleRequestLog(Nanoseconds timestamp, uint32_t instanceId, bool enable,
-                  bool compliesWithBleSetting)
-        : timestamp(timestamp),
-          instanceId(instanceId),
-          enable(enable),
-          compliesWithBleSetting(compliesWithBleSetting) {}
+    BleRequestLog(Nanoseconds timestamp_, uint32_t instanceId_, bool enable_,
+                  bool compliesWithBleSetting_)
+        : timestamp(timestamp_),
+          instanceId(instanceId_),
+          enable(enable_),
+          compliesWithBleSetting(compliesWithBleSetting_) {}
     void populateRequestData(const BleRequest &req) {
       mode = req.getMode();
       reportDelayMs = req.getReportDelayMs();
