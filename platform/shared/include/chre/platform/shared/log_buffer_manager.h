@@ -20,6 +20,7 @@
 #include "chre/platform/assert.h"
 #include "chre/platform/condition_variable.h"
 #include "chre/platform/mutex.h"
+#include "chre/platform/shared/bt_snoop_log.h"
 #include "chre/platform/shared/log_buffer.h"
 #include "chre/util/singleton.h"
 #include "chre_api/chre/re.h"
@@ -72,6 +73,13 @@ class LogBufferManager : public LogBufferCallbackInterface {
    * for this method. Uses va_list parameter instead of ...
    */
   void logVa(chreLogLevel logLevel, const char *formatStr, va_list args);
+
+  /**
+   * Logs BT commands and events. These logs will not be displayed on logcat.
+   * The BT events will be handled with a bt snoop log parser.
+   */
+  void logBtSnoop(BtSnoopDirection direction, const uint8_t *buffer,
+                  size_t size);
 
   /**
    * Overrides required method from LogBufferCallbackInterface.

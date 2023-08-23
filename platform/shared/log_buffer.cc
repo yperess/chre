@@ -16,13 +16,15 @@
 
 #include "chre/platform/shared/log_buffer.h"
 #include "chre/platform/assert.h"
+#include "chre/platform/shared/generated/host_messages_generated.h"
 #include "chre/util/lock_guard.h"
-#include "include/chre/platform/shared/log_buffer.h"
 
 #include <cstdarg>
 #include <cstdio>
 
 namespace chre {
+
+using LogType = fbs::LogType;
 
 LogBuffer::LogBuffer(LogBufferCallbackInterface *callback, void *buffer,
                      size_t bufferSize)
@@ -48,6 +50,47 @@ void LogBuffer::handleLogVa(LogBufferLogLevel logLevel, uint32_t timestampMs,
   processLog(logLevel, timestampMs, tempBuffer, logLenSigned,
              false /* encoded */);
 }
+
+#ifdef CHRE_BLE_SUPPORT_ENABLED
+void LogBuffer::handleBtLog(BtSnoopDirection direction, uint32_t timestampMs,
+                            const uint8_t *buffer, size_t size) {
+  if (size > 0) {
+    auto logLen = static_cast<uint8_t>(size);
+
+    if (size < kLogMaxSize) {
+      LockGuard<Mutex> lockGuard(mLock);
+
+      // No additional terminator towards the end.
+      discardExcessOldLogsLocked(false, logLen);
+
+      uint8_t logType = static_cast<uint8_t>(LogType::BLUETOOTH);
+      uint8_t snoopLogDirection = static_cast<uint8_t>(direction);
+
+      // Set all BT logs to the CHRE_LOG_LEVEL_INFO.
+      uint8_t metadata =
+          (static_cast<uint8_t>(logType) << 4) | CHRE_LOG_LEVEL_INFO;
+      copyToBuffer(sizeof(metadata), &metadata);
+
+      copyToBuffer(sizeof(timestampMs), &timestampMs);
+      copyToBuffer(sizeof(direction), &snoopLogDirection);
+      copyToBuffer(sizeof(logLen), &logLen);
+
+      copyToBuffer(logLen, buffer);
+    } else {
+      // Cannot truncate a BT event. Log a failure message instead.
+      constexpr char kBtSnoopLogGenericErrorMsg[] =
+          "Bt Snoop log message too large";
+      static_assert(
+          sizeof(kBtSnoopLogGenericErrorMsg) <= kLogMaxSize,
+          "Error meessage size needs to be smaller than max log length");
+      logLen = static_cast<uint8_t>(sizeof(kBtSnoopLogGenericErrorMsg));
+      copyLogToBuffer(LogBufferLogLevel::INFO, timestampMs,
+                      kBtSnoopLogGenericErrorMsg, logLen, false /* encoded */);
+    }
+    dispatch();
+  }
+}
+#endif  // CHRE_BLE_SUPPORT_ENABLED
 
 void LogBuffer::handleEncodedLog(LogBufferLogLevel logLevel,
                                  uint32_t timestampMs, const uint8_t *log,
@@ -211,22 +254,24 @@ size_t LogBuffer::getLogDataLength(size_t startingIndex) {
 void LogBuffer::processLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
                            const void *logBuffer, size_t size, bool encoded) {
   if (size > 0) {
-    constexpr size_t kMaxLogLen = kLogMaxSize - kLogDataOffset;
     auto logLen = static_cast<uint8_t>(size);
-    if (size >= kMaxLogLen) {
+    if (size >= kLogMaxSize) {
       if (!encoded) {
-        // Leave space for nullptr to be copied on end
-        logLen = static_cast<uint8_t>(kMaxLogLen - 1);
+        // Leave space for null terminator to be copied on end
+        logLen = static_cast<uint8_t>(kLogMaxSize - 1);
       } else {
         // There is no way of decoding an encoded message if we truncate it, so
         // we do the next best thing and try to log a generic failure message
         // reusing the logbuffer for as much as we can. Note that we also need
         // flip the encoding flag for proper decoding by the host log message
         // parser.
-        constexpr char kGenericErrorMsg[] =
-            "Encoded log msg @t=%" PRIu32 "ms too large (%zub)";
-        std::snprintf(static_cast<char *>(const_cast<void *>(logBuffer)),
-                      kMaxLogLen, kGenericErrorMsg, timestampMs, size);
+        constexpr char kTokenizedLogGenericErrorMsg[] =
+            "Tokenized log message too large";
+        static_assert(
+            sizeof(kTokenizedLogGenericErrorMsg) <= kLogMaxSize,
+            "Error meessage size needs to be smaller than max log length");
+        logBuffer = kTokenizedLogGenericErrorMsg;
+        logLen = static_cast<uint8_t>(sizeof(kTokenizedLogGenericErrorMsg));
         encoded = false;
       }
     }

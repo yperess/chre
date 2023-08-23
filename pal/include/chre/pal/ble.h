@@ -121,6 +121,17 @@ struct chrePalBleCallbacks {
    * @since v1.8
    */
   void (*readRssiCallback)(uint8_t errorCode, uint16_t handle, int8_t rssi);
+
+  /**
+   * Sends a BT snoop log to the CHRE daemon.
+   *
+   * @param isTxToBtController True if the direction of the BT snoop log is Tx
+   * to BT controller. False then RX from BT controller is assumed.
+   * @param buffer a byte buffer containing the encoded log message.
+   * @param size size of the bt log message buffer.
+   */
+  void (*handleBtSnoopLog)(bool isTxToBtController, const uint8_t *buffer,
+                           size_t size);
 };
 
 struct chrePalBleApi {
