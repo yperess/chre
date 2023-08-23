@@ -33,8 +33,9 @@ namespace audio_concurrency_test {
 class Manager {
  public:
   enum class TestStep : uint8_t {
-    ENABLE_AUDIO = 0,
+    ENABLE_AUDIO = 0,  // without gap verification.
     VERIFY_AUDIO_RESUME,
+    ENABLE_AUDIO_WITH_GAP_VERIFICATION,
   };
 
   ~Manager();
@@ -119,7 +120,7 @@ class Manager {
    */
   void handleAudioSourceStatusEvent(const chreAudioSourceStatusEvent *data);
 
-  // Use the first audio source available for this test.
+  //! Use the first audio source available for this test.
   static constexpr uint32_t kAudioHandle = 0;
 
   //! The audio source to use for this test.
@@ -134,11 +135,15 @@ class Manager {
   //! True if CHRE audio is enabled for this nanoapp.
   bool mAudioEnabled = false;
 
-  // The last timestamp seen at the end of the last audio buffer.
+  //! The last timestamp seen at the end of the last audio buffer.
   Optional<uint64_t> mLastAudioBufferEndTimestampNs;
 
-  // True if there is a gap between the audio buffers.
+  //! True if there is a gap between the audio buffers.
   bool mSawSuspendAudioEvent = false;
+
+  //! If true, verify gaps between audio data events are accompanied with
+  //! the appropriate status change event.
+  bool mVerifyAudioGaps = false;
 };
 
 // The audio concurrency test manager singleton.
