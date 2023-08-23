@@ -238,6 +238,7 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
     case CHRE_EVENT_BLE_BATCH_COMPLETE:
       handleBatchCompleteEvent(
           static_cast<const chreBatchCompleteEvent *>(eventData));
+      break;
     default:
       LOGW("Unhandled event type %" PRIu16, eventType);
       break;
