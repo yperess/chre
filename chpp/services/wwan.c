@@ -74,7 +74,7 @@ static const struct ChppService kWwanServiceConfig = {
  * (RR) functionality.
  */
 struct ChppWwanServiceState {
-  struct ChppServiceState service;   // WWAN service state
+  struct ChppEndpointState service;  // CHPP service state
   const struct chrePalWwanApi *api;  // WWAN PAL API
 
   struct ChppIncomingRequestState open;              // Service init state

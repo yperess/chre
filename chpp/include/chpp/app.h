@@ -330,7 +330,7 @@ struct ChppService {
 
   //! Number of outgoing requests supported by this service.
   //! ChppAppHeader.command must be in the range [0, outReqCount - 1]
-  //! ChppServiceState.outReqStates must contains that many elements.
+  //! ChppEndpointState.outReqStates must contains that many elements.
   uint16_t outReqCount;
 
   //! Minimum valid length of datagrams for the service:
@@ -387,7 +387,7 @@ struct ChppClient {
 
   //! Number of outgoing requests supported by this client.
   //! ChppAppHeader.command must be in the range [0, outReqCount - 1]
-  //! ChppClientState.outReqStates must contains that many elements.
+  //! ChppEndpointState.outReqStates must contains that many elements.
   uint16_t outReqCount;
 
   //! Minimum valid length of datagrams for the service:
@@ -411,7 +411,7 @@ enum ChppRequestState {
  * State of each outgoing request and their response.
  *
  * There must be as many ChppOutgoingRequestState in the client or service state
- * (ChppClientState or ChppServiceState) as the number of commands they support.
+ * (ChppEndpointState) as the number of commands they support.
  */
 struct ChppOutgoingRequestState {
   uint64_t requestTimeNs;  // Time of the last request
@@ -431,8 +431,8 @@ struct ChppOutgoingRequestState {
  * as the number of commands supported by the other side (corresponding service
  * for a client and corresponding client for a service).
  *
- * Contrary to ChppOutgoingRequestState those are not part of ChppClientState
- * nor ChppServiceState. They must be stored to and retrieved from the context
+ * Contrary to ChppOutgoingRequestState those are not part of
+ * CChppEndpointState. They must be stored to and retrieved from the context
  * passed to chppRegisterClient / chppRegisterService.
  *
  * Note: while ChppIncomingRequestState and ChppOutgoingRequestState have the
@@ -464,6 +464,36 @@ struct ChppClientServiceSet {
 struct ChppLoopbackClientState;
 struct ChppTimesyncClientState;
 
+/**
+ * CHPP state of a client or a service.
+ *
+ * This is the CHPP internal client/service state.
+ * Their private state is store in the context field.
+ */
+struct ChppEndpointState {
+  struct ChppAppState *appContext;  // Pointer to app layer context
+
+  // State for the outgoing requests.
+  // It must accommodate Chpp{Client,Service}.outReqCount elements.
+  // It also tracks corresponding incoming responses.
+  // NULL when outReqCount = 0.
+  struct ChppOutgoingRequestState *outReqStates;
+
+  void *context;  //!< Private state of the endpoint.
+
+  struct ChppSyncResponse syncResponse;
+
+  uint8_t index;        //!< Index (in ChppAppState lists).
+  uint8_t handle;       //!< Handle used to match client and service.
+  uint8_t transaction;  //!< Next Transaction ID to be used.
+
+  uint8_t openState;  //!< see enum ChppOpenState
+
+  bool pseudoOpen : 1;       //!< Client to be opened upon a reset
+  bool initialized : 1;      //!< Client is initialized
+  bool everInitialized : 1;  //!< Client sync primitives initialized
+};
+
 struct ChppAppState {
   struct ChppTransportState *transportContext;  // Pointing to transport context
 
@@ -473,14 +503,14 @@ struct ChppAppState {
 
   const struct ChppService *registeredServices[CHPP_MAX_REGISTERED_SERVICES];
 
-  struct ChppServiceState
+  struct ChppEndpointState
       *registeredServiceStates[CHPP_MAX_REGISTERED_SERVICES];
 
   uint8_t registeredClientCount;  // Number of clients currently registered
 
   const struct ChppClient *registeredClients[CHPP_MAX_REGISTERED_CLIENTS];
 
-  struct ChppClientState *registeredClientStates[CHPP_MAX_REGISTERED_CLIENTS];
+  struct ChppEndpointState *registeredClientStates[CHPP_MAX_REGISTERED_CLIENTS];
 
   // When the first outstanding request sent from the client timeouts.
   uint64_t nextClientRequestTimeoutNs;

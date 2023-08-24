@@ -75,7 +75,7 @@ static void chppWifiClientNotifyMatch(void *clientContext);
  * (RR) functionality.
  */
 struct ChppWifiClientState {
-  struct ChppClientState client;     // WiFi client state
+  struct ChppEndpointState client;   // CHPP client state
   const struct chrePalWifiApi *api;  // WiFi PAL API
 
   struct ChppOutgoingRequestState
@@ -1188,7 +1188,7 @@ void chppDeregisterWifiClient(struct ChppAppState *appContext) {
   UNUSED_VAR(appContext);
 }
 
-struct ChppClientState *getChppWifiClientState(void) {
+struct ChppEndpointState *getChppWifiClientState(void) {
   return &gWifiClientContext.client;
 }
 

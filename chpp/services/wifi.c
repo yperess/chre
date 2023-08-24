@@ -73,7 +73,7 @@ static const struct ChppService kWifiServiceConfig = {
  * (RR) functionality.
  */
 struct ChppWifiServiceState {
-  struct ChppServiceState service;   // WiFi service state
+  struct ChppEndpointState service;  // CHPP service state
   const struct chrePalWifiApi *api;  // WiFi PAL API
 
   // Based on chre/pal/wifi.h and chrePalWifiApi

@@ -64,7 +64,7 @@ static void chppWwanClientNotifyMatch(void *clientContext);
  * (RR) functionality.
  */
 struct ChppWwanClientState {
-  struct ChppClientState client;     // WWAN client state
+  struct ChppEndpointState client;   // CHPP client state
   const struct chrePalWwanApi *api;  // WWAN PAL API
 
   struct ChppOutgoingRequestState
@@ -543,7 +543,7 @@ void chppDeregisterWwanClient(struct ChppAppState *appContext) {
   UNUSED_VAR(appContext);
 }
 
-struct ChppClientState *getChppWwanClientState(void) {
+struct ChppEndpointState *getChppWwanClientState(void) {
   return &gWwanClientContext.client;
 }
 

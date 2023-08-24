@@ -62,7 +62,7 @@ static void chppGnssClientNotifyMatch(void *clientContext);
  * (RR) functionality.
  */
 struct ChppGnssClientState {
-  struct ChppClientState client;     // GNSS client state
+  struct ChppEndpointState client;   // CHPP client state
   const struct chrePalGnssApi *api;  // GNSS PAL API
 
   struct ChppOutgoingRequestState
@@ -824,7 +824,7 @@ void chppDeregisterGnssClient(struct ChppAppState *appContext) {
   UNUSED_VAR(appContext);
 }
 
-struct ChppClientState *getChppGnssClientState(void) {
+struct ChppEndpointState *getChppGnssClientState(void) {
   return &gGnssClientContext.client;
 }
 

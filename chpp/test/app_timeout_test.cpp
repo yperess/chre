@@ -62,7 +62,7 @@ constexpr struct ChppClient kClient = {
 };
 
 struct ServiceState {
-  struct ChppServiceState chppServiceState;
+  struct ChppEndpointState chppServiceState;
   struct ChppOutgoingRequestState outReqStates[kNumCommands];
 };
 
@@ -76,7 +76,7 @@ const struct ChppService kService = {
     .minLength = sizeof(struct ChppAppHeader),
 };
 
-void ValidateClientStateAndReqState(struct ChppClientState *clientState,
+void ValidateClientStateAndReqState(struct ChppEndpointState *clientState,
                                     const struct ChppAppHeader *request) {
   ASSERT_NE(clientState, nullptr);
   const uint8_t clientIdx = clientState->index;
@@ -91,7 +91,7 @@ void ValidateClientStateAndReqState(struct ChppClientState *clientState,
             clientState->appContext->registeredClients[clientIdx]->outReqCount);
 }
 
-void ValidateServiceStateAndReqState(struct ChppServiceState *serviceState,
+void ValidateServiceStateAndReqState(struct ChppEndpointState *serviceState,
                                      const struct ChppAppHeader *request) {
   ASSERT_NE(serviceState, nullptr);
   const uint8_t serviceIdx = CHPP_SERVICE_INDEX_OF_HANDLE(serviceState->handle);

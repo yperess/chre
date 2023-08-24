@@ -42,7 +42,7 @@
  * (RR) functionality.
  */
 struct ChppLoopbackClientState {
-  struct ChppClientState client;                    // Loopback client state
+  struct ChppEndpointState client;                  // CHPP client state
   struct ChppOutgoingRequestState runLoopbackTest;  // Loopback test state
 
   struct ChppLoopbackTestResult testResult;  // Last test result

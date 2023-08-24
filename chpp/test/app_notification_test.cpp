@@ -136,7 +136,7 @@ void clientDeinit(void *clientState) {
 
 // Service
 struct ServiceState {
-  struct ChppServiceState chppServiceState;
+  struct ChppEndpointState chppServiceState;
   struct ChppIncomingRequestState inReqStates[kNumCommands];
   bool clientNotificationStatus;
   struct ChppNotifier notifier;

@@ -61,7 +61,7 @@ void *workThread(void *transportState) {
 constexpr uint16_t kNumCommands = 1;
 
 struct ClientState {
-  struct ChppClientState chppClientState;
+  struct ChppEndpointState chppClientState;
   struct ChppOutgoingRequestState outReqStates[kNumCommands];
   bool resetNotified;
   bool matchNotified;
@@ -115,7 +115,7 @@ void clientDeinit(void *clientState) {
 
 // Service
 struct ServiceState {
-  struct ChppServiceState chppServiceState;
+  struct ChppEndpointState chppServiceState;
   struct ChppIncomingRequestState inReqStates[kNumCommands];
   bool resetNotified;
 };

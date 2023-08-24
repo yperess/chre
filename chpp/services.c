@@ -88,7 +88,7 @@ void chppDeregisterCommonServices(struct ChppAppState *context) {
 }
 
 void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
-                         struct ChppServiceState *serviceState,
+                         struct ChppEndpointState *serviceState,
                          struct ChppOutgoingRequestState *outReqStates,
                          const struct ChppService *newService) {
   CHPP_DEBUG_NOT_NULL(appContext);
@@ -109,6 +109,7 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
     return;
   }
 
+  serviceState->index = numServices;
   serviceState->handle = CHPP_SERVICE_HANDLE_OF_INDEX(numServices);
 
   appContext->registeredServices[numServices] = newService;
@@ -135,7 +136,7 @@ struct ChppAppHeader *chppAllocServiceNotification(size_t len) {
 }
 
 struct ChppAppHeader *chppAllocServiceRequest(
-    struct ChppServiceState *serviceState, size_t len) {
+    struct ChppEndpointState *serviceState, size_t len) {
   CHPP_DEBUG_NOT_NULL(serviceState);
   return chppAllocRequest(CHPP_MESSAGE_TYPE_SERVICE_REQUEST,
                           serviceState->handle, &serviceState->transaction,
@@ -143,7 +144,7 @@ struct ChppAppHeader *chppAllocServiceRequest(
 }
 
 struct ChppAppHeader *chppAllocServiceRequestCommand(
-    struct ChppServiceState *serviceState, uint16_t command) {
+    struct ChppEndpointState *serviceState, uint16_t command) {
   struct ChppAppHeader *request =
       chppAllocServiceRequest(serviceState, sizeof(struct ChppAppHeader));
 
@@ -154,7 +155,7 @@ struct ChppAppHeader *chppAllocServiceRequestCommand(
 }
 
 bool chppServiceSendTimestampedRequestOrFail(
-    struct ChppServiceState *serviceState,
+    struct ChppEndpointState *serviceState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs) {
   return chppSendTimestampedRequestOrFail(serviceState->appContext,
@@ -163,14 +164,14 @@ bool chppServiceSendTimestampedRequestOrFail(
 }
 
 bool chppServiceSendTimestampedRequestAndWait(
-    struct ChppServiceState *serviceState,
+    struct ChppEndpointState *serviceState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len) {
   return chppServiceSendTimestampedRequestAndWaitTimeout(
       serviceState, outReqState, buf, len, CHPP_REQUEST_TIMEOUT_DEFAULT);
 }
 
 bool chppServiceSendTimestampedRequestAndWaitTimeout(
-    struct ChppServiceState *serviceState,
+    struct ChppEndpointState *serviceState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs) {
   CHPP_DEBUG_NOT_NULL(serviceState);
@@ -210,7 +211,7 @@ void chppServiceRecalculateNextTimeout(struct ChppAppState *context) {
             context->nextServiceRequestTimeoutNs / CHPP_NSEC_PER_MSEC);
 }
 
-void chppServiceCloseOpenRequests(struct ChppServiceState *serviceState,
+void chppServiceCloseOpenRequests(struct ChppEndpointState *serviceState,
                                   const struct ChppService *service,
                                   bool clearOnly) {
   CHPP_DEBUG_NOT_NULL(serviceState);

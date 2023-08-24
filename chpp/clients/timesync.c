@@ -40,7 +40,7 @@
  * (RR) functionality.
  */
 struct ChppTimesyncClientState {
-  struct ChppClientState client;                  // Timesync client state
+  struct ChppEndpointState client;                // CHPP client state
   struct ChppOutgoingRequestState measureOffset;  // Request response state
 
   struct ChppTimesyncResult timesyncResult;  // Result of measureOffset

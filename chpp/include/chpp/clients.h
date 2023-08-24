@@ -83,34 +83,8 @@ extern "C" {
 #define chppAllocClientNotificationFixed(type) \
   (type *)chppAllocClientNotification(sizeof(type))
 
-/**
- * Maintains the basic state of a client.
- * This is expected to be included once in the (context) status variable of
- * each client.
- */
-struct ChppClientState {
-  struct ChppAppState *appContext;  // Pointer to app layer context
-
-  // State for the outgoing requests.
-  // It must accommodate ChppClient.outReqCount elements.
-  // It also tracks corresponding incoming responses.
-  // NULL when ChppClient.outReqCount = 0.
-  struct ChppOutgoingRequestState *outReqStates;
-
-  // The private state of the client.
-  void *context;
-
-  uint8_t index;        // Index of this client
-  uint8_t handle;       // Handle number for this client
-  uint8_t transaction;  // Next Transaction ID to be used (for client requests).
-
-  uint8_t openState;         // As defined in enum ChppOpenState
-  bool pseudoOpen : 1;       // Client to be opened upon a reset
-  bool initialized : 1;      // Is initialized
-  bool everInitialized : 1;  // Synchronization primitives initialized
-
-  struct ChppSyncResponse syncResponse;
-};
+// Alias for backward compatibility.
+#define ChppClientState ChppEndpointState
 
 #ifdef CHPP_CLIENT_ENABLED_CHRE_WWAN
 #define CHPP_CLIENT_ENABLED_WWAN
@@ -171,12 +145,12 @@ void chppDeregisterCommonClients(struct ChppAppState *context);
  * called, assigning them their handle number.
  *
  * outReqStates must point to an array of ChppOutgoingRequestState with
- * ChppClientState.outReqCount elements. It must be NULL when the client
- * does not send requests (ChppClientState.outReqCount = 0).
+ * ChppEndpointState.outReqCount elements. It must be NULL when the client
+ * does not send requests (ChppEndpointState.outReqCount = 0).
  *
  * inReqStates must point to an array of ChppIncomingRequestState with
  * as many elements as the corresponding service can send. It must be NULL when
- * the service does not send requests (ChppServiceState.outReqCount = 0).
+ * the service does not send requests (ChppEndpointState.outReqCount = 0).
  *
  * Note that the maximum number of clients that can be registered on a platform
  * can specified as CHPP_MAX_REGISTERED_CLIENTS by the initialization code.
@@ -189,7 +163,7 @@ void chppDeregisterCommonClients(struct ChppAppState *context);
  * @param newClient The client to be registered on this platform.
  */
 void chppRegisterClient(struct ChppAppState *appContext, void *clientContext,
-                        struct ChppClientState *clientState,
+                        struct ChppEndpointState *clientState,
                         struct ChppOutgoingRequestState *outReqStates,
                         const struct ChppClient *newClient);
 
@@ -207,14 +181,14 @@ void chppInitBasicClients(struct ChppAppState *context);
  * @param clientState State of the client.
  * @param handle Handle number for this client.
  */
-void chppClientInit(struct ChppClientState *clientState, uint8_t handle);
+void chppClientInit(struct ChppEndpointState *clientState, uint8_t handle);
 
 /**
  * Deinitializes a client.
  *
  * @param clientState State of the client.
  */
-void chppClientDeinit(struct ChppClientState *clientState);
+void chppClientDeinit(struct ChppEndpointState *clientState);
 
 /**
  * Deinitializes basic clients.
@@ -247,7 +221,7 @@ void chppDeinitMatchedClients(struct ChppAppState *context);
  * @return Pointer to allocated memory
  */
 struct ChppAppHeader *chppAllocClientRequest(
-    struct ChppClientState *clientState, size_t len);
+    struct ChppEndpointState *clientState, size_t len);
 
 /**
  * Allocates a specific client request command without any additional payload.
@@ -258,7 +232,7 @@ struct ChppAppHeader *chppAllocClientRequest(
  * @return Pointer to allocated memory
  */
 struct ChppAppHeader *chppAllocClientRequestCommand(
-    struct ChppClientState *clientState, uint16_t command);
+    struct ChppEndpointState *clientState, uint16_t command);
 
 /**
  * Timestamps and enqueues a request.
@@ -278,7 +252,7 @@ struct ChppAppHeader *chppAllocClientRequestCommand(
  *         discarded.
  */
 bool chppClientSendTimestampedRequestOrFail(
-    struct ChppClientState *clientState,
+    struct ChppEndpointState *clientState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs);
 
@@ -299,7 +273,7 @@ bool chppClientSendTimestampedRequestOrFail(
  *         either the queue was full, or the request timed out.
  */
 bool chppClientSendTimestampedRequestAndWait(
-    struct ChppClientState *clientState,
+    struct ChppEndpointState *clientState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len);
 
 /**
@@ -316,7 +290,7 @@ bool chppClientSendTimestampedRequestAndWait(
  *         either the queue was full, or the request timed out.
  */
 bool chppClientSendTimestampedRequestAndWaitTimeout(
-    struct ChppClientState *clientState,
+    struct ChppEndpointState *clientState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs);
 
@@ -326,7 +300,7 @@ bool chppClientSendTimestampedRequestAndWaitTimeout(
  *
  * @param clientState State of the client.
  */
-void chppClientPseudoOpen(struct ChppClientState *clientState);
+void chppClientPseudoOpen(struct ChppEndpointState *clientState);
 
 /**
  * Sends a client request for the open command in a blocking or non-blocking
@@ -341,7 +315,7 @@ void chppClientPseudoOpen(struct ChppClientState *clientState);
  *
  * @return Indicates success or failure.
  */
-bool chppClientSendOpenRequest(struct ChppClientState *clientState,
+bool chppClientSendOpenRequest(struct ChppEndpointState *clientState,
                                struct ChppOutgoingRequestState *openReqState,
                                uint16_t openCommand, bool blocking);
 
@@ -350,7 +324,7 @@ bool chppClientSendOpenRequest(struct ChppClientState *clientState,
  *
  * @param clientState State of the client.
  */
-void chppClientProcessOpenResponse(struct ChppClientState *clientState,
+void chppClientProcessOpenResponse(struct ChppEndpointState *clientState,
                                    uint8_t *buf, size_t len);
 
 /**
@@ -371,7 +345,7 @@ void chppClientRecalculateNextTimeout(struct ChppAppState *context);
  *        sent. This must only be set if the requests are being cleared as part
  *        of the client closing.
  */
-void chppClientCloseOpenRequests(struct ChppClientState *clientState,
+void chppClientCloseOpenRequests(struct ChppEndpointState *clientState,
                                  const struct ChppClient *client,
                                  bool clearOnly);
 

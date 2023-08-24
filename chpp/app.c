@@ -65,13 +65,12 @@ static inline const struct ChppService *chppServiceOfHandle(
     struct ChppAppState *appContext, uint8_t handle);
 static inline const struct ChppClient *chppClientOfHandle(
     struct ChppAppState *appContext, uint8_t handle);
-static inline struct ChppServiceState *chppServiceStateOfHandle(
+static inline struct ChppEndpointState *chppServiceStateOfHandle(
     struct ChppAppState *appContext, uint8_t handle);
-static inline struct ChppClientState *chppClientStateOfHandle(
+static inline struct ChppEndpointState *chppClientStateOfHandle(
     struct ChppAppState *appContext, uint8_t handle);
-static void *chppClientOrServiceStateOfHandle(struct ChppAppState *appContext,
-                                              uint8_t handle,
-                                              enum ChppMessageType type);
+static struct ChppEndpointState *chppClientOrServiceStateOfHandle(
+    struct ChppAppState *appContext, uint8_t handle, enum ChppMessageType type);
 
 static void chppProcessPredefinedHandleDatagram(struct ChppAppState *context,
                                                 uint8_t *buf, size_t len);
@@ -288,7 +287,7 @@ ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
     case CHPP_MESSAGE_TYPE_SERVICE_RESPONSE:
     case CHPP_MESSAGE_TYPE_SERVICE_REQUEST:
     case CHPP_MESSAGE_TYPE_SERVICE_NOTIFICATION: {
-      struct ChppClientState *clientState =
+      struct ChppEndpointState *clientState =
           chppClientStateOfHandle(context, handle);
       if (clientState->openState == CHPP_OPEN_STATE_CLOSED) {
         CHPP_LOGE("RX service response but client closed");
@@ -404,9 +403,9 @@ static inline const struct ChppClient *chppClientOfHandle(
  * @param context State of the app layer.
  * @param handle Handle number for the service.
  *
- * @return Pointer to a ChppServiceState.
+ * @return Pointer to a ChppEndpointState.
  */
-static inline struct ChppServiceState *chppServiceStateOfHandle(
+static inline struct ChppEndpointState *chppServiceStateOfHandle(
     struct ChppAppState *context, uint8_t handle) {
   CHPP_DEBUG_NOT_NULL(context);
   CHPP_DEBUG_ASSERT(CHPP_SERVICE_INDEX_OF_HANDLE(handle) <
@@ -424,9 +423,9 @@ static inline struct ChppServiceState *chppServiceStateOfHandle(
  * @param context State of the app layer.
  * @param handle Handle number for the service.
  *
- * @return Pointer to a ChppClientState.
+ * @return Pointer to the endpoint state.
  */
-static inline struct ChppClientState *chppClientStateOfHandle(
+static inline struct ChppEndpointState *chppClientStateOfHandle(
     struct ChppAppState *context, uint8_t handle) {
   CHPP_DEBUG_NOT_NULL(context);
   CHPP_DEBUG_ASSERT(CHPP_SERVICE_INDEX_OF_HANDLE(handle) <
@@ -445,20 +444,20 @@ static inline struct ChppClientState *chppClientStateOfHandle(
  * @param handle Handle number for the service.
  * @param type Message type (indicates if this is for a client or service).
  *
- * @return Pointer to a ChppClientState or a ChppServiceState as void*.
+ * @return Pointer to the endpoint state (NULL if wrong type).
  */
-static void *chppClientOrServiceStateOfHandle(struct ChppAppState *appContext,
-                                              uint8_t handle,
-                                              enum ChppMessageType type) {
+static struct ChppEndpointState *chppClientOrServiceStateOfHandle(
+    struct ChppAppState *appContext, uint8_t handle,
+    enum ChppMessageType type) {
   switch (CHPP_APP_GET_MESSAGE_TYPE(type)) {
     case CHPP_MESSAGE_TYPE_CLIENT_REQUEST:
     case CHPP_MESSAGE_TYPE_CLIENT_RESPONSE:
     case CHPP_MESSAGE_TYPE_CLIENT_NOTIFICATION:
-      return (void *)(chppServiceStateOfHandle(appContext, handle));
+      return chppServiceStateOfHandle(appContext, handle);
     case CHPP_MESSAGE_TYPE_SERVICE_REQUEST:
     case CHPP_MESSAGE_TYPE_SERVICE_RESPONSE:
     case CHPP_MESSAGE_TYPE_SERVICE_NOTIFICATION:
-      return (void *)(chppClientStateOfHandle(appContext, handle));
+      return chppClientStateOfHandle(appContext, handle);
     default:
       CHPP_LOGE("Unknown type=0x%" PRIx8 " (H#%" PRIu8 ")", type, handle);
       return NULL;
@@ -527,9 +526,9 @@ static void chppProcessNegotiatedHandleDatagram(struct ChppAppState *appContext,
 
   // Could be either the client or the service state depending on the message
   // type.
-  void *cltOrSvcState = chppClientOrServiceStateOfHandle(
+  struct ChppEndpointState *endpointState = chppClientOrServiceStateOfHandle(
       appContext, rxHeader->handle, messageType);
-  if (cltOrSvcState == NULL) {
+  if (endpointState == NULL) {
     CHPP_LOGE("H#%" PRIu8 " missing ctx (msg=0x%" PRIx8 " len=%" PRIuSIZE
               ", ID=%" PRIu8 ")",
               rxHeader->handle, rxHeader->type, len, rxHeader->transaction);
@@ -538,10 +537,6 @@ static void chppProcessNegotiatedHandleDatagram(struct ChppAppState *appContext,
     CHPP_DEBUG_ASSERT(false);
     return;
   }
-  void *cltOrSvcContext =
-      messageType == CHPP_MESSAGE_TYPE_SERVICE_RESPONSE
-          ? ((struct ChppClientState *)cltOrSvcState)->context
-          : ((struct ChppServiceState *)cltOrSvcState)->context;
 
   ChppDispatchFunction *dispatchFunc =
       chppGetDispatchFunction(appContext, rxHeader->handle, messageType);
@@ -555,7 +550,7 @@ static void chppProcessNegotiatedHandleDatagram(struct ChppAppState *appContext,
   }
 
   // All good. Dispatch datagram and possibly notify a waiting client
-  enum ChppAppErrorCode error = dispatchFunc(cltOrSvcContext, buf, len);
+  enum ChppAppErrorCode error = dispatchFunc(endpointState->context, buf, len);
 
   if (error != CHPP_APP_ERROR_NONE) {
     CHPP_LOGE("RX dispatch err=0x%" PRIx16 " H#%" PRIu8 " type=0x%" PRIx8
@@ -581,11 +576,7 @@ static void chppProcessNegotiatedHandleDatagram(struct ChppAppState *appContext,
   // Check for synchronous operation and notify waiting client if needed.
   if (messageType == CHPP_MESSAGE_TYPE_SERVICE_RESPONSE ||
       messageType == CHPP_MESSAGE_TYPE_CLIENT_RESPONSE) {
-    struct ChppSyncResponse *syncResponse =
-        messageType == CHPP_MESSAGE_TYPE_SERVICE_RESPONSE
-            ? &((struct ChppClientState *)cltOrSvcState)->syncResponse
-            : &((struct ChppServiceState *)cltOrSvcState)->syncResponse;
-
+    struct ChppSyncResponse *syncResponse = &endpointState->syncResponse;
     chppMutexLock(&syncResponse->mutex);
     syncResponse->ready = true;
     CHPP_LOGD("Finished dispatching a response -> synchronous notification");

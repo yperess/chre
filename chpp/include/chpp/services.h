@@ -88,29 +88,8 @@ extern "C" {
 #define chppAllocServiceNotificationFixed(type) \
   (type *)chppAllocServiceNotification(sizeof(type))
 
-/**
- * Maintains the basic state of a service.
- * This is expected to be included in the state of each service.
- */
-struct ChppServiceState {
-  struct ChppAppState *appContext;  // Pointer to app layer context
-
-  // State for the outgoing requests.
-  // It must accommodate ChppService.outReqCount elements.
-  // It also tracks corresponding incoming responses.
-  // NULL when ChppClient.outReqCount = 0.
-  struct ChppOutgoingRequestState *outReqStates;
-
-  // The private state of the service.
-  void *context;
-
-  uint8_t handle;  // Handle number for this service
-  // Next Transaction ID to be used (for service requests).
-  uint8_t transaction;
-  uint8_t openState;  // As defined in enum ChppOpenState
-
-  struct ChppSyncResponse syncResponse;
-};
+// Alias for backward compatibility.
+#define ChppServiceState ChppEndpointState
 
 /************************************************
  *  Public functions
@@ -141,12 +120,12 @@ void chppDeregisterCommonServices(struct ChppAppState *context);
  * chppRegisterCommonServices().
  *
  * outReqStates must point to an array of ChppOutgoingRequestState with
- * ChppServiceState.outReqCount elements. It must be NULL when the service
- * does not send requests (ChppServiceState.outReqCount = 0).
+ * ChppEndpointState.outReqCount elements. It must be NULL when the service
+ * does not send requests (ChppEndpointState.outReqCount = 0).
  *
  * inReqStates must point to an array of ChppIncomingRequestState with
  * as many elements as the corresponding client can send. It must be NULL when
- * the client does not send requests (ChppClientState.outReqCount = 0).
+ * the client does not send requests (ChppEndpointState.outReqCount = 0).
  *
  * Note that the maximum number of services that can be registered on a platform
  * can specified as CHPP_MAX_REGISTERED_SERVICES by the initialization code.
@@ -159,7 +138,7 @@ void chppDeregisterCommonServices(struct ChppAppState *context);
  * @param newService The service to be registered on this platform.
  */
 void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
-                         struct ChppServiceState *serviceState,
+                         struct ChppEndpointState *serviceState,
                          struct ChppOutgoingRequestState *outReqStates,
                          const struct ChppService *newService);
 
@@ -199,7 +178,7 @@ struct ChppAppHeader *chppAllocServiceNotification(size_t len);
  * @return Pointer to allocated memory
  */
 struct ChppAppHeader *chppAllocServiceRequest(
-    struct ChppServiceState *serviceState, size_t len);
+    struct ChppEndpointState *serviceState, size_t len);
 
 /**
  * Allocates a specific service request command without any additional payload.
@@ -210,7 +189,7 @@ struct ChppAppHeader *chppAllocServiceRequest(
  * @return Pointer to allocated memory
  */
 struct ChppAppHeader *chppAllocServiceRequestCommand(
-    struct ChppServiceState *serviceState, uint16_t command);
+    struct ChppEndpointState *serviceState, uint16_t command);
 
 /**
  * Timestamps and enqueues a request.
@@ -230,7 +209,7 @@ struct ChppAppHeader *chppAllocServiceRequestCommand(
  *         discarded.
  */
 bool chppServiceSendTimestampedRequestOrFail(
-    struct ChppServiceState *serviceState,
+    struct ChppEndpointState *serviceState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs);
 
@@ -248,7 +227,7 @@ bool chppServiceSendTimestampedRequestOrFail(
  *         either the queue was full, or the request timed out.
  */
 bool chppServiceSendTimestampedRequestAndWait(
-    struct ChppServiceState *serviceState,
+    struct ChppEndpointState *serviceState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len);
 
 /**
@@ -265,7 +244,7 @@ bool chppServiceSendTimestampedRequestAndWait(
  *         either the queue was full, or the request timed out.
  */
 bool chppServiceSendTimestampedRequestAndWaitTimeout(
-    struct ChppServiceState *serviceState,
+    struct ChppEndpointState *serviceState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs);
 
@@ -287,7 +266,7 @@ void chppServiceRecalculateNextTimeout(struct ChppAppState *context);
  *        sent. This must only be set if the requests are being cleared as
  *        part of the closing.
  */
-void chppServiceCloseOpenRequests(struct ChppServiceState *serviceState,
+void chppServiceCloseOpenRequests(struct ChppEndpointState *serviceState,
                                   const struct ChppService *service,
                                   bool clearOnly);
 

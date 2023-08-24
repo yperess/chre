@@ -1341,7 +1341,7 @@ struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
     if (response == NULL) {
       CHPP_LOG_OOM();
     } else {
-      const struct ChppClientState *clientState =
+      const struct ChppEndpointState *clientState =
           appState->registeredClientStates[timedOutClientIdx];
       response->handle = clientState->handle;
       response->type = CHPP_MESSAGE_TYPE_SERVICE_RESPONSE;
@@ -1415,7 +1415,7 @@ struct ChppAppHeader *chppTransportGetServiceRequestTimeoutResponse(
     if (response == NULL) {
       CHPP_LOG_OOM();
     } else {
-      const struct ChppServiceState *serviceState =
+      const struct ChppEndpointState *serviceState =
           appState->registeredServiceStates[timedOutServiceIdx];
       response->handle = serviceState->handle;
       response->type = CHPP_MESSAGE_TYPE_CLIENT_RESPONSE;

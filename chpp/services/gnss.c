@@ -72,7 +72,7 @@ static const struct ChppService kGnssServiceConfig = {
  * (RR) functionality.
  */
 struct ChppGnssServiceState {
-  struct ChppServiceState service;   // GNSS service state
+  struct ChppEndpointState service;  // CHPP service state
   const struct chrePalGnssApi *api;  // GNSS PAL API
 
   // Based on chre/pal/gnss.h and chrePalGnssApi

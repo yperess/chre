@@ -272,6 +272,10 @@ Services can now send requests and receive responses from clients.
 The changes to the public API of the different layers are described below.
 Check the inline documentation for more information.
 
+**Breaking changes**
+
+- `ChppClientState` and `ChppServiceState` have been unified into `ChppEndpointState`.
+
 #### app.c / app.h
 
 **Breaking changes**

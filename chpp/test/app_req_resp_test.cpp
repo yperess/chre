@@ -249,7 +249,7 @@ void clientDeinit(void *clientState) {
 // Service specific code.
 
 struct ServiceState {
-  struct ChppServiceState chppServiceState;
+  struct ChppEndpointState chppServiceState;
   struct ChppOutgoingRequestState outReqStates[kNumCommands];
   struct ChppIncomingRequestState inReqStates[kNumCommands];
   struct CommonState common;
