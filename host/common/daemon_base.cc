@@ -70,6 +70,7 @@ void signalHandler(void *ctx) {
 
 ChreDaemonBase::ChreDaemonBase() : mChreShutdownRequested(false) {
   mLogger.init();
+  // TODO(b/297388964): Replace thread with handler installed via std::signal()
   mSignalHandlerThread = std::thread(signalHandler, this);
 }
 
