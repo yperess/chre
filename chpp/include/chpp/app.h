@@ -473,19 +473,14 @@ struct ChppAppState {
 
   const struct ChppService *registeredServices[CHPP_MAX_REGISTERED_SERVICES];
 
-  const struct ChppServiceState
+  struct ChppServiceState
       *registeredServiceStates[CHPP_MAX_REGISTERED_SERVICES];
-
-  void *registeredServiceContexts[CHPP_MAX_REGISTERED_SERVICES];
 
   uint8_t registeredClientCount;  // Number of clients currently registered
 
   const struct ChppClient *registeredClients[CHPP_MAX_REGISTERED_CLIENTS];
 
-  const struct ChppClientState
-      *registeredClientStates[CHPP_MAX_REGISTERED_CLIENTS];
-
-  void *registeredClientContexts[CHPP_MAX_REGISTERED_CLIENTS];
+  struct ChppClientState *registeredClientStates[CHPP_MAX_REGISTERED_CLIENTS];
 
   // When the first outstanding request sent from the client timeouts.
   uint64_t nextClientRequestTimeoutNs;

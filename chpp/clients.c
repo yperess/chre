@@ -190,11 +190,10 @@ void chppRegisterClient(struct ChppAppState *appContext, void *clientContext,
   clientState->appContext = appContext;
   clientState->outReqStates = outReqStates;
   clientState->index = appContext->registeredClientCount;
-
-  appContext->registeredClientContexts[appContext->registeredClientCount] =
-      clientContext;
+  clientState->context = clientContext;
   appContext->registeredClientStates[appContext->registeredClientCount] =
       clientState;
+
   appContext->registeredClients[appContext->registeredClientCount] = newClient;
 
   char uuidText[CHPP_SERVICE_UUID_STRING_LEN];
@@ -291,7 +290,8 @@ void chppDeinitMatchedClients(struct ChppAppState *context) {
                 (clientDeinitFunction != NULL));
 
       if (clientDeinitFunction != NULL) {
-        clientDeinitFunction(context->registeredClientContexts[clientIndex]);
+        clientDeinitFunction(
+            context->registeredClientStates[clientIndex]->context);
       }
     }
   }

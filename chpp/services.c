@@ -101,6 +101,7 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
   serviceState->openState = CHPP_OPEN_STATE_CLOSED;
   serviceState->appContext = appContext;
   serviceState->outReqStates = outReqStates;
+  serviceState->context = serviceContext;
 
   if (numServices >= CHPP_MAX_REGISTERED_SERVICES) {
     CHPP_LOGE("Max services registered: # %" PRIu8, numServices);
@@ -112,7 +113,6 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
 
   appContext->registeredServices[numServices] = newService;
   appContext->registeredServiceStates[numServices] = serviceState;
-  appContext->registeredServiceContexts[numServices] = serviceContext;
   appContext->registeredServiceCount++;
 
   chppMutexInit(&serviceState->syncResponse.mutex);

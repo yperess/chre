@@ -101,6 +101,9 @@ struct ChppServiceState {
   // NULL when ChppClient.outReqCount = 0.
   struct ChppOutgoingRequestState *outReqStates;
 
+  // The private state of the service.
+  void *context;
+
   uint8_t handle;  // Handle number for this service
   // Next Transaction ID to be used (for service requests).
   uint8_t transaction;

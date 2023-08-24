@@ -97,6 +97,9 @@ struct ChppClientState {
   // NULL when ChppClient.outReqCount = 0.
   struct ChppOutgoingRequestState *outReqStates;
 
+  // The private state of the client.
+  void *context;
+
   uint8_t index;        // Index of this client
   uint8_t handle;       // Handle number for this client
   uint8_t transaction;  // Next Transaction ID to be used (for client requests).
