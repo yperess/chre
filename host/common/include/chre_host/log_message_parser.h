@@ -21,7 +21,6 @@
 #include <cinttypes>
 #include <memory>
 #include "chre/util/time.h"
-#include "chre_host/bt_snoop_log_parser.h"
 
 #include <android/log.h>
 
@@ -110,8 +109,6 @@ class LogMessageParser {
 
   static android_LogPriority chreLogLevelToAndroidLogPriority(uint8_t level);
 
-  BtSnoopLogParser mBtLogParser;
-
   void updateAndPrintDroppedLogs(uint32_t numLogsDropped);
 
   //! Method for parsing unencoded (string) log messages.
@@ -149,7 +146,7 @@ class LogMessageParser {
    *
    * @return The log level of the current log message.
    */
-  uint8_t getLogLevelFromMetadata(uint8_t metadata);
+  inline uint8_t getLogLevelFromMetadata(uint8_t metadata);
 
   /**
    * Helper function to check the metadata whether the log message was encoded.
@@ -159,18 +156,7 @@ class LogMessageParser {
    *
    * @return true if an encoding was used on the log message payload.
    */
-  bool isLogMessageEncoded(uint8_t metadata);
-
-  /**
-   * Helper function to check the metadata whether the log message is a BT snoop
-   * log.
-   *
-   * @param metadata A byte from the log message payload containing the
-   *        log level and log type information.
-   *
-   * @return true if the log message type is BT Snoop log.
-   */
-  bool isBtSnoopLogMessage(uint8_t metadata);
+  inline bool isLogMessageEncoded(uint8_t metadata);
 };
 
 }  // namespace chre
