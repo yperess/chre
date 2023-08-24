@@ -65,7 +65,6 @@ std::unique_ptr<Detokenizer> LogMessageParser::logDetokenizerInit() {
 
 void LogMessageParser::init() {
   mDetokenizer = logDetokenizerInit();
-  mBtLogParser.init();
 }
 
 void LogMessageParser::dump(const uint8_t *buffer, size_t size) {

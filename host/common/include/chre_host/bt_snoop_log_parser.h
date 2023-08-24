@@ -17,7 +17,6 @@
 #ifndef CHRE_BT_SNOOP_LOG_PARSER_H_
 #define CHRE_BT_SNOOP_LOG_PARSER_H_
 
-#include <endian.h>
 #include <cinttypes>
 #include <fstream>
 #include <memory>
@@ -30,26 +29,11 @@ namespace chre {
 class BtSnoopLogParser {
  public:
   /**
-   * Initializes the BT log message parser by creating the snoop log file.
-   */
-  void init();
-
-  /**
    * Add a BT event to the snoop log file.
    *
    * @param buffer Pointer to the buffer that contains the BT snoop log.
    */
   size_t log(const char *buffer);
-
-  /**
-   * Opens the snoop log file.
-   */
-  void openSnoopLogFile();
-
-  /**
-   * Close the BT snoop log file when max packets reached.
-   */
-  void closeSnoopLogFile();
 
  private:
   enum class PacketType : uint8_t {
@@ -77,6 +61,12 @@ class BtSnoopLogParser {
     PacketType type;
   } __attribute__((packed));
 
+  bool ensureSnoopLogFileIsOpen();
+
+  void closeSnoopLogFile();
+
+  bool openNextSnoopLogFile();
+
   /**
    * Write BT event to the snoop log file.
    *
@@ -91,7 +81,7 @@ class BtSnoopLogParser {
   std::ofstream mBtSnoopOstream;
 
   //! Number of BT packtets in the log file.
-  uint32_t mPacketCounter;
+  uint32_t mPacketCounter = 0;
 };
 
 }  // namespace chre
