@@ -18,8 +18,7 @@
 
 #include <endian.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <filesystem>
+#include <unistd.h>
 #include <fstream>
 
 #include "chre/util/time.h"
@@ -39,7 +38,9 @@ namespace {
 // functionalities.
 using HciPacket = std::vector<uint8_t>;
 
-std::string kSnoopLogFilePath = "/data/vendor/chre/chre_btsnoop_hci.log";
+constexpr char kSnoopLogFilePath[] = "/data/vendor/chre/chre_btsnoop_hci.log";
+constexpr char kLastSnoopLogFilePath[] =
+    "/data/vendor/chre/chre_btsnoop_hci.log.last";
 
 constexpr size_t kDefaultBtSnoopMaxPacketsPerFile = 0xffff;
 
@@ -77,10 +78,6 @@ uint64_t htonll(uint64_t ll) {
 }
 
 }  // namespace
-
-void BtSnoopLogParser::init() {
-  openSnoopLogFile();
-}
 
 size_t BtSnoopLogParser::log(const char *buffer) {
   const auto *message = reinterpret_cast<const BtSnoopLog *>(buffer);
@@ -122,13 +119,12 @@ void BtSnoopLogParser::capture(const uint8_t *packet, size_t packetSize,
     header.length_captured = htonl(length);
   }
 
-  mode_t prevmask = umask(0);
-  umask(prevmask);
   mPacketCounter++;
   if (mPacketCounter > kDefaultBtSnoopMaxPacketsPerFile) {
-    closeSnoopLogFile();
+    openNextSnoopLogFile();
     LOGW("Snoop Log file reached maximum size");
-  } else {
+  }
+  if (ensureSnoopLogFileIsOpen()) {
     if (!mBtSnoopOstream.write(reinterpret_cast<const char *>(&header),
                                sizeof(PacketHeaderType))) {
       LOGE("Failed to write packet header for btsnoop, error: \"%s\"",
@@ -140,31 +136,40 @@ void BtSnoopLogParser::capture(const uint8_t *packet, size_t packetSize,
            strerror(errno));
     }
   }
-
-  if (!mBtSnoopOstream.flush()) {
-    LOGE("Failed to flush, error: \"%s\"", strerror(errno));
-  }
 }
 
-void BtSnoopLogParser::openSnoopLogFile() {
-  mode_t prevMask = umask(0);
-  umask(prevMask);
+bool BtSnoopLogParser::ensureSnoopLogFileIsOpen() {
+  if (mBtSnoopOstream.is_open()) {
+    return true;
+  }
+  return openNextSnoopLogFile();
+}
 
+bool BtSnoopLogParser::openNextSnoopLogFile() {
+  closeSnoopLogFile();
+  if (access(kSnoopLogFilePath, F_OK) == 0 &&
+      std::rename(kSnoopLogFilePath, kLastSnoopLogFilePath) != 0) {
+    LOGE("Unable to rename existing snoop log, error: \"%s\"", strerror(errno));
+  }
+
+  bool success = false;
   mBtSnoopOstream.open(kSnoopLogFilePath, std::ios::binary | std::ios::out);
-  if (!mBtSnoopOstream.write(
-          reinterpret_cast<const char *>(&kBtSnoopFileHeader),
-          sizeof(FileHeaderType))) {
+  mBtSnoopOstream.setf(std::ios::unitbuf);
+  if (mBtSnoopOstream.fail()) {
+    LOGE("Fail to create snoop log file, error: \"%s\"", strerror(errno));
+  } else if (!mBtSnoopOstream.write(
+                 reinterpret_cast<const char *>(&kBtSnoopFileHeader),
+                 sizeof(FileHeaderType))) {
     LOGE("Unable to write file header to \"%s\", error: \"%s\"",
-         kSnoopLogFilePath.c_str(), strerror(errno));
+         kSnoopLogFilePath, strerror(errno));
+  } else {
+    success = true;
   }
-  if (!mBtSnoopOstream.flush()) {
-    LOGE("File header failed to flush, error: \"%s\"", strerror(errno));
-  }
+  return success;
 }
 
 void BtSnoopLogParser::closeSnoopLogFile() {
   if (mBtSnoopOstream.is_open()) {
-    mBtSnoopOstream.flush();
     mBtSnoopOstream.close();
   }
   mPacketCounter = 0;
