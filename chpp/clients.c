@@ -424,70 +424,11 @@ void chppClientProcessOpenResponse(struct ChppEndpointState *clientState,
   }
 }
 
-void chppClientRecalculateNextTimeout(struct ChppAppState *context) {
-  CHPP_DEBUG_NOT_NULL(context);
-
-  context->nextClientRequestTimeoutNs = CHPP_TIME_MAX;
-
-  for (uint8_t clientIdx = 0; clientIdx < context->registeredClientCount;
-       clientIdx++) {
-    uint16_t reqCount = context->registeredClients[clientIdx]->outReqCount;
-    struct ChppOutgoingRequestState *reqStates =
-        context->registeredClientStates[clientIdx]->outReqStates;
-    for (uint16_t cmdIdx = 0; cmdIdx < reqCount; cmdIdx++) {
-      struct ChppOutgoingRequestState *reqState = &reqStates[cmdIdx];
-      if (reqState->requestState == CHPP_REQUEST_STATE_REQUEST_SENT) {
-        context->nextClientRequestTimeoutNs =
-            MIN(context->nextClientRequestTimeoutNs, reqState->responseTimeNs);
-      }
-    }
-  }
-
-  CHPP_LOGD("nextReqTimeout=%" PRIu64,
-            context->nextClientRequestTimeoutNs / CHPP_NSEC_PER_MSEC);
-}
-
 void chppClientCloseOpenRequests(struct ChppEndpointState *clientState,
                                  const struct ChppClient *client,
                                  bool clearOnly) {
-  CHPP_DEBUG_NOT_NULL(clientState);
-  CHPP_DEBUG_NOT_NULL(client);
-
-  bool recalcNeeded = false;
-
-  for (uint16_t cmdIdx = 0; cmdIdx < client->outReqCount; cmdIdx++) {
-    if (clientState->outReqStates[cmdIdx].requestState ==
-        CHPP_REQUEST_STATE_REQUEST_SENT) {
-      recalcNeeded = true;
-
-      CHPP_LOGE("Closing open req #%" PRIu16 " clear %d", cmdIdx, clearOnly);
-
-      if (clearOnly) {
-        clientState->outReqStates[cmdIdx].requestState =
-            CHPP_REQUEST_STATE_RESPONSE_TIMEOUT;
-      } else {
-        struct ChppAppHeader *response =
-            chppMalloc(sizeof(struct ChppAppHeader));
-        if (response == NULL) {
-          CHPP_LOG_OOM();
-        } else {
-          // Simulate receiving a timeout response.
-          response->handle = clientState->handle;
-          response->type = CHPP_MESSAGE_TYPE_SERVICE_RESPONSE;
-          response->transaction = clientState->outReqStates[cmdIdx].transaction;
-          response->error = CHPP_APP_ERROR_TIMEOUT;
-          response->command = cmdIdx;
-
-          chppAppProcessRxDatagram(clientState->appContext, (uint8_t *)response,
-                                   sizeof(struct ChppAppHeader));
-        }
-      }
-    }
-  }
-
-  if (recalcNeeded) {
-    chppClientRecalculateNextTimeout(clientState->appContext);
-  }
+  UNUSED_VAR(client);
+  chppCloseOpenRequests(clientState, CHPP_ENDPOINT_CLIENT, clearOnly);
 }
 
 struct ChppAppHeader *chppAllocClientNotification(size_t len) {

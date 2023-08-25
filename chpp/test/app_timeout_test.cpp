@@ -84,27 +84,36 @@ void ValidateClientStateAndReqState(struct ChppEndpointState *clientState,
   ASSERT_NE(clientState->appContext, nullptr);
   ASSERT_NE(clientState->appContext->registeredClients, nullptr);
   ASSERT_NE(clientState->appContext->registeredClients[clientIdx], nullptr);
+  ASSERT_LT(request->command,
+            clientState->appContext->registeredClients[clientIdx]->outReqCount);
+  ASSERT_NE(clientState->appContext->registeredClientStates[clientIdx],
+            nullptr);
   ASSERT_NE(
       clientState->appContext->registeredClientStates[clientIdx]->outReqStates,
       nullptr);
-  ASSERT_LT(request->command,
-            clientState->appContext->registeredClients[clientIdx]->outReqCount);
+  ASSERT_NE(clientState->appContext->registeredClientStates[clientIdx]->context,
+            nullptr);
 }
 
 void ValidateServiceStateAndReqState(struct ChppEndpointState *serviceState,
                                      const struct ChppAppHeader *request) {
   ASSERT_NE(serviceState, nullptr);
-  const uint8_t serviceIdx = CHPP_SERVICE_INDEX_OF_HANDLE(serviceState->handle);
+  const uint8_t serviceIdx = serviceState->index;
 
   ASSERT_NE(serviceState->appContext, nullptr);
   ASSERT_NE(serviceState->appContext->registeredServices, nullptr);
   ASSERT_NE(serviceState->appContext->registeredServices[serviceIdx], nullptr);
-  ASSERT_NE(serviceState->appContext->registeredServiceStates[serviceIdx]
-                ->outReqStates,
-            nullptr);
   ASSERT_LT(
       request->command,
       serviceState->appContext->registeredServices[serviceIdx]->outReqCount);
+  ASSERT_NE(serviceState->appContext->registeredServiceStates[serviceIdx],
+            nullptr);
+  ASSERT_NE(serviceState->appContext->registeredServiceStates[serviceIdx]
+                ->outReqStates,
+            nullptr);
+  ASSERT_NE(
+      serviceState->appContext->registeredServiceStates[serviceIdx]->context,
+      nullptr);
 }
 
 void validateTimeout(uint64_t timeoutTimeNs, uint64_t expectedTimeNs) {
@@ -252,10 +261,10 @@ class TimeoutParamTest : public testing::TestWithParam<ChppMessageType> {
 
   struct ChppAppHeader *GetTimeoutResponse(void) {
     return GetParam() == CHPP_MESSAGE_TYPE_CLIENT_REQUEST
-               ? chppTransportGetClientRequestTimeoutResponse(
-                     &mClientTransportContext)
-               : chppTransportGetServiceRequestTimeoutResponse(
-                     &mServiceTransportContext);
+               ? chppTransportGetRequestTimeoutResponse(
+                     &mClientTransportContext, CHPP_ENDPOINT_CLIENT)
+               : chppTransportGetRequestTimeoutResponse(
+                     &mServiceTransportContext, CHPP_ENDPOINT_SERVICE);
   }
 
   void ValidateRequestState(struct ChppAppHeader *request) {

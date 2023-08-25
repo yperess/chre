@@ -120,6 +120,14 @@ extern "C" {
 #define CHPP_APP_COMMAND_NONE 0
 
 /**
+ * Type of endpoint (either client or service)
+ */
+enum ChppEndpointType {
+  CHPP_ENDPOINT_CLIENT = 0,
+  CHPP_ENDPOINT_SERVICE = 1,
+};
+
+/**
  * Handle Numbers in ChppAppHeader
  */
 enum ChppHandleNumber {
@@ -822,6 +830,74 @@ bool chppSendTimestampedRequestOrFail(
 bool chppWaitForResponseWithTimeout(
     struct ChppSyncResponse *syncResponse,
     struct ChppOutgoingRequestState *outReqState, uint64_t timeoutNs);
+
+/**
+ * Returns the state of a registered endpoint.
+ *
+ * @param appState State of the app layer.
+ * @param index Index of the client or service.
+ * @param type Type of the endpoint to return.
+ * @return state of the client or service.
+ */
+struct ChppEndpointState *getRegisteredEndpointState(
+    struct ChppAppState *appState, uint8_t index, enum ChppEndpointType type);
+
+/**
+ * Returns the number of possible outgoing requests.
+ *
+ * @param appState State of the app layer.
+ * @param index Index of the client or service.
+ * @param type Type of the endpoint to return.
+ * @return The number of possible outgoing requests.
+ */
+uint16_t getRegisteredEndpointOutReqCount(struct ChppAppState *appState,
+                                          uint8_t index,
+                                          enum ChppEndpointType type);
+
+/**
+ * Returns the number of registered endpoints of the given type.
+ *
+ * @param appState State of the app layer.
+ * @param type Type of the endpoint to return.
+ * @return The number of endpoints.
+ */
+uint8_t getRegisteredEndpointCount(struct ChppAppState *appState,
+                                   enum ChppEndpointType type);
+
+/**
+ * Recalculates the next upcoming request timeout.
+ *
+ * The timeout is updated in the app layer state.
+ *
+ * @param appState State of the app layer.
+ * @param type Type of the endpoint.
+ */
+void chppRecalculateNextTimeout(struct ChppAppState *appState,
+                                enum ChppEndpointType type);
+
+/**
+ * Returns a pointer to the next request timeout for the given endpoint type.
+ *
+ * @param appState State of the app layer.
+ * @param type Type of the endpoint.
+ * @return Pointer to the timeout in nanoseconds.
+ */
+uint64_t *getNextRequestTimeoutNs(struct ChppAppState *appState,
+                                  enum ChppEndpointType type);
+
+/**
+ * Closes any remaining open requests by simulating a timeout.
+ *
+ * This function is used when an endpoint is reset.
+ *
+ * @param endpointState State of the endpoint.
+ * @param type The type of the endpoint.
+ * @param clearOnly If true, indicates that a timeout response shouldn't be
+ *        sent. This must only be set if the requests are being cleared as
+ *        part of the closing.
+ */
+void chppCloseOpenRequests(struct ChppEndpointState *endpointState,
+                           enum ChppEndpointType type, bool clearOnly);
 
 #ifdef __cplusplus
 }

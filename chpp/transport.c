@@ -89,14 +89,8 @@ static void chppResetTransportContext(struct ChppTransportState *context);
 static void chppReset(struct ChppTransportState *context,
                       enum ChppTransportPacketAttributes resetType,
                       enum ChppTransportErrorCode error);
-#ifdef CHPP_CLIENT_ENABLED
-struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
-    struct ChppTransportState *context);
-#endif
-#ifdef CHPP_SERVICE_ENABLED
-struct ChppAppHeader *chppTransportGetServiceRequestTimeoutResponse(
-    struct ChppTransportState *context);
-#endif
+struct ChppAppHeader *chppTransportGetRequestTimeoutResponse(
+    struct ChppTransportState *context, enum ChppEndpointType type);
 
 /************************************************
  *  Private Functions
@@ -1054,7 +1048,7 @@ static void chppTransportDoWork(struct ChppTransportState *context) {
 #ifdef CHPP_CLIENT_ENABLED
   {  // create a scope to declare timeoutResponse (C89).
     struct ChppAppHeader *timeoutResponse =
-        chppTransportGetClientRequestTimeoutResponse(context);
+        chppTransportGetRequestTimeoutResponse(context, CHPP_ENDPOINT_CLIENT);
 
     if (timeoutResponse != NULL) {
       CHPP_LOGE("Response timeout H#%" PRIu8 " cmd=%" PRIu16 " ID=%" PRIu8,
@@ -1068,7 +1062,7 @@ static void chppTransportDoWork(struct ChppTransportState *context) {
 #ifdef CHPP_SERVICE_ENABLED
   {  // create a scope to declare timeoutResponse (C89).
     struct ChppAppHeader *timeoutResponse =
-        chppTransportGetServiceRequestTimeoutResponse(context);
+        chppTransportGetRequestTimeoutResponse(context, CHPP_ENDPOINT_SERVICE);
 
     if (timeoutResponse != NULL) {
       CHPP_LOGE("Response timeout H#%" PRIu8 " cmd=%" PRIu16 " ID=%" PRIu8,
@@ -1285,68 +1279,74 @@ static void chppReset(struct ChppTransportState *transportContext,
 }
 
 /**
- * Checks for a timed out client request and generates a timeout response if a
- * timeout has occurred.
+ * Checks for a timed out request and generates a timeout response if a timeout
+ * has occurred.
  *
  * @param context State of the transport layer.
+ * @param type The type of the endpoint.
  * @return App layer response header if a timeout has occurred. Null otherwise.
  */
-#ifdef CHPP_CLIENT_ENABLED
-struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
-    struct ChppTransportState *context) {
+struct ChppAppHeader *chppTransportGetRequestTimeoutResponse(
+    struct ChppTransportState *context, enum ChppEndpointType type) {
+  CHPP_DEBUG_NOT_NULL(context);
+
   struct ChppAppState *appState = context->appContext;
   struct ChppAppHeader *response = NULL;
 
-  bool timeoutClientFound = false;
-  uint8_t timedOutClientIdx;
+  bool timeoutEndpointFound = false;
+  uint8_t timedOutEndpointIdx;
   uint16_t timedOutCmd;
 
   chppMutexLock(&context->mutex);
 
-  if (appState->nextClientRequestTimeoutNs <= chppGetCurrentTimeNs()) {
+  if (*getNextRequestTimeoutNs(appState, type) <= chppGetCurrentTimeNs()) {
     // Determine which request has timed out
-    const uint8_t numClients = appState->registeredClientCount;
+    const uint8_t endpointCount = getRegisteredEndpointCount(appState, type);
     uint64_t firstTimeout = CHPP_TIME_MAX;
 
-    for (uint8_t clientIdx = 0; clientIdx < numClients; clientIdx++) {
-      const uint16_t numCmds =
-          appState->registeredClients[clientIdx]->outReqCount;
+    for (uint8_t endpointIdx = 0; endpointIdx < endpointCount; endpointIdx++) {
+      const uint16_t cmdCount =
+          getRegisteredEndpointOutReqCount(appState, endpointIdx, type);
+      const struct ChppEndpointState *endpointState =
+          getRegisteredEndpointState(appState, endpointIdx, type);
       const struct ChppOutgoingRequestState *reqStates =
-          &appState->registeredClientStates[clientIdx]->outReqStates[0];
-      for (uint16_t cmdIdx = 0; cmdIdx < numCmds; cmdIdx++) {
+          &endpointState->outReqStates[0];
+      for (uint16_t cmdIdx = 0; cmdIdx < cmdCount; cmdIdx++) {
         const struct ChppOutgoingRequestState *reqState = &reqStates[cmdIdx];
 
         if (reqState->requestState == CHPP_REQUEST_STATE_REQUEST_SENT &&
             reqState->responseTimeNs != CHPP_TIME_NONE &&
             reqState->responseTimeNs < firstTimeout) {
           firstTimeout = reqState->responseTimeNs;
-          timedOutClientIdx = clientIdx;
+          timedOutEndpointIdx = endpointIdx;
           timedOutCmd = cmdIdx;
-          timeoutClientFound = true;
+          timeoutEndpointFound = true;
         }
       }
     }
 
-    if (!timeoutClientFound) {
-      CHPP_LOGE("Timeout at %" PRIu64 " but no client",
-                appState->nextClientRequestTimeoutNs / CHPP_NSEC_PER_MSEC);
-      chppClientRecalculateNextTimeout(appState);
+    if (!timeoutEndpointFound) {
+      CHPP_LOGE("Timeout at %" PRIu64 " but no endpoint",
+                *getNextRequestTimeoutNs(appState, type) / CHPP_NSEC_PER_MSEC);
+      chppRecalculateNextTimeout(appState, CHPP_ENDPOINT_CLIENT);
     }
   }
 
-  if (timeoutClientFound) {
-    CHPP_LOGE("Client=%" PRIu8 " cmd=%" PRIu16 " timed out", timedOutClientIdx,
-              timedOutCmd);
+  if (timeoutEndpointFound) {
+    CHPP_LOGE("Endpoint=%" PRIu8 " cmd=%" PRIu16 " timed out",
+              timedOutEndpointIdx, timedOutCmd);
     response = chppMalloc(sizeof(struct ChppAppHeader));
     if (response == NULL) {
       CHPP_LOG_OOM();
     } else {
-      const struct ChppEndpointState *clientState =
-          appState->registeredClientStates[timedOutClientIdx];
-      response->handle = clientState->handle;
-      response->type = CHPP_MESSAGE_TYPE_SERVICE_RESPONSE;
+      const struct ChppEndpointState *endpointState =
+          getRegisteredEndpointState(appState, timedOutEndpointIdx, type);
+      response->handle = endpointState->handle;
+      response->type = type == CHPP_ENDPOINT_CLIENT
+                           ? CHPP_MESSAGE_TYPE_SERVICE_RESPONSE
+                           : CHPP_MESSAGE_TYPE_CLIENT_RESPONSE;
       response->transaction =
-          clientState->outReqStates[timedOutCmd].transaction;
+          endpointState->outReqStates[timedOutCmd].transaction;
       response->error = CHPP_APP_ERROR_TIMEOUT;
       response->command = timedOutCmd;
     }
@@ -1356,81 +1356,6 @@ struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
 
   return response;
 }
-#endif  // CHPP_CLIENT_ENABLED
-
-/**
- * Checks for a timed out service request and generates a timeout response if a
- * timeout has occurred.
- *
- * @param context State of the transport layer.
- * @return App layer response header if a timeout has occurred. Null otherwise.
- */
-#ifdef CHPP_SERVICE_ENABLED
-struct ChppAppHeader *chppTransportGetServiceRequestTimeoutResponse(
-    struct ChppTransportState *context) {
-  struct ChppAppState *appState = context->appContext;
-  struct ChppAppHeader *response = NULL;
-
-  bool timeoutServiceFound = false;
-  uint8_t timedOutServiceIdx;
-  uint16_t timedOutCmd;
-
-  chppMutexLock(&context->mutex);
-
-  if (appState->nextServiceRequestTimeoutNs <= chppGetCurrentTimeNs()) {
-    // Determine which request has timed out
-    const uint8_t numServices = appState->registeredServiceCount;
-    uint64_t firstTimeout = CHPP_TIME_MAX;
-
-    for (uint8_t serviceIdx = 0; serviceIdx < numServices; serviceIdx++) {
-      const uint16_t numCmds =
-          appState->registeredServices[serviceIdx]->outReqCount;
-      const struct ChppOutgoingRequestState *reqStates =
-          &appState->registeredServiceStates[serviceIdx]->outReqStates[0];
-      for (uint16_t cmdIdx = 0; cmdIdx < numCmds; cmdIdx++) {
-        const struct ChppOutgoingRequestState *reqState = &reqStates[cmdIdx];
-
-        if (reqState->requestState == CHPP_REQUEST_STATE_REQUEST_SENT &&
-            reqState->responseTimeNs != CHPP_TIME_NONE &&
-            reqState->responseTimeNs < firstTimeout) {
-          firstTimeout = reqState->responseTimeNs;
-          timedOutServiceIdx = serviceIdx;
-          timedOutCmd = cmdIdx;
-          timeoutServiceFound = true;
-        }
-      }
-    }
-
-    if (!timeoutServiceFound) {
-      CHPP_LOGE("Timeout at %" PRIu64 " but no service",
-                appState->nextServiceRequestTimeoutNs / CHPP_NSEC_PER_MSEC);
-      chppServiceRecalculateNextTimeout(appState);
-    }
-  }
-
-  if (timeoutServiceFound) {
-    CHPP_LOGE("Service=%" PRIu8 " cmd=%" PRIu16 " timed out",
-              timedOutServiceIdx, timedOutCmd);
-    response = chppMalloc(sizeof(struct ChppAppHeader));
-    if (response == NULL) {
-      CHPP_LOG_OOM();
-    } else {
-      const struct ChppEndpointState *serviceState =
-          appState->registeredServiceStates[timedOutServiceIdx];
-      response->handle = serviceState->handle;
-      response->type = CHPP_MESSAGE_TYPE_CLIENT_RESPONSE;
-      response->transaction =
-          serviceState->outReqStates[timedOutCmd].transaction;
-      response->error = CHPP_APP_ERROR_TIMEOUT;
-      response->command = timedOutCmd;
-    }
-  }
-
-  chppMutexUnlock(&context->mutex);
-
-  return response;
-}
-#endif  // CHPP_SERVICE_ENABLED
 
 /************************************************
  *  Public Functions

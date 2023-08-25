@@ -328,13 +328,6 @@ void chppClientProcessOpenResponse(struct ChppEndpointState *clientState,
                                    uint8_t *buf, size_t len);
 
 /**
- * Recalculates the next upcoming client request timeout time.
- *
- * @param context State of the app layer.
- */
-void chppClientRecalculateNextTimeout(struct ChppAppState *context);
-
-/**
  * Closes any remaining open requests by simulating a timeout.
 
  * This function is used when a client is reset.

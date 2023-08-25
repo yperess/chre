@@ -249,13 +249,6 @@ bool chppServiceSendTimestampedRequestAndWaitTimeout(
     uint64_t timeoutNs);
 
 /**
- * Recalculates the next upcoming service request timeout time.
- *
- * @param context State of the app layer.
- */
-void chppServiceRecalculateNextTimeout(struct ChppAppState *context);
-
-/**
  * Closes any remaining open requests by simulating a timeout.
  *
  * This function is used when a service is reset.
