@@ -49,7 +49,7 @@ class ScanTestNanoapp : public TestNanoapp {
  public:
   explicit ScanTestNanoapp(uint64_t id = kDefaultTestNanoappId)
       : TestNanoapp(TestNanoappInfo{
-            .perms = NanoappPermissions::CHRE_PERMS_WIFI, .id = id}) {}
+            .id = id, .perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
   void handleEvent(uint32_t, uint16_t eventType,
                    const void *eventData) override {

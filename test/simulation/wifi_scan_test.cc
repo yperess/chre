@@ -67,7 +67,7 @@ class WifiScanTestNanoapp : public TestNanoapp {
 
   explicit WifiScanTestNanoapp(uint64_t id)
       : TestNanoapp(TestNanoappInfo{
-            .perms = NanoappPermissions::CHRE_PERMS_WIFI, .id = id}) {}
+            .id = id, .perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
   void handleEvent(uint32_t, uint16_t eventType,
                    const void *eventData) override {
@@ -164,7 +164,7 @@ TEST_F(WifiScanRequestQueueTestBase, WifiQueuedScanSettingChangeTest) {
    public:
     explicit WifiScanTestConcurrentNanoapp(uint64_t id)
         : TestNanoapp(TestNanoappInfo{
-              .perms = NanoappPermissions::CHRE_PERMS_WIFI, .id = id}) {}
+              .id = id, .perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
     void handleEvent(uint32_t, uint16_t eventType,
                      const void *eventData) override {
@@ -354,7 +354,7 @@ TEST_F(WifiScanRequestQueueTestBase, WifiScanActiveScanFromDistinctNanoapps) {
    public:
     explicit WifiScanTestConcurrentNanoapp(uint64_t id)
         : TestNanoapp(TestNanoappInfo{
-              .perms = NanoappPermissions::CHRE_PERMS_WIFI, .id = id}) {}
+              .id = id, .perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
     void handleEvent(uint32_t, uint16_t eventType,
                      const void *eventData) override {
