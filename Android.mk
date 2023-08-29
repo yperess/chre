@@ -68,6 +68,7 @@ LOCAL_SRC_FILES := \
     host/common/fragmented_load_transaction.cc \
     host/common/host_protocol_host.cc \
     host/common/log_message_parser.cc \
+    host/common/bt_snoop_log_parser.cc \
     host/common/socket_server.cc \
     host/common/st_hal_lpma_handler.cc \
     platform/shared/host_protocol_common.cc
