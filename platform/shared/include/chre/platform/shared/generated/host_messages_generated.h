@@ -175,6 +175,108 @@ inline const char *EnumNameSettingState(SettingState e) {
   return EnumNamesSettingState()[index];
 }
 
+enum class LogLevel : int8_t {
+  ERROR = 1,
+  WARNING = 2,
+  INFO = 3,
+  DEBUG = 4,
+  VERBOSE = 5,
+  MIN = ERROR,
+  MAX = VERBOSE
+};
+
+inline const LogLevel (&EnumValuesLogLevel())[5] {
+  static const LogLevel values[] = {
+    LogLevel::ERROR,
+    LogLevel::WARNING,
+    LogLevel::INFO,
+    LogLevel::DEBUG,
+    LogLevel::VERBOSE
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesLogLevel() {
+  static const char * const names[6] = {
+    "ERROR",
+    "WARNING",
+    "INFO",
+    "DEBUG",
+    "VERBOSE",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameLogLevel(LogLevel e) {
+  if (flatbuffers::IsOutRange(e, LogLevel::ERROR, LogLevel::VERBOSE)) return "";
+  const size_t index = static_cast<size_t>(e) - static_cast<size_t>(LogLevel::ERROR);
+  return EnumNamesLogLevel()[index];
+}
+
+enum class LogType : int8_t {
+  STRING = 0,
+  TOKENIZED = 1,
+  BLUETOOTH = 2,
+  MIN = STRING,
+  MAX = BLUETOOTH
+};
+
+inline const LogType (&EnumValuesLogType())[3] {
+  static const LogType values[] = {
+    LogType::STRING,
+    LogType::TOKENIZED,
+    LogType::BLUETOOTH
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesLogType() {
+  static const char * const names[4] = {
+    "STRING",
+    "TOKENIZED",
+    "BLUETOOTH",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameLogType(LogType e) {
+  if (flatbuffers::IsOutRange(e, LogType::STRING, LogType::BLUETOOTH)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesLogType()[index];
+}
+
+enum class BtSnoopDirection : int8_t {
+  INCOMING_FROM_BT_CONTROLLER = 0,
+  OUTGOING_TO_ARBITER = 1,
+  MIN = INCOMING_FROM_BT_CONTROLLER,
+  MAX = OUTGOING_TO_ARBITER
+};
+
+inline const BtSnoopDirection (&EnumValuesBtSnoopDirection())[2] {
+  static const BtSnoopDirection values[] = {
+    BtSnoopDirection::INCOMING_FROM_BT_CONTROLLER,
+    BtSnoopDirection::OUTGOING_TO_ARBITER
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesBtSnoopDirection() {
+  static const char * const names[3] = {
+    "INCOMING_FROM_BT_CONTROLLER",
+    "OUTGOING_TO_ARBITER",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameBtSnoopDirection(BtSnoopDirection e) {
+  if (flatbuffers::IsOutRange(e, BtSnoopDirection::INCOMING_FROM_BT_CONTROLLER, BtSnoopDirection::OUTGOING_TO_ARBITER)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesBtSnoopDirection()[index];
+}
+
 /// A union that joins together all possible messages. Note that in FlatBuffers,
 /// unions have an implicit type
 enum class ChreMessage : uint8_t {
@@ -1860,8 +1962,8 @@ struct LogMessageV2 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   ///
   /// uint8_t                 - Log metadata, encoded as follows:
   ///                           [EI(Upper nibble) | Level(Lower nibble)]
-  ///                            * EI: Encoding indicator (eg: via tokenization)
-  ///                              (0 = No encoding, 1 = Tokenized log)
+  ///                            * Log Type
+  ///                              (0 = No encoding, 1 = Tokenized log, 2 = BT snoop log)
   ///                            * LogBuffer log level (1 = error, 2 = warn,
   ///                                                   3 = info,  4 = debug,
   ///                                                   5 = verbose)
@@ -1879,6 +1981,13 @@ struct LogMessageV2 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   ///   be needed to encode this as: [Size(1B) | Data(24B)]. A decoder would
   ///   then have to decode this starting from a 1 byte offset from the
   ///   received buffer.
+  ///
+  /// * Bt Snoop logs: The first byte of the log buffer indicates the direction
+  ///   of the bt snoop log, depending on whether it is incoming for the BT
+  ///   controller or outgoing to the arbiter. The second byte indicates the size
+  ///   of the actual BT payload followed. For example, if a bt snoop log of
+  ///   size 24 bytes were to be represented, a buffer of size 26 bytes would
+  ///   be needed to encode this as: [Direction(1B) | Size(1B) | Data(24B)].
   ///
   /// This pattern repeats until the end of the buffer for multiple log
   /// messages. The last byte will always be a null-terminator. There are no
