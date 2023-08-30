@@ -17,6 +17,9 @@
 #ifndef CHRE_PLATFORM_SHARED_BT_SNOOP_LOG_H_
 #define CHRE_PLATFORM_SHARED_BT_SNOOP_LOG_H_
 
+#include <cinttypes>
+#include <cstddef>
+
 //! Indicates direction of a BT snoop log.
 //! TODO(b/294884658): Make the fbs definition as the single source of truth.
 enum class BtSnoopDirection : uint8_t {

@@ -124,7 +124,7 @@ enum chreError {
     //!< Do not exceed this value when adding new error codes
     CHRE_ERROR_LAST = UINT8_MAX,
 };
-// LINT.ThenChange(core/include/chre/core/api_manager_common.h)
+// LINT.ThenChange(../../../../core/include/chre/core/api_manager_common.h)
 
 /**
  * Generic data structure to indicate the result of an asynchronous operation.
@@ -181,7 +181,8 @@ struct chreAsyncResult {
  * @since v1.8
  */
 struct chreBatchCompleteEvent {
-    //! Indicates the type of event (of type CHRE_EVENT_TYPE_*) that was batched.
+    //! Indicates the type of event (of type CHRE_EVENT_TYPE_*) that was
+    //! batched.
     uint16_t eventType;
 
     //! Reserved for future use, set to 0
