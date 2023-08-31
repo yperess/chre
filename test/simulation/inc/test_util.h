@@ -70,15 +70,15 @@ class TestNanoapp {
   // NanoappStart Entrypoint.
   virtual bool start() {
     return true;
-  };
+  }
 
   // nanoappHandleEvent Entrypoint.
   virtual void handleEvent(uint32_t /*senderInstanceId*/,
-                           uint16_t /*eventType*/,
-                           const void * /*eventData*/){};
+                           uint16_t /*eventType*/, const void * /*eventData*/) {
+  }
 
   // nanoappEnd Entrypoint.
-  virtual void end(){};
+  virtual void end() {}
 
   const char *name() {
     return mTestNanoappInfo.name;

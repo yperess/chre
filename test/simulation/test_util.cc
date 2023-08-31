@@ -177,7 +177,7 @@ void defaultNanoappHandleEvent(uint32_t /*senderInstanceId*/,
                                uint16_t /*eventType*/,
                                const void * /*eventData*/) {}
 
-void defaultNanoappEnd(){};
+void defaultNanoappEnd() {}
 
 void loadNanoapp(const char *name, uint64_t appId, uint32_t appVersion,
                  uint32_t appPerms, decltype(nanoappStart) *startFunc,

@@ -53,7 +53,7 @@ class IntrusiveListBase : public NonCopyable {
   IntrusiveListBase() {
     mSentinelNode.next = &mSentinelNode;
     mSentinelNode.prev = &mSentinelNode;
-  };
+  }
 
   /**
    * Link a new node to the end of the linked list.

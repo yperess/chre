@@ -91,7 +91,7 @@ class HalClientManagerForTest : public HalClientManager {
   HalClientManagerForTest(DeadClientUnlinker deadClientUnlinker,
                           const std::string &clientIdMappingFilePath)
       : HalClientManager(std::move(deadClientUnlinker),
-                         clientIdMappingFilePath){};
+                         clientIdMappingFilePath) {}
 
   const std::vector<HalClient> getClients() {
     return mClients;
@@ -116,8 +116,8 @@ class HalClientManagerTest : public ::testing::Test {
     // Clears out the mapping file content
     std::ofstream file(kClientIdMappingFilePath);
     ASSERT_TRUE(file.good());
-  };
-  void TearDown() override{};
+  }
+  void TearDown() override {}
 };
 
 auto mockDeadClientUnlinker =

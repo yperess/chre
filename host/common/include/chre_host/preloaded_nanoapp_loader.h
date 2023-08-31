@@ -48,7 +48,7 @@ class PreloadedNanoappLoader {
  public:
   explicit PreloadedNanoappLoader(ChreConnection *connection,
                                   std::string configPath)
-      : mConnection(connection), mConfigPath(std::move(configPath)){};
+      : mConnection(connection), mConfigPath(std::move(configPath)) {}
 
   ~PreloadedNanoappLoader() = default;
   /**
@@ -80,7 +80,7 @@ class PreloadedNanoappLoader {
   /** Returns true if the loading is ongoing. */
   [[nodiscard]] bool isPreloadOngoing() const {
     return mIsPreloadingOngoing;
-  };
+  }
 
  private:
   /** Tracks the transaction state of the ongoing nanoapp loading */
