@@ -51,6 +51,7 @@ constexpr uint32_t kDefaultHubId = 0;
 constexpr char kPreloadedNanoappsConfigPath[] =
     "/vendor/etc/chre/preloaded_nanoapps.json";
 constexpr std::chrono::duration kTestModeTimeout = std::chrono::seconds(10);
+constexpr uint16_t kMaxValidHostEndPointId = 0x7fff;
 
 /*
  * The starting transaction ID for internal transactions. We choose
@@ -345,6 +346,11 @@ ScopedAStatus ContextHub::onNanSessionStateChanged(
 void ContextHub::onNanoappMessage(const ::chre::fbs::NanoappMessageT &message) {
   std::lock_guard<std::mutex> lock(mCallbackMutex);
   if (mCallback != nullptr) {
+    if (message.host_endpoint > kMaxValidHostEndPointId &&
+        message.host_endpoint != CHRE_HOST_ENDPOINT_BROADCAST) {
+      return;
+    }
+
     mEventLogger.logMessageFromNanoapp(message);
     ContextHubMessage outMessage;
     outMessage.nanoappId = message.app_id;
