@@ -136,7 +136,7 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         Assert.assertFalse("init() must not be invoked when already initialized", mInitialized);
         ChreTestUtil.loadNanoAppAssertSuccess(mContextHubManager, mContextHubInfo, mNanoAppBinary);
 
-        mVerifyAudioGaps = isAtLeastAndroidU();
+        mVerifyAudioGaps = shouldVerifyAudioGaps();
         mInitialized = true;
     }
 
@@ -236,7 +236,13 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         }
     }
 
-    private boolean isAtLeastAndroidU() {
-        return VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE;
+    /**
+     * Returns whether we should verify audio gaps. This is only supported on devices
+     * that are currently running Android U or later and were shipped with Android U
+     * or later.
+     */
+    private boolean shouldVerifyAudioGaps() {
+        return VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE &&
+               VERSION.DEVICE_INITIAL_SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE;
     }
 }
