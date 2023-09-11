@@ -50,7 +50,7 @@ constexpr uint64_t makeNanoappId(uint64_t vendor, uint32_t appNumber) {
 }
 
 /**
- * @return App ID combining the given 3-byte app number and Google's 5-byte
+ * @return App ID combining the given 3-byte app number and the example 5-byte
  *         vendor ID
  */
 constexpr uint64_t makeExampleNanoappId(uint32_t appNumber) {
