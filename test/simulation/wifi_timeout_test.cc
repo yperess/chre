@@ -20,8 +20,10 @@
 #include "chre/core/settings.h"
 #include "chre/platform/linux/pal_wifi.h"
 #include "chre/platform/log.h"
+#include "chre/util/nanoapp/app_id.h"
 #include "chre/util/system/napp_permissions.h"
 #include "chre_api/chre/event.h"
+#include "chre_api/chre/re.h"
 #include "chre_api/chre/wifi.h"
 #include "gtest/gtest.h"
 #include "test_base.h"
@@ -44,50 +46,74 @@ class WifiTimeoutTestBase : public TestBase {
 };
 
 CREATE_CHRE_TEST_EVENT(SCAN_REQUEST, 20);
-
-class ScanTestNanoapp : public TestNanoapp {
- public:
-  explicit ScanTestNanoapp(uint64_t id = kDefaultTestNanoappId)
-      : TestNanoapp(TestNanoappInfo{
-            .id = id, .perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
-
-  void handleEvent(uint32_t, uint16_t eventType,
-                   const void *eventData) override {
-    switch (eventType) {
-      case CHRE_EVENT_WIFI_ASYNC_RESULT: {
-        auto *event = static_cast<const chreAsyncResult *>(eventData);
-        if (event->success) {
-          TestEventQueueSingleton::get()->pushEvent(
-              CHRE_EVENT_WIFI_ASYNC_RESULT,
-              *(static_cast<const uint32_t *>(event->cookie)));
-        }
-        break;
-      }
-
-      case CHRE_EVENT_WIFI_SCAN_RESULT: {
-        TestEventQueueSingleton::get()->pushEvent(CHRE_EVENT_WIFI_SCAN_RESULT);
-        break;
-      }
-
-      case CHRE_EVENT_TEST_EVENT: {
-        auto event = static_cast<const TestEvent *>(eventData);
-        switch (event->type) {
-          case SCAN_REQUEST:
-            mCookie = *static_cast<uint32_t *>(event->data);
-            bool success = chreWifiRequestScanAsyncDefault(&mCookie);
-            TestEventQueueSingleton::get()->pushEvent(SCAN_REQUEST, success);
-            break;
-        }
-        break;
-      }
-    }
-  }
-
- protected:
-  uint32_t mCookie;
-};
+CREATE_CHRE_TEST_EVENT(REQUEST_TIMED_OUT, 21);
 
 TEST_F(WifiTimeoutTestBase, WifiScanRequestTimeoutTest) {
+  class ScanTestNanoapp : public TestNanoapp {
+   public:
+    explicit ScanTestNanoapp()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
+
+    bool start() override {
+      mRequestTimer = CHRE_TIMER_INVALID;
+      return true;
+    }
+
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_WIFI_ASYNC_RESULT: {
+          auto *event = static_cast<const chreAsyncResult *>(eventData);
+          if (mRequestTimer != CHRE_TIMER_INVALID) {
+            chreTimerCancel(mRequestTimer);
+            mRequestTimer = CHRE_TIMER_INVALID;
+          }
+          if (event->success) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_WIFI_ASYNC_RESULT,
+                *(static_cast<const uint32_t *>(event->cookie)));
+          }
+          break;
+        }
+
+        case CHRE_EVENT_WIFI_SCAN_RESULT: {
+          TestEventQueueSingleton::get()->pushEvent(
+              CHRE_EVENT_WIFI_SCAN_RESULT);
+          break;
+        }
+
+        case CHRE_EVENT_TIMER: {
+          TestEventQueueSingleton::get()->pushEvent(REQUEST_TIMED_OUT);
+          mRequestTimer = CHRE_TIMER_INVALID;
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case SCAN_REQUEST:
+              bool success = false;
+              mCookie = *static_cast<uint32_t *>(event->data);
+              if (chreWifiRequestScanAsyncDefault(&mCookie)) {
+                mRequestTimer =
+                    chreTimerSet(CHRE_TEST_WIFI_SCAN_RESULT_TIMEOUT_NS, nullptr,
+                                 true /* oneShot */);
+                success = mRequestTimer != CHRE_TIMER_INVALID;
+              }
+              TestEventQueueSingleton::get()->pushEvent(SCAN_REQUEST, success);
+              break;
+          }
+          break;
+        }
+      }
+    }
+
+   protected:
+    uint32_t mCookie;
+    uint32_t mRequestTimer;
+  };
+
   uint64_t appId = loadNanoapp(MakeUnique<ScanTestNanoapp>());
 
   constexpr uint32_t timeOutCookie = 0xdead;
@@ -98,11 +124,7 @@ TEST_F(WifiTimeoutTestBase, WifiScanRequestTimeoutTest) {
   waitForEvent(SCAN_REQUEST, &success);
   EXPECT_TRUE(success);
 
-  // Add 1 second to make sure that the system have sometime to process the
-  // timeout.
-  constexpr uint8_t kWifiScanRequestTimeoutSec =
-      (CHRE_TEST_WIFI_SCAN_RESULT_TIMEOUT_NS / CHRE_NSEC_PER_SEC) + 1;
-  std::this_thread::sleep_for(std::chrono::seconds(kWifiScanRequestTimeoutSec));
+  waitForEvent(REQUEST_TIMED_OUT);
 
   // Make sure that we can still request scan after a timedout
   // request.
@@ -118,8 +140,86 @@ TEST_F(WifiTimeoutTestBase, WifiScanRequestTimeoutTest) {
 }
 
 TEST_F(WifiTimeoutTestBase, WifiCanDispatchQueuedRequestAfterOneTimeout) {
-  constexpr uint64_t kAppOneId = 0x0123456789000001;
-  constexpr uint64_t kAppTwoId = 0x0123456789000002;
+  constexpr uint8_t kNanoappNum = 2;
+  // receivedTimeout is shared across apps and must be static.
+  // But we want it initialized each time the test is executed.
+  static uint8_t receivedTimeout;
+  receivedTimeout = 0;
+
+  class ScanTestNanoapp : public TestNanoapp {
+   public:
+    explicit ScanTestNanoapp(uint64_t id = kDefaultTestNanoappId)
+        : TestNanoapp(TestNanoappInfo{
+              .id = id, .perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
+
+    bool start() override {
+      for (uint8_t i = 0; i < kNanoappNum; ++i) {
+        mRequestTimers[i] = CHRE_TIMER_INVALID;
+      }
+      return true;
+    }
+
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      size_t index = id() - CHRE_VENDOR_ID_EXAMPLE - 1;
+      switch (eventType) {
+        case CHRE_EVENT_WIFI_ASYNC_RESULT: {
+          auto *event = static_cast<const chreAsyncResult *>(eventData);
+          if (mRequestTimers[index] != CHRE_TIMER_INVALID) {
+            chreTimerCancel(mRequestTimers[index]);
+            mRequestTimers[index] = CHRE_TIMER_INVALID;
+          }
+          if (event->success) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_WIFI_ASYNC_RESULT,
+                *(static_cast<const uint32_t *>(event->cookie)));
+          }
+          break;
+        }
+
+        case CHRE_EVENT_WIFI_SCAN_RESULT: {
+          TestEventQueueSingleton::get()->pushEvent(
+              CHRE_EVENT_WIFI_SCAN_RESULT);
+          break;
+        }
+
+        case CHRE_EVENT_TIMER: {
+          if (eventData == &mCookie[index]) {
+            receivedTimeout++;
+            mRequestTimers[index] = CHRE_TIMER_INVALID;
+          }
+          if (receivedTimeout == 2) {
+            TestEventQueueSingleton::get()->pushEvent(REQUEST_TIMED_OUT);
+          }
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case SCAN_REQUEST:
+              bool success = false;
+              mCookie[index] = *static_cast<uint32_t *>(event->data);
+              if (chreWifiRequestScanAsyncDefault(&mCookie[index])) {
+                mRequestTimers[index] =
+                    chreTimerSet(CHRE_TEST_WIFI_SCAN_RESULT_TIMEOUT_NS,
+                                 &mCookie[index], true /* oneShot */);
+                success = mRequestTimers[index] != CHRE_TIMER_INVALID;
+              }
+              TestEventQueueSingleton::get()->pushEvent(SCAN_REQUEST, success);
+              break;
+          }
+          break;
+        }
+      }
+    }
+
+   protected:
+    uint32_t mCookie[kNanoappNum];
+    uint32_t mRequestTimers[kNanoappNum];
+  };
+  constexpr uint64_t kAppOneId = makeExampleNanoappId(1);
+  constexpr uint64_t kAppTwoId = makeExampleNanoappId(2);
 
   uint64_t firstAppId = loadNanoapp(MakeUnique<ScanTestNanoapp>(kAppOneId));
   uint64_t secondAppId = loadNanoapp(MakeUnique<ScanTestNanoapp>(kAppTwoId));
@@ -127,23 +227,15 @@ TEST_F(WifiTimeoutTestBase, WifiCanDispatchQueuedRequestAfterOneTimeout) {
   constexpr uint32_t timeOutCookie = 0xdead;
   chrePalWifiEnableResponse(PalWifiAsyncRequestTypes::SCAN,
                             false /* enableResponse */);
-  sendEventToNanoapp(firstAppId, SCAN_REQUEST, timeOutCookie);
   bool success;
+  sendEventToNanoapp(firstAppId, SCAN_REQUEST, timeOutCookie);
   waitForEvent(SCAN_REQUEST, &success);
   EXPECT_TRUE(success);
   sendEventToNanoapp(secondAppId, SCAN_REQUEST, timeOutCookie);
   waitForEvent(SCAN_REQUEST, &success);
   EXPECT_TRUE(success);
 
-  // Add 1 second to make sure that the system have sometime to process the
-  // timeout.
-  constexpr uint8_t kWifiScanRequestTimeoutSec =
-      (CHRE_TEST_WIFI_SCAN_RESULT_TIMEOUT_NS / CHRE_NSEC_PER_SEC) + 1;
-
-  // Since we now have 2 item in queue, we need to wait double amount of time to
-  // make sure that both request timedout.
-  std::this_thread::sleep_for(
-      std::chrono::seconds(2 * kWifiScanRequestTimeoutSec));
+  waitForEvent(REQUEST_TIMED_OUT);
 
   // Make sure that we can still request scan for both nanoapps after a timedout
   // request.
@@ -177,12 +269,21 @@ TEST_F(WifiTimeoutTestBase, WifiScanMonitorTimeoutTest) {
         : TestNanoapp(
               TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
+    bool start() override {
+      mRequestTimer = CHRE_TIMER_INVALID;
+      return true;
+    }
+
     void handleEvent(uint32_t, uint16_t eventType,
                      const void *eventData) override {
       switch (eventType) {
         case CHRE_EVENT_WIFI_ASYNC_RESULT: {
           auto *event = static_cast<const chreAsyncResult *>(eventData);
           if (event->success) {
+            if (mRequestTimer != CHRE_TIMER_INVALID) {
+              chreTimerCancel(mRequestTimer);
+              mRequestTimer = CHRE_TIMER_INVALID;
+            }
             TestEventQueueSingleton::get()->pushEvent(
                 CHRE_EVENT_WIFI_ASYNC_RESULT,
                 *(static_cast<const uint32_t *>(event->cookie)));
@@ -190,15 +291,27 @@ TEST_F(WifiTimeoutTestBase, WifiScanMonitorTimeoutTest) {
           break;
         }
 
+        case CHRE_EVENT_TIMER: {
+          mRequestTimer = CHRE_TIMER_INVALID;
+          TestEventQueueSingleton::get()->pushEvent(REQUEST_TIMED_OUT);
+          break;
+        }
+
         case CHRE_EVENT_TEST_EVENT: {
           auto event = static_cast<const TestEvent *>(eventData);
           switch (event->type) {
             case SCAN_MONITOR_REQUEST:
+              bool success = false;
               auto request =
                   static_cast<const MonitoringRequest *>(event->data);
-              mCookie = request->cookie;
-              bool success =
-                  chreWifiConfigureScanMonitorAsync(request->enable, &mCookie);
+              if (chreWifiConfigureScanMonitorAsync(request->enable,
+                                                    &mCookie)) {
+                mCookie = request->cookie;
+                mRequestTimer = chreTimerSet(CHRE_TEST_ASYNC_RESULT_TIMEOUT_NS,
+                                             nullptr, true /* oneShot */);
+                success = mRequestTimer != CHRE_TIMER_INVALID;
+              }
+
               TestEventQueueSingleton::get()->pushEvent(SCAN_MONITOR_REQUEST,
                                                         success);
           }
@@ -208,6 +321,7 @@ TEST_F(WifiTimeoutTestBase, WifiScanMonitorTimeoutTest) {
 
    protected:
     uint32_t mCookie;
+    uint32_t mRequestTimer;
   };
 
   uint64_t appId = loadNanoapp(MakeUnique<App>());
@@ -219,11 +333,7 @@ TEST_F(WifiTimeoutTestBase, WifiScanMonitorTimeoutTest) {
   waitForEvent(SCAN_MONITOR_REQUEST, &success);
   EXPECT_TRUE(success);
 
-  // Add 1 second to prevent race condition.
-  constexpr uint8_t kWifiConfigureScanMonitorTimeoutSec =
-      (CHRE_TEST_ASYNC_RESULT_TIMEOUT_NS / CHRE_NSEC_PER_SEC) + 1;
-  std::this_thread::sleep_for(
-      std::chrono::seconds(kWifiConfigureScanMonitorTimeoutSec));
+  waitForEvent(REQUEST_TIMED_OUT);
 
   // Make sure that we can still request to change scan monitor after a timedout
   // request.
@@ -252,7 +362,6 @@ TEST_F(WifiTimeoutTestBase, WifiScanMonitorTimeoutTest) {
 
 TEST_F(WifiTimeoutTestBase, WifiRequestRangingTimeoutTest) {
   CREATE_CHRE_TEST_EVENT(RANGING_REQUEST, 0);
-  CREATE_CHRE_TEST_EVENT(RANGING_RESULT_TIMEOUT, 1);
 
   class App : public TestNanoapp {
    public:
@@ -260,10 +369,20 @@ TEST_F(WifiTimeoutTestBase, WifiRequestRangingTimeoutTest) {
         : TestNanoapp(
               TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_WIFI}) {}
 
+    bool start() override {
+      mRequestTimer = CHRE_TIMER_INVALID;
+      return true;
+    }
+
     void handleEvent(uint32_t, uint16_t eventType,
                      const void *eventData) override {
       switch (eventType) {
         case CHRE_EVENT_WIFI_ASYNC_RESULT: {
+          if (mRequestTimer != CHRE_TIMER_INVALID) {
+            chreTimerCancel(mRequestTimer);
+            mRequestTimer = CHRE_TIMER_INVALID;
+          }
+
           auto *event = static_cast<const chreAsyncResult *>(eventData);
           if (event->success) {
             if (event->errorCode == 0) {
@@ -271,11 +390,13 @@ TEST_F(WifiTimeoutTestBase, WifiRequestRangingTimeoutTest) {
                   CHRE_EVENT_WIFI_ASYNC_RESULT,
                   *(static_cast<const uint32_t *>(event->cookie)));
             }
-          } else if (event->errorCode == CHRE_ERROR_TIMEOUT) {
-            TestEventQueueSingleton::get()->pushEvent(
-                RANGING_RESULT_TIMEOUT,
-                *(static_cast<const uint32_t *>(event->cookie)));
           }
+          break;
+        }
+
+        case CHRE_EVENT_TIMER: {
+          mRequestTimer = CHRE_TIMER_INVALID;
+          TestEventQueueSingleton::get()->pushEvent(REQUEST_TIMED_OUT);
           break;
         }
 
@@ -283,6 +404,7 @@ TEST_F(WifiTimeoutTestBase, WifiRequestRangingTimeoutTest) {
           auto event = static_cast<const TestEvent *>(eventData);
           switch (event->type) {
             case RANGING_REQUEST:
+              bool success = false;
               mCookie = *static_cast<uint32_t *>(event->data);
 
               // Placeholder parameters since linux PAL does not use this to
@@ -300,8 +422,12 @@ TEST_F(WifiTimeoutTestBase, WifiRequestRangingTimeoutTest) {
                   .targetList = &dummyRangingTarget,
               };
 
-              bool success =
-                  chreWifiRequestRangingAsync(&dummyRangingParams, &mCookie);
+              if (chreWifiRequestRangingAsync(&dummyRangingParams, &mCookie)) {
+                mRequestTimer =
+                    chreTimerSet(CHRE_TEST_WIFI_RANGING_RESULT_TIMEOUT_NS,
+                                 nullptr, true /* oneShot */);
+                success = mRequestTimer != CHRE_TIMER_INVALID;
+              }
               TestEventQueueSingleton::get()->pushEvent(RANGING_REQUEST,
                                                         success);
           }
@@ -311,6 +437,7 @@ TEST_F(WifiTimeoutTestBase, WifiRequestRangingTimeoutTest) {
 
    protected:
     uint32_t mCookie;
+    uint32_t mRequestTimer;
   };
 
   uint64_t appId = loadNanoapp(MakeUnique<App>());
@@ -323,11 +450,7 @@ TEST_F(WifiTimeoutTestBase, WifiRequestRangingTimeoutTest) {
   waitForEvent(RANGING_REQUEST, &success);
   EXPECT_TRUE(success);
 
-  // Add 1 second to prevent race condition
-  constexpr uint8_t kWifiRequestRangingTimeoutSec =
-      (CHRE_TEST_WIFI_RANGING_RESULT_TIMEOUT_NS / CHRE_NSEC_PER_SEC) + 1;
-  std::this_thread::sleep_for(
-      std::chrono::seconds(kWifiRequestRangingTimeoutSec));
+  waitForEvent(REQUEST_TIMED_OUT);
 
   // Make sure that we can still request ranging after a timedout request
   uint32_t successCookie = 0x0101;
