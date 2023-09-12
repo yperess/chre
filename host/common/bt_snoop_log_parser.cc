@@ -18,6 +18,7 @@
 
 #include <endian.h>
 #include <string.h>
+#include <unistd.h>
 #include <fstream>
 
 #include "chre/util/time.h"
@@ -146,12 +147,9 @@ bool BtSnoopLogParser::ensureSnoopLogFileIsOpen() {
 
 bool BtSnoopLogParser::openNextSnoopLogFile() {
   closeSnoopLogFile();
-  std::ifstream snoopLogFile(kSnoopLogFilePath);
-  if (snoopLogFile.good()) {
-    if (!std::rename(kSnoopLogFilePath, kLastSnoopLogFilePath)) {
-      LOGE("Unable to rename existing snoop log, error: \"%s\"",
-           strerror(errno));
-    }
+  if (access(kSnoopLogFilePath, F_OK) == 0 &&
+      std::rename(kSnoopLogFilePath, kLastSnoopLogFilePath) != 0) {
+    LOGE("Unable to rename existing snoop log, error: \"%s\"", strerror(errno));
   }
 
   bool success = false;
