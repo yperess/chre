@@ -283,8 +283,8 @@ COMMON_SRCS += $(PIGWEED_DIR)/pw_rpc/nanopb/server_reader_writer.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_rpc/pwpb/server_reader_writer.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_stream/memory_stream.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_varint/stream.cc
+COMMON_SRCS += $(PIGWEED_DIR)/pw_varint/varint_c.c
 COMMON_SRCS += $(PIGWEED_DIR)/pw_varint/varint.cc
-
 # Pigweed configuration
 COMMON_CFLAGS += -DPW_RPC_USE_GLOBAL_MUTEX=0
 COMMON_CFLAGS += -DPW_RPC_YIELD_MODE=PW_RPC_YIELD_MODE_BUSY_LOOP
