@@ -16,8 +16,8 @@
 
 #include <chrono>
 #include <cmath>
+#include <mutex>
 #include <optional>
-#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -25,66 +25,110 @@
 
 namespace {
 
-uint32_t gVarTaskManager = 0;
-
-constexpr auto incrementGVar = []() { ++gVarTaskManager; };
-
-TEST(TaskManager, FlushTasks) {
+TEST(TaskManager, FlushTasksCanBeCalledMultipleTimes) {
   chre::TaskManager taskManager;
-  for (uint32_t i = 0; i < 50; ++i) {
+
+  constexpr uint32_t numCallsToFlush = 50;
+  for (uint32_t i = 0; i < numCallsToFlush; ++i) {
     taskManager.flushTasks();
   }
 }
 
-TEST(TaskManager, MultipleNonRepeatingTasks) {
+TEST(TaskManager, MultipleNonRepeatingTasksAreExecuted) {
+  uint32_t counter = 0;
+  std::mutex mutex;
+  std::condition_variable condVar;
   chre::TaskManager taskManager;
-  gVarTaskManager = 0;
+
   constexpr uint32_t numTasks = 50;
+  auto incrementFunc = [&mutex, &condVar, &counter]() {
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      ++counter;
+    }
+
+    condVar.notify_all();
+  };
   for (uint32_t i = 0; i < numTasks; ++i) {
-    taskManager.addTask(incrementGVar, std::chrono::nanoseconds(0));
-    std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+    std::optional<uint32_t> taskId =
+        taskManager.addTask(incrementFunc,
+                            /* intervalOrDelay */ std::chrono::nanoseconds(0));
+    EXPECT_TRUE(taskId.has_value());
   }
+
+  std::unique_lock<std::mutex> lock(mutex);
+  condVar.wait(lock, [&counter]() { return counter >= numTasks; });
   taskManager.flushTasks();
-  EXPECT_TRUE(gVarTaskManager == numTasks);
+  EXPECT_EQ(counter, numTasks);
 }
 
-TEST(TaskManager, MultipleTypesOfTasks) {
+TEST(TaskManager, RepeatingAndOneShotTasksCanExecuteTogether) {
+  uint32_t counter = 0;
+  std::mutex mutex;
+  std::condition_variable condVar;
   chre::TaskManager taskManager;
-  gVarTaskManager = 0;
+
   constexpr uint32_t numTasks = 50;
+  auto incrementFunc = [&mutex, &condVar, &counter]() {
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      ++counter;
+    }
+
+    condVar.notify_all();
+  };
   for (uint32_t i = 0; i < numTasks; ++i) {
-    taskManager.addTask(incrementGVar, std::chrono::nanoseconds(0));
-    std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+    std::optional<uint32_t> taskId =
+        taskManager.addTask(incrementFunc,
+                            /* intervalOrDelay */ std::chrono::nanoseconds(0));
+    EXPECT_TRUE(taskId.has_value());
   }
-  uint32_t nanosecondsToRepeat = 100;
-  std::optional<uint32_t> taskId = taskManager.addTask(
-      incrementGVar, std::chrono::nanoseconds(nanosecondsToRepeat));
-  EXPECT_TRUE(taskId.has_value());
-  uint32_t taskRepeatTimesMax = 11;
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(nanosecondsToRepeat * taskRepeatTimesMax));
+
+  constexpr std::chrono::nanoseconds interval(50);
+  std::optional<uint32_t> taskId = taskManager.addTask(incrementFunc, interval);
+  ASSERT_TRUE(taskId.has_value());
+
+  constexpr uint32_t taskRepeatTimesMax = 5;
+  std::unique_lock<std::mutex> lock(mutex);
+  condVar.wait(
+      lock, [&counter]() { return counter >= numTasks + taskRepeatTimesMax; });
   EXPECT_TRUE(taskManager.cancelTask(taskId.value()));
   taskManager.flushTasks();
-  EXPECT_TRUE(gVarTaskManager >= numTasks + taskRepeatTimesMax - 1);
+  EXPECT_GE(counter, numTasks + taskRepeatTimesMax);
 }
 
-TEST(TaskManager, FlushTasksWithoutCancel) {
+TEST(TaskManager, TasksCanBeFlushedEvenIfNotCancelled) {
+  uint32_t counter = 0;
+  std::mutex mutex;
+  std::condition_variable condVar;
   chre::TaskManager taskManager;
-  gVarTaskManager = 0;
+
   constexpr uint32_t numTasks = 50;
+  auto incrementFunc = [&mutex, &condVar, &counter]() {
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      ++counter;
+    }
+
+    condVar.notify_all();
+  };
   for (uint32_t i = 0; i < numTasks; ++i) {
-    taskManager.addTask(incrementGVar, std::chrono::nanoseconds(0));
-    std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+    std::optional<uint32_t> taskId =
+        taskManager.addTask(incrementFunc,
+                            /* intervalOrDelay */ std::chrono::nanoseconds(0));
+    EXPECT_TRUE(taskId.has_value());
   }
-  uint32_t nanosecondsToRepeat = 100;
-  std::optional<uint32_t> taskId = taskManager.addTask(
-      incrementGVar, std::chrono::nanoseconds(nanosecondsToRepeat));
-  EXPECT_TRUE(taskId.has_value());
-  uint32_t taskRepeatTimesMax = 11;
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(nanosecondsToRepeat * taskRepeatTimesMax));
+
+  constexpr std::chrono::nanoseconds interval(50);
+  std::optional<uint32_t> taskId = taskManager.addTask(incrementFunc, interval);
+  ASSERT_TRUE(taskId.has_value());
+
+  constexpr uint32_t taskRepeatTimesMax = 5;
+  std::unique_lock<std::mutex> lock(mutex);
+  condVar.wait(
+      lock, [&counter]() { return counter >= numTasks + taskRepeatTimesMax; });
   taskManager.flushTasks();
-  EXPECT_TRUE(gVarTaskManager >= numTasks + taskRepeatTimesMax - 1);
+  EXPECT_GE(counter, numTasks + taskRepeatTimesMax);
 }
 
 }  // namespace
