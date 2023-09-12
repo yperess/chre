@@ -920,3 +920,15 @@ cc_library_static {
     ],
     cflags: ["-Wall", "-Werror"]
 }
+
+aconfig_declarations {
+    name: "chre_flags",
+    package: "android.chre.flags",
+    srcs: ["chre_flags.aconfig"],
+}
+
+cc_aconfig_library {
+    name: "chre_flags_c_lib",
+    aconfig_declarations: "chre_flags",
+    vendor: true,
+}
