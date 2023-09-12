@@ -69,7 +69,7 @@ enum class Commands : uint16_t {
 constexpr uint16_t kNumCommands = 1;
 
 struct ClientState {
-  struct ChppClientState chppClientState;
+  struct ChppEndpointState chppClientState;
   struct ChppOutgoingRequestState outReqStates[kNumCommands];
   bool serviceNotificationStatus;
   struct ChppNotifier notifier;

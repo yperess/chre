@@ -83,9 +83,6 @@ extern "C" {
 #define chppAllocClientNotificationFixed(type) \
   (type *)chppAllocClientNotification(sizeof(type))
 
-// Alias for backward compatibility.
-#define ChppClientState ChppEndpointState
-
 #ifdef CHPP_CLIENT_ENABLED_CHRE_WWAN
 #define CHPP_CLIENT_ENABLED_WWAN
 #endif

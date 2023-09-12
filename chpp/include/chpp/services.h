@@ -88,9 +88,6 @@ extern "C" {
 #define chppAllocServiceNotificationFixed(type) \
   (type *)chppAllocServiceNotification(sizeof(type))
 
-// Alias for backward compatibility.
-#define ChppServiceState ChppEndpointState
-
 /************************************************
  *  Public functions
  ***********************************************/

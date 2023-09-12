@@ -179,7 +179,7 @@ enum ChppAppErrorCode dispatchRequest(
 
 // Client specific code.
 struct ClientState {
-  struct ChppClientState chppClientState;
+  struct ChppEndpointState chppClientState;
   struct ChppOutgoingRequestState outReqStates[kNumCommands];
   struct ChppIncomingRequestState inReqStates[kNumCommands];
   struct CommonState common;

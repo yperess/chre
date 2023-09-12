@@ -48,7 +48,7 @@ namespace {
 constexpr uint16_t kNumCommands = 3;
 
 struct ClientState {
-  struct ChppClientState chppClientState;
+  struct ChppEndpointState chppClientState;
   struct ChppOutgoingRequestState outReqStates[kNumCommands];
 };
 
