@@ -232,7 +232,9 @@ void AppManager::HandleHostConfigRequest(const uint8_t *message,
     LOGD("received screen config %d", screen_on_);
     if (screen_on_) {
       fp_screen_on_sent_ = false;
-      ble_scanner_.Flush();
+      if (ble_scanner_.isScanning()) {
+        ble_scanner_.Flush();
+      }
       // TODO(b/255338604): used the default report delay value only because
       // FP offload scan doesn't use low latency report delay.
       // when the flushed packet droping issue is resolved, try to reconfigure

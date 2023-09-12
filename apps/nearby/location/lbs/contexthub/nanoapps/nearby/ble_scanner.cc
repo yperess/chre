@@ -222,6 +222,7 @@ void BleScanner::Restart() {
     }
   }
   chreBleScanFilter scan_filter;
+  memset(&scan_filter, 0, sizeof(scan_filter));
   scan_filter.rssiThreshold = CHRE_BLE_RSSI_THRESHOLD_NONE;
   scan_filter.scanFilters = generic_filters.data();
   scan_filter.scanFilterCount = static_cast<uint8_t>(generic_filters.size());

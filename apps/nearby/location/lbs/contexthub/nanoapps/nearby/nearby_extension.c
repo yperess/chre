@@ -1,7 +1,6 @@
 #include "location/lbs/contexthub/nanoapps/nearby/nearby_extension.h"
 
 #include "stddef.h"
-
 #include "third_party/contexthub/chre/util/include/chre/util/nanoapp/log.h"
 
 #define LOG_TAG "[NEARBY][FILTER_EXTENSION]"
