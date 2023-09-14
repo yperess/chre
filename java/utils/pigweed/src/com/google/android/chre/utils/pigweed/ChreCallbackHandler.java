@@ -22,9 +22,6 @@ import android.hardware.location.ContextHubClient;
 import android.hardware.location.ContextHubClientCallback;
 import android.hardware.location.NanoAppMessage;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import java.util.Objects;
 
 import dev.pigweed.pw_rpc.Client;
@@ -35,15 +32,17 @@ import dev.pigweed.pw_rpc.Client;
  */
 public class ChreCallbackHandler extends ContextHubClientCallback {
     private final long mNanoappId;
-    private final @Nullable ContextHubClientCallback mCallback;
+    // Nullable.
+    private final ContextHubClientCallback mCallback;
     private Client mRpcClient;
     private ChreChannelOutput mChannelOutput;
 
     /**
      * @param nanoappId ID of the RPC Server nanoapp
-     * @param callback The callbacks receiving messages and life-cycle events from nanoapps
+     * @param callback  The callbacks receiving messages and life-cycle events from nanoapps,
+     *                  nullable.
      */
-    public ChreCallbackHandler(long nanoappId, @Nullable ContextHubClientCallback callback) {
+    public ChreCallbackHandler(long nanoappId, ContextHubClientCallback callback) {
         mNanoappId = nanoappId;
         mCallback = callback;
     }
@@ -51,10 +50,10 @@ public class ChreCallbackHandler extends ContextHubClientCallback {
     /**
      * Completes the initialization.
      *
-     * @param rpcClient The Pigweed RPC client
-     * @param channelOutput The ChannelOutput used by Pigweed
+     * @param rpcClient     The Pigweed RPC client, non null
+     * @param channelOutput The ChannelOutput used by Pigweed, non null
      */
-    public void lateInit(@NonNull Client rpcClient, @NonNull ChreChannelOutput channelOutput) {
+    public void lateInit(Client rpcClient, ChreChannelOutput channelOutput) {
         mRpcClient = Objects.requireNonNull(rpcClient);
         mChannelOutput = Objects.requireNonNull(channelOutput);
     }
