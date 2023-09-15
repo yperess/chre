@@ -16,6 +16,7 @@
 
 #ifdef CHRE_TOKENIZED_LOGGING_ENABLED
 #include "chre/platform/log.h"
+#include "pw_log_tokenized/config.h"
 #include "pw_tokenizer/encode_args.h"
 #include "pw_tokenizer/tokenize.h"
 
@@ -26,7 +27,8 @@ void EncodeTokenizedMessage(uint32_t level, pw_tokenizer_Token token,
                             pw_tokenizer_ArgTypes types, ...) {
   va_list args;
   va_start(args, types);
-  pw::tokenizer::EncodedMessage encodedMessage(token, types, args);
+  pw::tokenizer::EncodedMessage<pw::log_tokenized::kEncodingBufferSizeBytes>
+      encodedMessage(token, types, args);
   va_end(args);
 
   chrePlatformEncodedLogToBuffer(static_cast<chreLogLevel>(level),
