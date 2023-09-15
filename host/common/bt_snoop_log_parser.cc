@@ -42,7 +42,7 @@ constexpr char kSnoopLogFilePath[] = "/data/vendor/chre/chre_btsnoop_hci.log";
 constexpr char kLastSnoopLogFilePath[] =
     "/data/vendor/chre/chre_btsnoop_hci.log.last";
 
-constexpr size_t kDefaultBtSnoopMaxPacketsPerFile = 0x0008;
+constexpr size_t kDefaultBtSnoopMaxPacketsPerFile = 0xffff;
 
 const size_t PACKET_TYPE_LENGTH = 1;
 
