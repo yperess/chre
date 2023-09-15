@@ -107,22 +107,33 @@ LOCAL_CPPFLAGS += -std=c++20
 LOCAL_CFLAGS += -Wno-sign-compare
 LOCAL_CFLAGS += -Wno-c++11-narrowing
 LOCAL_CFLAGS += -Wno-deprecated-volatile
-PIGWEED_DIR = external/pigweed
-PIGWEED_DIR_RELPATH = ../../$(PIGWEED_DIR)
-LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_bytes/public
-LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_polyfill/public
-LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_polyfill/public_overrides
-LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_polyfill/standard_library_public
-LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_preprocessor/public
-LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_tokenizer/public
-LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_varint/public
-LOCAL_CFLAGS += -I$(PIGWEED_DIR)/pw_span/public
-LOCAL_CFLAGS += \
-    -I$(PIGWEED_DIR)/third_party/fuchsia/repo/sdk/lib/stdcompat/include
 
-LOCAL_SRC_FILES += $(PIGWEED_DIR_RELPATH)/pw_tokenizer/detokenize.cc
-LOCAL_SRC_FILES += $(PIGWEED_DIR_RELPATH)/pw_tokenizer/decode.cc
-LOCAL_SRC_FILES += $(PIGWEED_DIR_RELPATH)/pw_varint/varint.cc
+# Pigweed (PW)
+PW_DIR = external/pigweed
+PW_DIR_RELPATH = ../../$(PW_DIR)
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_assert/assert_compatibility_public_overrides
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_assert/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_base64/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_bytes/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_containers/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_log_tokenized/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_log/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_polyfill/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_polyfill/public_overrides
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_polyfill/standard_library_public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_preprocessor/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_result/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_span/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_status/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_string/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_tokenizer/public
+LOCAL_CFLAGS += -I$(PW_DIR)/pw_varint/public
+LOCAL_CFLAGS += -I$(PW_DIR)/third_party/fuchsia/repo/sdk/lib/stdcompat/include
+
+LOCAL_SRC_FILES += $(PW_DIR_RELPATH)/pw_tokenizer/decode.cc
+LOCAL_SRC_FILES += $(PW_DIR_RELPATH)/pw_tokenizer/detokenize.cc
+LOCAL_SRC_FILES += $(PW_DIR_RELPATH)/pw_varint/varint_c.c
+LOCAL_SRC_FILES += $(PW_DIR_RELPATH)/pw_varint/varint.cc
 
 ifeq ($(CHRE_DAEMON_USE_SDSPRPC),true)
 LOCAL_SHARED_LIBRARIES += libsdsprpc
