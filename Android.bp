@@ -538,6 +538,7 @@ cc_test_host {
         "platform/include",
         "platform/linux/include",
         "platform/shared/include",
+        "platform/shared/pw_trace/include",
         "util/include",
     ],
     cflags: [

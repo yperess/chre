@@ -341,6 +341,7 @@ GOOGLETEST_CFLAGS += $(FLATBUFFERS_CFLAGS)
 GOOGLETEST_CFLAGS += -Iplatform/shared/include
 GOOGLETEST_CFLAGS += -Iplatform/linux/include
 GOOGLETEST_CFLAGS += -Iplatform/slpi/include
+GOOGLETEST_CFLAGS += -Iplatform/shared/pw_trace/include
 
 # GoogleTest Source Files ######################################################
 
@@ -350,6 +351,7 @@ GOOGLETEST_COMMON_SRCS += platform/linux/sim/platform_audio.cc
 GOOGLETEST_COMMON_SRCS += platform/linux/tests/task_test.cc
 GOOGLETEST_COMMON_SRCS += platform/linux/tests/task_manager_test.cc
 GOOGLETEST_COMMON_SRCS += platform/tests/log_buffer_test.cc
+GOOGLETEST_COMMON_SRCS += platform/tests/trace_test.cc
 GOOGLETEST_COMMON_SRCS += platform/shared/log_buffer.cc
 ifeq ($(CHRE_WIFI_NAN_SUPPORT_ENABLED), true)
 GOOGLETEST_COMMON_SRCS += platform/linux/pal_nan.cc
