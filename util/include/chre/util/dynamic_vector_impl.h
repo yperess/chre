@@ -189,9 +189,11 @@ bool DynamicVector<ElementType>::doReserve(size_type newCapacity,
     ElementType *newData = static_cast<ElementType *>(
         memoryAlloc(newCapacity * sizeof(ElementType)));
     if (newData != nullptr) {
-      uninitializedMoveOrCopy(data(), mSize, newData);
-      destroy(data(), mSize);
-      memoryFree(data());
+      if (data() != nullptr) {
+        uninitializedMoveOrCopy(data(), mSize, newData);
+        destroy(data(), mSize);
+        memoryFree(data());
+      }
       mData = newData;
       mCapacity = newCapacity;
       success = true;
