@@ -87,6 +87,15 @@ bool createBleScanFilterForKnownBeacons(struct chreBleScanFilter &filter,
                                         chreBleGenericFilter *genericFilters,
                                         uint8_t numGenericFilters);
 
+/**
+ * Similar to createBleScanFilterForKnownBeacons but creates a
+ * chreBleScanFilterV1_9 instead of a chreBleScanFilter. The
+ * broadcasterAddressFilters are set to empty.
+ */
+bool createBleScanFilterForKnownBeaconsV1_9(
+    struct chreBleScanFilterV1_9 &filter, chreBleGenericFilter *genericFilters,
+    uint8_t numGenericFilters);
+
 }  // namespace chre
 
 #endif  // CHRE_UTIL_NANOAPP_BLE_H_

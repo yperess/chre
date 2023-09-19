@@ -151,7 +151,7 @@ uint32_t chrePalBleGetFilterCapabilities() {
 }
 
 bool chrePalBleStartScan(chreBleScanMode mode, uint32_t reportDelayMs,
-                         const struct chreBleScanFilter * /* filter */) {
+                         const struct chreBleScanFilterV1_9 * /* filter */) {
   {
     std::lock_guard<std::mutex> lock(gBatchMutex);
 

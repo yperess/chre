@@ -51,9 +51,14 @@ extern "C" {
 #define CHRE_PAL_BLE_API_V1_9 CHRE_PAL_CREATE_API_VERSION(1, 9)
 
 /**
+ * Introduced alongside CHRE API v1.9, add broadcaster address filter.
+ */
+#define CHRE_PAL_BLE_API_V1_10 CHRE_PAL_CREATE_API_VERSION(1, 10)
+
+/**
  * The version of the CHRE BLE PAL defined in this header file.
  */
-#define CHRE_PAL_BLE_API_CURRENT_VERSION CHRE_PAL_BLE_API_V1_9
+#define CHRE_PAL_BLE_API_CURRENT_VERSION CHRE_PAL_BLE_API_V1_10
 
 /**
  * The maximum amount of time allowed to elapse between the call to
@@ -219,7 +224,7 @@ struct chrePalBleApi {
    * @see chreBleStartScanAsync()
    */
   bool (*startScan)(enum chreBleScanMode mode, uint32_t reportDelayMs,
-                    const struct chreBleScanFilter *filter);
+                    const struct chreBleScanFilterV1_9 *filter);
   /**
    * Stops Bluetooth LE (BLE) scanning.
    *

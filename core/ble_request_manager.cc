@@ -86,9 +86,9 @@ bool BleRequestManager::updateRequests(BleRequest &&request,
   return success;
 }
 
-bool BleRequestManager::startScanAsync(Nanoapp *nanoapp, chreBleScanMode mode,
-                                       uint32_t reportDelayMs,
-                                       const struct chreBleScanFilter *filter) {
+bool BleRequestManager::startScanAsync(
+    Nanoapp *nanoapp, chreBleScanMode mode, uint32_t reportDelayMs,
+    const struct chreBleScanFilterV1_9 *filter) {
   CHRE_ASSERT(nanoapp);
   BleRequest request(nanoapp->getInstanceId(), true /* enable */, mode,
                      reportDelayMs, filter);
@@ -225,7 +225,7 @@ bool BleRequestManager::controlPlatform() {
   bool enable = bleSettingEnabled() && maxRequest.isEnabled();
 
   if (enable) {
-    chreBleScanFilter filter = maxRequest.getScanFilter();
+    chreBleScanFilterV1_9 filter = maxRequest.getScanFilter();
     success = mPlatformBle.startScanAsync(
         maxRequest.getMode(), maxRequest.getReportDelayMs(), &filter);
     mPendingPlatformRequest =

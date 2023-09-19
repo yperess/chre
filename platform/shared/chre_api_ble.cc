@@ -56,9 +56,11 @@ DLL_EXPORT bool chreBleFlushAsync(const void *cookie) {
 #endif  // CHRE_BLE_SUPPORT_ENABLED
 }
 
-DLL_EXPORT bool chreBleStartScanAsync(chreBleScanMode mode,
-                                      uint32_t reportDelayMs,
-                                      const struct chreBleScanFilter *filter) {
+DLL_EXPORT bool chreBleStartScanAsyncV1_9(
+    chreBleScanMode mode, uint32_t reportDelayMs,
+    const struct chreBleScanFilterV1_9 *filter, const void *cookie) {
+  // TODO(b/300138308): Handle Cookies for BLE Start and Stop Scan Requests.
+  UNUSED_VAR(cookie);
 #ifdef CHRE_BLE_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return nanoapp->permitPermissionUse(NanoappPermissions::CHRE_PERMS_BLE) &&
@@ -73,7 +75,20 @@ DLL_EXPORT bool chreBleStartScanAsync(chreBleScanMode mode,
 #endif  // CHRE_BLE_SUPPORT_ENABLED
 }
 
-DLL_EXPORT bool chreBleStopScanAsync() {
+DLL_EXPORT bool chreBleStartScanAsync(chreBleScanMode mode,
+                                      uint32_t reportDelayMs,
+                                      const struct chreBleScanFilter *filter) {
+  chreBleScanFilterV1_9 filterV1_9 = {
+      filter->rssiThreshold, filter->scanFilterCount, filter->scanFilters,
+      0 /* broadcasterAddressFilterCount */,
+      nullptr /* broadcasterAddressFilters */};
+  return chreBleStartScanAsyncV1_9(mode, reportDelayMs, &filterV1_9,
+                                   nullptr /* cookie */);
+}
+
+DLL_EXPORT bool chreBleStopScanAsyncV1_9(const void *cookie) {
+  // TODO(b/300138308): Handle Cookies for BLE Start and Stop Scan Requests.
+  UNUSED_VAR(cookie);
 #ifdef CHRE_BLE_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return nanoapp->permitPermissionUse(NanoappPermissions::CHRE_PERMS_BLE) &&
@@ -82,6 +97,10 @@ DLL_EXPORT bool chreBleStopScanAsync() {
 #else
   return false;
 #endif  // CHRE_BLE_SUPPORT_ENABLED
+}
+
+DLL_EXPORT bool chreBleStopScanAsync() {
+  return chreBleStopScanAsyncV1_9(nullptr /* cookie */);
 }
 
 DLL_EXPORT bool chreBleReadRssiAsync(uint16_t connectionHandle,

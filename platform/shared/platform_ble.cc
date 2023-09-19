@@ -79,7 +79,7 @@ uint32_t PlatformBle::getFilterCapabilities() {
 }
 
 bool PlatformBle::startScanAsync(chreBleScanMode mode, uint32_t reportDelayMs,
-                                 const struct chreBleScanFilter *filter) {
+                                 const struct chreBleScanFilterV1_9 *filter) {
   if (mBleApi != nullptr) {
     prePalApiCall(PalType::BLE);
     return mBleApi->startScan(mode, reportDelayMs, filter);

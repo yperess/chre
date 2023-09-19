@@ -69,7 +69,7 @@ class PlatformBle : public PlatformBleBase {
    * @return true if scan was successfully enabled.
    */
   bool startScanAsync(chreBleScanMode mode, uint32_t reportDelayMs,
-                      const struct chreBleScanFilter *filter);
+                      const struct chreBleScanFilterV1_9 *filter);
 
   /**
    * End a BLE scan asynchronously. The result is delivered through a

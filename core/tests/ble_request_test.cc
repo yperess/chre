@@ -48,13 +48,13 @@ TEST(BleRequest, AggressiveModeIsHigherThanBackground) {
 }
 
 TEST(BleRequest, MergeWithReplacesParametersOfDisabledRequest) {
-  chreBleScanFilter filter;
+  chreBleScanFilterV1_9 filter;
   filter.rssiThreshold = -5;
-  filter.scanFilterCount = 1;
+  filter.genericFilterCount = 1;
   auto scanFilters = std::make_unique<chreBleGenericFilter>();
   scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
   scanFilters->len = 2;
-  filter.scanFilters = scanFilters.get();
+  filter.genericFilters = scanFilters.get();
   BleRequest enabled(0, true, CHRE_BLE_SCAN_MODE_AGGRESSIVE, 20, &filter);
 
   BleRequest mergedRequest;
@@ -88,13 +88,13 @@ TEST(BleRequest, IsNotEquivalentToBasic) {
 }
 
 TEST(BleRequest, IsEquivalentToAdvanced) {
-  chreBleScanFilter filter;
+  chreBleScanFilterV1_9 filter;
   filter.rssiThreshold = -5;
-  filter.scanFilterCount = 1;
+  filter.genericFilterCount = 1;
   auto scanFilters = std::make_unique<chreBleGenericFilter>();
   scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
   scanFilters->len = 4;
-  filter.scanFilters = scanFilters.get();
+  filter.genericFilters = scanFilters.get();
 
   BleRequest backgroundMode(100 /* instanceId */, true /* enable */,
                             CHRE_BLE_SCAN_MODE_BACKGROUND,
@@ -103,13 +103,13 @@ TEST(BleRequest, IsEquivalentToAdvanced) {
 }
 
 TEST(BleRequest, IsNotEquivalentToAdvanced) {
-  chreBleScanFilter filter;
+  chreBleScanFilterV1_9 filter;
   filter.rssiThreshold = -5;
-  filter.scanFilterCount = 1;
+  filter.genericFilterCount = 1;
   auto scanFilters = std::make_unique<chreBleGenericFilter>();
   scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
   scanFilters->len = 4;
-  filter.scanFilters = scanFilters.get();
+  filter.genericFilters = scanFilters.get();
 
   BleRequest backgroundMode(100 /* instanceId */, true /* enable */,
                             CHRE_BLE_SCAN_MODE_BACKGROUND,
@@ -122,21 +122,21 @@ TEST(BleRequest, IsNotEquivalentToAdvanced) {
 }
 
 TEST(BleRequest, GetScanFilter) {
-  chreBleScanFilter filter;
+  chreBleScanFilterV1_9 filter;
   filter.rssiThreshold = -5;
-  filter.scanFilterCount = 1;
+  filter.genericFilterCount = 1;
   auto scanFilters = std::make_unique<chreBleGenericFilter>();
   scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
   scanFilters->len = 4;
-  filter.scanFilters = scanFilters.get();
+  filter.genericFilters = scanFilters.get();
 
   BleRequest backgroundMode(100 /* instanceId */, true /* enable */,
                             CHRE_BLE_SCAN_MODE_BACKGROUND,
                             100 /* reportDelayMs */, &filter /* filter */);
 
-  chreBleScanFilter retFilter = backgroundMode.getScanFilter();
+  chreBleScanFilterV1_9 retFilter = backgroundMode.getScanFilter();
   EXPECT_EQ(filter.rssiThreshold, retFilter.rssiThreshold);
-  EXPECT_EQ(filter.scanFilterCount, retFilter.scanFilterCount);
-  EXPECT_EQ(0, memcmp(scanFilters.get(), retFilter.scanFilters,
+  EXPECT_EQ(filter.genericFilterCount, retFilter.genericFilterCount);
+  EXPECT_EQ(0, memcmp(scanFilters.get(), retFilter.genericFilters,
                       sizeof(chreBleGenericFilter)));
 }

@@ -57,4 +57,28 @@ bool createBleScanFilterForKnownBeacons(struct chreBleScanFilter &filter,
   return true;
 }
 
+bool createBleScanFilterForKnownBeaconsV1_9(
+    struct chreBleScanFilterV1_9 &filter, chreBleGenericFilter *genericFilters,
+    uint8_t numGenericFilters) {
+  if (numGenericFilters < kNumScanFilters) {
+    return false;
+  }
+  memset(&filter, 0, sizeof(filter));
+
+  genericFilters[0] = createBleGenericFilter(
+      CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE, kNumScanFilters,
+      kGoogleEddystoneUuid, kGoogleUuidMask);
+  genericFilters[1] = createBleGenericFilter(
+      CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE, kNumScanFilters,
+      kGoogleNearbyFastpairUuid, kGoogleUuidMask);
+
+  filter.rssiThreshold = kRssiThreshold;
+  filter.genericFilterCount = kNumScanFilters;
+  filter.genericFilters = genericFilters;
+
+  filter.broadcasterAddressFilterCount = 0;
+  filter.broadcasterAddressFilters = nullptr;
+  return true;
+}
+
 }  // namespace chre

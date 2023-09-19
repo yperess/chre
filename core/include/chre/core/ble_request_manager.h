@@ -63,15 +63,15 @@ class BleRequestManager : public NonCopyable {
    *                      batching. Note that the system may deliver results
    *                      before the maximum specified delay is reached.
    * @param filter Pointer to the requested best-effort filter configuration as
-   *               defined by struct chreBleScanFilter. The ownership of filter
-   *               and its nested elements remains with the caller, and the
-   *               caller may release it as soon as chreBleStartScanAsync()
-   *               returns.
+   *               defined by struct chreBleScanFilterV1_9. The ownership of
+   *               filter and its nested elements remains with the caller, and
+   *               the caller may release it as soon as
+   *               chreBleStartScanAsyncV1_9() returns.
    * @return true if scan was successfully enabled.
    */
   bool startScanAsync(Nanoapp *nanoapp, chreBleScanMode mode,
                       uint32_t reportDelayMs,
-                      const struct chreBleScanFilter *filter);
+                      const struct chreBleScanFilterV1_9 *filter);
 
   /**
    * End a BLE scan asynchronously. The result is delivered through a

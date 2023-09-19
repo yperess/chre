@@ -35,6 +35,7 @@ namespace {
 
 using ::chre::ConditionVariable;
 using ::chre::createBleScanFilterForKnownBeacons;
+using ::chre::createBleScanFilterForKnownBeaconsV1_9;
 using ::chre::FixedSizeVector;
 using ::chre::gChrePalSystemApi;
 using ::chre::LockGuard;
@@ -177,13 +178,18 @@ TEST_F(PalBleTest, Capabilities) {
 // advertising BLE beacons with service data for either the Google eddystone
 // or fastpair UUIDs.
 TEST_F(PalBleTest, FilteredScan) {
-  struct chreBleScanFilter filter;
+  struct chreBleScanFilterV1_9 filterV1_9;
   chreBleGenericFilter uuidFilters[kNumScanFilters];
-  createBleScanFilterForKnownBeacons(filter, uuidFilters, kNumScanFilters);
+  createBleScanFilterForKnownBeaconsV1_9(filterV1_9, uuidFilters,
+                                         kNumScanFilters);
 
   LockGuard<Mutex> lock(gCallbacks->mMutex);
+
+  EXPECT_TRUE(mApi->startScan(CHRE_BLE_SCAN_MODE_BACKGROUND,
+                              kBleBatchDurationMs, &filterV1_9));
+
   EXPECT_TRUE(mApi->startScan(CHRE_BLE_SCAN_MODE_AGGRESSIVE,
-                              kBleBatchDurationMs, &filter));
+                              kBleBatchDurationMs, &filterV1_9));
   gCallbacks->mCondVarStatus.wait_for(gCallbacks->mMutex, kBleStatusTimeoutNs);
   ASSERT_TRUE(gCallbacks->mEnabled.has_value());
   EXPECT_TRUE(gCallbacks->mEnabled.value());
