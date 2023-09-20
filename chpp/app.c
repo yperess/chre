@@ -516,7 +516,14 @@ static void chppProcessPredefinedHandleDatagram(struct ChppAppState *context,
 
 /**
  * Processes a received datagram that is determined to be for a negotiated CHPP
- * client or service. Responds with an error if unsuccessful.
+ * client or service.
+ *
+ * The datagram is processed by the dispatch function matching the datagram
+ * type. @see ChppService and ChppClient.
+ *
+ * If a request dispatch function returns an error (anything different from
+ * CHPP_APP_ERROR_NONE) then an error response is automatically sent back to the
+ * remote endpoint.
  *
  * @param appContext State of the app layer.
  * @param buf Input data. Cannot be null.
@@ -579,7 +586,7 @@ static void chppProcessNegotiatedHandleDatagram(struct ChppAppState *appContext,
   }
 
   // Datagram is a response.
-  // Check for synchronous operation and notify waiting client if needed.
+  // Check for synchronous operation and notify waiting endpoint if needed.
   if (messageType == CHPP_MESSAGE_TYPE_SERVICE_RESPONSE ||
       messageType == CHPP_MESSAGE_TYPE_CLIENT_RESPONSE) {
     struct ChppSyncResponse *syncResponse = &endpointState->syncResponse;
