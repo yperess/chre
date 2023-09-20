@@ -41,21 +41,24 @@ bool broadcasterFiltersMatch(
 
 }  // namespace
 
-BleRequest::BleRequest() : BleRequest(0 /* instanceId */, false /* enable */) {}
+BleRequest::BleRequest()
+    : BleRequest(0 /* instanceId */, false /* enable */, nullptr /* cookie */) {
+}
 
-BleRequest::BleRequest(uint16_t instanceId, bool enable)
+BleRequest::BleRequest(uint16_t instanceId, bool enable, const void *cookie)
     : BleRequest(instanceId, enable, CHRE_BLE_SCAN_MODE_BACKGROUND,
-                 0 /* reportDelayMs */, nullptr /* filter */) {}
+                 0 /* reportDelayMs */, nullptr /* filter */, cookie) {}
 
 BleRequest::BleRequest(uint16_t instanceId, bool enable, chreBleScanMode mode,
                        uint32_t reportDelayMs,
-                       const chreBleScanFilterV1_9 *filter)
+                       const chreBleScanFilterV1_9 *filter, const void *cookie)
     : mReportDelayMs(reportDelayMs),
       mInstanceId(instanceId),
       mMode(mode),
       mEnabled(enable),
       mRssiThreshold(CHRE_BLE_RSSI_THRESHOLD_NONE),
-      mStatus(RequestStatus::PENDING_REQ) {
+      mStatus(RequestStatus::PENDING_REQ),
+      mCookie(cookie) {
   if (filter != nullptr) {
     mRssiThreshold = filter->rssiThreshold;
     if (filter->genericFilterCount > 0) {
@@ -89,6 +92,7 @@ BleRequest &BleRequest::operator=(BleRequest &&other) {
   mBroadcasterFilters = std::move(other.mBroadcasterFilters);
   mEnabled = other.mEnabled;
   mStatus = other.mStatus;
+  mCookie = other.mCookie;
   return *this;
 }
 
@@ -229,6 +233,10 @@ chreBleScanFilterV1_9 BleRequest::getScanFilter() const {
 
 bool BleRequest::isEnabled() const {
   return mEnabled;
+}
+
+const void *BleRequest::getCookie() const {
+  return mCookie;
 }
 
 void BleRequest::logStateToBuffer(DebugDumpWrapper &debugDump,

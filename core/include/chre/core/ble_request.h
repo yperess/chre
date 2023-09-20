@@ -40,10 +40,11 @@ class BleRequest : public NonCopyable {
  public:
   BleRequest();
 
-  BleRequest(uint16_t instanceId, bool enable);
+  BleRequest(uint16_t instanceId, bool enable, const void *cookie);
 
   BleRequest(uint16_t instanceId, bool enable, chreBleScanMode mode,
-             uint32_t reportDelayMs, const chreBleScanFilterV1_9 *filter);
+             uint32_t reportDelayMs, const chreBleScanFilterV1_9 *filter,
+             const void *cookie);
 
   BleRequest(BleRequest &&other);
 
@@ -109,6 +110,11 @@ class BleRequest : public NonCopyable {
       const;
 
   /**
+   * @return The cookie this request.
+   */
+  const void *getCookie() const;
+
+  /**
    * @return chreBleScanFilterV1_9 that is valid only as long as the internal
    *    contents of this class are not modified
    */
@@ -158,6 +164,9 @@ class BleRequest : public NonCopyable {
 
   // Broadcaster address filters.
   DynamicVector<chreBleBroadcasterAddressFilter> mBroadcasterFilters;
+
+  // Cookie value included in this request, supplied by the nanoapp.
+  const void *mCookie;
 };
 
 }  // namespace chre

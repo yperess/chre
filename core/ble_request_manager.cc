@@ -47,19 +47,20 @@ void BleRequestManager::handleExistingRequest(uint16_t instanceId,
       foundRequest->getRequestStatus() != RequestStatus::APPLIED) {
     handleAsyncResult(instanceId, foundRequest->isEnabled(),
                       false /* success */, CHRE_ERROR_OBSOLETE_REQUEST,
-                      true /* forceUnregister */);
+                      foundRequest->getCookie(), true /* forceUnregister */);
   }
 }
 
 bool BleRequestManager::compliesWithBleSetting(uint16_t instanceId,
                                                bool enabled,
                                                bool hasExistingRequest,
-                                               size_t requestIndex) {
+                                               size_t requestIndex,
+                                               const void *cookie) {
   bool success = true;
   if (enabled && !bleSettingEnabled()) {
     success = false;
     handleAsyncResult(instanceId, enabled, false /* success */,
-                      CHRE_ERROR_FUNCTION_DISABLED);
+                      CHRE_ERROR_FUNCTION_DISABLED, cookie);
     if (hasExistingRequest) {
       bool requestChanged = false;
       mRequests.removeRequest(requestIndex, &requestChanged);
@@ -88,16 +89,16 @@ bool BleRequestManager::updateRequests(BleRequest &&request,
 
 bool BleRequestManager::startScanAsync(
     Nanoapp *nanoapp, chreBleScanMode mode, uint32_t reportDelayMs,
-    const struct chreBleScanFilterV1_9 *filter) {
+    const struct chreBleScanFilterV1_9 *filter, const void *cookie) {
   CHRE_ASSERT(nanoapp);
   BleRequest request(nanoapp->getInstanceId(), true /* enable */, mode,
-                     reportDelayMs, filter);
+                     reportDelayMs, filter, cookie);
   return configure(std::move(request));
 }
 
-bool BleRequestManager::stopScanAsync(Nanoapp *nanoapp) {
+bool BleRequestManager::stopScanAsync(Nanoapp *nanoapp, const void *cookie) {
   CHRE_ASSERT(nanoapp);
-  BleRequest request(nanoapp->getInstanceId(), false /* enable */);
+  BleRequest request(nanoapp->getInstanceId(), false /* enable */, cookie);
   return configure(std::move(request));
 }
 
@@ -113,7 +114,8 @@ uint32_t BleRequestManager::disableActiveScan(const Nanoapp *nanoapp) {
     return 0;
   }
 
-  BleRequest request(nanoapp->getInstanceId(), false /* enable */);
+  BleRequest request(nanoapp->getInstanceId(), false /* enable */,
+                     nullptr /* cookie */);
   configure(std::move(request));
   return 1;
 }
@@ -186,8 +188,9 @@ bool BleRequestManager::configure(BleRequest &&request) {
     uint16_t instanceId = request.getInstanceId();
     uint8_t enabled = request.isEnabled();
     handleExistingRequest(instanceId, &hasExistingRequest, &requestIndex);
-    bool compliant = compliesWithBleSetting(instanceId, enabled,
-                                            hasExistingRequest, requestIndex);
+    bool compliant =
+        compliesWithBleSetting(instanceId, enabled, hasExistingRequest,
+                               requestIndex, request.getCookie());
     if (compliant) {
       success = updateRequests(std::move(request), hasExistingRequest,
                                &requestChanged, &requestIndex);
@@ -195,7 +198,7 @@ bool BleRequestManager::configure(BleRequest &&request) {
         if (!mPlatformRequestInProgress) {
           if (!requestChanged) {
             handleAsyncResult(instanceId, enabled, true /* success */,
-                              CHRE_ERROR_NONE);
+                              CHRE_ERROR_NONE, request.getCookie());
             if (requestIndex < mRequests.getRequests().size()) {
               mRequests.getMutableRequests()[requestIndex].setRequestStatus(
                   RequestStatus::APPLIED);
@@ -228,12 +231,13 @@ bool BleRequestManager::controlPlatform() {
     chreBleScanFilterV1_9 filter = maxRequest.getScanFilter();
     success = mPlatformBle.startScanAsync(
         maxRequest.getMode(), maxRequest.getReportDelayMs(), &filter);
-    mPendingPlatformRequest =
-        BleRequest(0 /* instanceId */, enable, maxRequest.getMode(),
-                   maxRequest.getReportDelayMs(), &filter);
+    mPendingPlatformRequest = BleRequest(
+        0 /* instanceId */, enable, maxRequest.getMode(),
+        maxRequest.getReportDelayMs(), &filter, nullptr /* cookie */);
   } else {
     success = mPlatformBle.stopScanAsync();
-    mPendingPlatformRequest = BleRequest(0 /* instanceId */, enable);
+    mPendingPlatformRequest =
+        BleRequest(0 /* instanceId */, enable, nullptr /* cookie */);
   }
 
   if (success) {
@@ -295,7 +299,7 @@ void BleRequestManager::handlePlatformChangeSync(bool enable,
   for (BleRequest &req : mRequests.getMutableRequests()) {
     if (req.getRequestStatus() == RequestStatus::PENDING_RESP) {
       handleAsyncResult(req.getInstanceId(), req.isEnabled(), success,
-                        errorCode);
+                        errorCode, req.getCookie());
       if (success) {
         req.setRequestStatus(RequestStatus::APPLIED);
       }
@@ -336,7 +340,7 @@ void BleRequestManager::dispatchPendingRequests() {
     for (const BleRequest &req : mRequests.getRequests()) {
       if (req.getRequestStatus() == RequestStatus::PENDING_REQ) {
         handleAsyncResult(req.getInstanceId(), req.isEnabled(),
-                          false /* success */, errorCode);
+                          false /* success */, errorCode, req.getCookie());
       }
     }
     mRequests.removeRequests(RequestStatus::PENDING_REQ);
@@ -345,10 +349,12 @@ void BleRequestManager::dispatchPendingRequests() {
 
 void BleRequestManager::handleAsyncResult(uint16_t instanceId, bool enabled,
                                           bool success, uint8_t errorCode,
+                                          const void *cookie,
                                           bool forceUnregister) {
   uint8_t requestType = enabled ? CHRE_BLE_REQUEST_TYPE_START_SCAN
                                 : CHRE_BLE_REQUEST_TYPE_STOP_SCAN;
-  postAsyncResultEventFatal(instanceId, requestType, success, errorCode);
+  postAsyncResultEventFatal(instanceId, requestType, success, errorCode,
+                            cookie);
   handleNanoappEventRegistration(instanceId, enabled, success, forceUnregister);
 }
 
@@ -643,7 +649,8 @@ bool BleRequestManager::validateParams(const BleRequest &request) {
 void BleRequestManager::postAsyncResultEventFatal(uint16_t instanceId,
                                                   uint8_t requestType,
                                                   bool success,
-                                                  uint8_t errorCode) {
+                                                  uint8_t errorCode,
+                                                  const void *cookie) {
   chreAsyncResult *event = memoryAlloc<chreAsyncResult>();
   if (event == nullptr) {
     FATAL_ERROR("Failed to alloc BLE async result");
@@ -651,6 +658,7 @@ void BleRequestManager::postAsyncResultEventFatal(uint16_t instanceId,
     event->requestType = requestType;
     event->success = success;
     event->errorCode = errorCode;
+    event->cookie = cookie;
     event->reserved = 0;
 
     EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(

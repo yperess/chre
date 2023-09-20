@@ -67,20 +67,25 @@ class BleRequestManager : public NonCopyable {
    *               filter and its nested elements remains with the caller, and
    *               the caller may release it as soon as
    *               chreBleStartScanAsyncV1_9() returns.
+   * @param cookie The cookie to be provided to the nanoapp. This is
+   *               round-tripped from the nanoapp to provide context.
    * @return true if scan was successfully enabled.
    */
   bool startScanAsync(Nanoapp *nanoapp, chreBleScanMode mode,
                       uint32_t reportDelayMs,
-                      const struct chreBleScanFilterV1_9 *filter);
+                      const struct chreBleScanFilterV1_9 *filter,
+                      const void *cookie);
 
   /**
    * End a BLE scan asynchronously. The result is delivered through a
    * CHRE_EVENT_BLE_ASYNC_RESULT event.
    *
    * @param nanoapp The nanoapp stopping the request.
+   * @param cookie A cookie that is round-tripped back to the nanoapp to
+   *               provide a context when making the request.
    * @return whether the scan was successfully ended.
    */
-  bool stopScanAsync(Nanoapp *nanoapp);
+  bool stopScanAsync(Nanoapp *nanoapp, const void *cookie);
 
 #ifdef CHRE_BLE_READ_RSSI_SUPPORT_ENABLED
   /**
@@ -353,11 +358,13 @@ class BleRequestManager : public NonCopyable {
    * to the nanoapp instance id of the new request.
    * @param requestIndex If hasExistingRequest is true, requestIndex
    * corresponds to the index of that request.
+   * @param cookie The cookie to be provided to the nanoapp.
    * @return true if the request does not attempt to enable the platform while
    * the BLE setting is disabled.
    */
   bool compliesWithBleSetting(uint16_t instanceId, bool enabled,
-                              bool hasExistingRequest, size_t requestIndex);
+                              bool hasExistingRequest, size_t requestIndex,
+                              const void *cookie);
 
   /**
    * Add a log to list of BLE request logs possibly pushing out the oldest log.
@@ -427,10 +434,13 @@ class BleRequestManager : public NonCopyable {
    * @param success Whether the request was processed by the PAL successfully
    * @param errorCode Error code resulting from the request
    * @param forceUnregister Whether the nanoapp should be force unregistered
+   * @param cookie The cookie to be provided to the nanoapp. This is
+   *               round-tripped from the nanoapp to provide context.
    *                        from BLE broadcast events.
    */
   void handleAsyncResult(uint16_t instanceId, bool enabled, bool success,
-                         uint8_t errorCode, bool forceUnregister = false);
+                         uint8_t errorCode, const void *cookie,
+                         bool forceUnregister = false);
 
   /**
    * Invoked as a result of a requestStateResync() callback from the BLE PAL.
@@ -510,10 +520,11 @@ class BleRequestManager : public NonCopyable {
    * @param requestType The type of BLE request the nanoapp issued.
    * @param success true if the operation was successful.
    * @param errorCode the error code as a result of this operation.
+   * @param cookie The cookie to be provided to the nanoapp.
    */
   static void postAsyncResultEventFatal(uint16_t instanceId,
                                         uint8_t requestType, bool success,
-                                        uint8_t errorCode);
+                                        uint8_t errorCode, const void *cookie);
 
   /**
    * @return True if the given advertisement type is valid

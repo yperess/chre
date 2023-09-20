@@ -651,6 +651,10 @@ TEST_F(TestBase, BleStartScanTwiceBeforeAsyncResponseTest) {
   CREATE_CHRE_TEST_EVENT(STOP_SCAN, 2);
   CREATE_CHRE_TEST_EVENT(SCAN_STOPPED, 3);
 
+  struct testData {
+    void *cookie;
+  };
+
   class App : public BleTestNanoapp {
     void handleEvent(uint32_t, uint16_t eventType, const void *eventData) {
       switch (eventType) {
@@ -660,21 +664,23 @@ TEST_F(TestBase, BleStartScanTwiceBeforeAsyncResponseTest) {
               (event->requestType == CHRE_BLE_REQUEST_TYPE_START_SCAN)
                   ? SCAN_STARTED
                   : SCAN_STOPPED;
-          TestEventQueueSingleton::get()->pushEvent(type, event->errorCode);
+          TestEventQueueSingleton::get()->pushEvent(type, *event);
           break;
         }
         case CHRE_EVENT_TEST_EVENT: {
           auto event = static_cast<const TestEvent *>(eventData);
           switch (event->type) {
             case START_SCAN: {
-              const bool success = chreBleStartScanAsync(
-                  CHRE_BLE_SCAN_MODE_BACKGROUND, 0, nullptr);
+              auto data = static_cast<testData *>(event->data);
+              const bool success = chreBleStartScanAsyncV1_9(
+                  CHRE_BLE_SCAN_MODE_BACKGROUND, 0, nullptr, data->cookie);
               TestEventQueueSingleton::get()->pushEvent(START_SCAN, success);
               break;
             }
 
             case STOP_SCAN: {
-              const bool success = chreBleStopScanAsync();
+              auto data = static_cast<testData *>(event->data);
+              const bool success = chreBleStopScanAsyncV1_9(data->cookie);
               TestEventQueueSingleton::get()->pushEvent(STOP_SCAN, success);
               break;
             }
@@ -689,27 +695,34 @@ TEST_F(TestBase, BleStartScanTwiceBeforeAsyncResponseTest) {
 
   delayBleScanStart(true /* delay */);
 
-  sendEventToNanoapp(appId, START_SCAN);
+  testData data;
+  uint32_t cookieOne = 1;
+  data.cookie = &cookieOne;
+  sendEventToNanoapp(appId, START_SCAN, data);
   waitForEvent(START_SCAN, &success);
   EXPECT_TRUE(success);
 
-  sendEventToNanoapp(appId, START_SCAN);
+  uint32_t cookieTwo = 2;
+  data.cookie = &cookieTwo;
+  sendEventToNanoapp(appId, START_SCAN, data);
   waitForEvent(START_SCAN, &success);
   EXPECT_TRUE(success);
 
-  uint8_t errorCode;
-  waitForEvent(SCAN_STARTED, &errorCode);
-  EXPECT_EQ(errorCode, CHRE_ERROR_OBSOLETE_REQUEST);
+  chreAsyncResult result;
+  waitForEvent(SCAN_STARTED, &result);
+  EXPECT_EQ(result.errorCode, CHRE_ERROR_OBSOLETE_REQUEST);
+  EXPECT_EQ(result.cookie, &cookieOne);
 
   // Respond to the first scan request. CHRE will then attempt the next scan
   // request at which point the PAL should no longer delay the response.
   delayBleScanStart(false /* delay */);
   EXPECT_TRUE(startBleScan());
 
-  waitForEvent(SCAN_STARTED, &errorCode);
-  EXPECT_EQ(errorCode, CHRE_ERROR_NONE);
+  waitForEvent(SCAN_STARTED, &result);
+  EXPECT_EQ(result.errorCode, CHRE_ERROR_NONE);
+  EXPECT_EQ(result.cookie, &cookieTwo);
 
-  sendEventToNanoapp(appId, STOP_SCAN);
+  sendEventToNanoapp(appId, STOP_SCAN, data);
   waitForEvent(STOP_SCAN, &success);
   EXPECT_TRUE(success);
   waitForEvent(SCAN_STOPPED);
