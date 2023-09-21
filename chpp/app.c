@@ -53,7 +53,8 @@ static bool chppProcessPredefinedServiceResponse(struct ChppAppState *context,
                                                  uint8_t *buf, size_t len);
 
 static bool chppDatagramLenIsOk(struct ChppAppState *context,
-                                struct ChppAppHeader *rxHeader, size_t len);
+                                const struct ChppAppHeader *rxHeader,
+                                size_t len);
 ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
                                               uint8_t handle,
                                               enum ChppMessageType type);
@@ -93,7 +94,7 @@ static void chppProcessNegotiatedHandleDatagram(struct ChppAppState *context,
  */
 static bool chppProcessPredefinedClientRequest(struct ChppAppState *context,
                                                uint8_t *buf, size_t len) {
-  struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
+  const struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
   bool handleValid = true;
   bool dispatchResult = true;
 
@@ -143,7 +144,7 @@ static bool chppProcessPredefinedServiceResponse(struct ChppAppState *context,
   UNUSED_VAR(context);
   UNUSED_VAR(len);
 
-  struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
+  const struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
   bool handleValid = true;
   bool dispatchResult = true;
 
@@ -194,7 +195,8 @@ static bool chppProcessPredefinedServiceResponse(struct ChppAppState *context,
  * @return true if length is ok.
  */
 static bool chppDatagramLenIsOk(struct ChppAppState *context,
-                                struct ChppAppHeader *rxHeader, size_t len) {
+                                const struct ChppAppHeader *rxHeader,
+                                size_t len) {
   CHPP_DEBUG_NOT_NULL(context);
   CHPP_DEBUG_NOT_NULL(rxHeader);
 
@@ -534,7 +536,7 @@ static void chppProcessNegotiatedHandleDatagram(struct ChppAppState *appContext,
   CHPP_DEBUG_NOT_NULL(appContext);
   CHPP_DEBUG_NOT_NULL(buf);
 
-  struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
+  const struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
   enum ChppMessageType messageType = CHPP_APP_GET_MESSAGE_TYPE(rxHeader->type);
 
   // Could be either the client or the service state depending on the message
@@ -660,7 +662,7 @@ void chppAppProcessRxDatagram(struct ChppAppState *context, uint8_t *buf,
   CHPP_DEBUG_NOT_NULL(context);
   CHPP_DEBUG_NOT_NULL(buf);
 
-  struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
+  const struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
 
   if (len == 0) {
     CHPP_DEBUG_ASSERT_LOG(false, "App rx w/ len 0");
@@ -783,7 +785,7 @@ uint8_t chppAppShortResponseErrorHandler(uint8_t *buf, size_t len,
   CHPP_DEBUG_NOT_NULL(responseName);
 
   CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
-  struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
+  const struct ChppAppHeader *rxHeader = (struct ChppAppHeader *)buf;
 
   if (rxHeader->error == CHPP_APP_ERROR_NONE) {
     CHPP_LOGE("%s resp short len=%" PRIuSIZE, responseName, len);
@@ -856,7 +858,7 @@ struct ChppAppHeader *chppAllocResponse(
 }
 
 void chppTimestampIncomingRequest(struct ChppIncomingRequestState *inReqState,
-                                  struct ChppAppHeader *requestHeader) {
+                                  const struct ChppAppHeader *requestHeader) {
   CHPP_DEBUG_NOT_NULL(inReqState);
   CHPP_DEBUG_NOT_NULL(requestHeader);
   if (inReqState->responseTimeNs == CHPP_TIME_NONE &&
@@ -871,7 +873,7 @@ void chppTimestampIncomingRequest(struct ChppIncomingRequestState *inReqState,
 
 void chppTimestampOutgoingRequest(struct ChppAppState *appState,
                                   struct ChppOutgoingRequestState *outReqState,
-                                  struct ChppAppHeader *requestHeader,
+                                  const struct ChppAppHeader *requestHeader,
                                   uint64_t timeoutNs) {
   CHPP_DEBUG_NOT_NULL(appState);
   CHPP_DEBUG_NOT_NULL(outReqState);

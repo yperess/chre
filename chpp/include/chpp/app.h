@@ -722,7 +722,7 @@ struct ChppAppHeader *chppAllocResponse(
  * @param requestHeader Request header.
  */
 void chppTimestampIncomingRequest(struct ChppIncomingRequestState *inReqState,
-                                  struct ChppAppHeader *requestHeader);
+                                  const struct ChppAppHeader *requestHeader);
 
 /**
  * This function shall be called for all outgoing requests in order to
@@ -740,7 +740,7 @@ void chppTimestampIncomingRequest(struct ChppIncomingRequestState *inReqState,
  */
 void chppTimestampOutgoingRequest(struct ChppAppState *appState,
                                   struct ChppOutgoingRequestState *outReqState,
-                                  struct ChppAppHeader *requestHeader,
+                                  const struct ChppAppHeader *requestHeader,
                                   uint64_t timeoutNs);
 
 /**
