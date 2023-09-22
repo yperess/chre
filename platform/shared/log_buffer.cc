@@ -44,9 +44,8 @@ void LogBuffer::handleLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
 
 void LogBuffer::handleLogVa(LogBufferLogLevel logLevel, uint32_t timestampMs,
                             const char *logFormat, va_list args) {
-  constexpr size_t maxLogLen = kLogMaxSize - kLogDataOffset;
-  char tempBuffer[maxLogLen];
-  int logLenSigned = vsnprintf(tempBuffer, maxLogLen, logFormat, args);
+  char tempBuffer[kLogMaxSize];
+  int logLenSigned = vsnprintf(tempBuffer, kLogMaxSize, logFormat, args);
   processLog(logLevel, timestampMs, tempBuffer, logLenSigned,
              false /* encoded */);
 }

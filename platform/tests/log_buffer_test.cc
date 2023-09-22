@@ -211,9 +211,9 @@ TEST(LogBuffer, TruncateLongLog) {
   size_t bytesCopied =
       logBuffer.copyLogs(outBuffer, kOutBufferSize, &numLogsDropped);
 
-  // Should truncate the logs down to the kLogMaxSize value of 255 by the time
-  // it is copied out.
-  EXPECT_EQ(bytesCopied, 255);
+  // Should truncate the logs down to the kLogMaxSize(255) + kLogDataOffset(5)
+  // value of 260 by the time it is copied out.
+  EXPECT_EQ(bytesCopied, 260);
 }
 
 TEST(LogBuffer, WouldCauseOverflowTest) {
