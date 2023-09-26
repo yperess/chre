@@ -683,16 +683,16 @@ struct ChppAppHeader *chppAllocNotification(uint8_t type, size_t len);
  *
  * @param type CHPP_MESSAGE_TYPE_CLIENT_REQUEST or
  *        CHPP_MESSAGE_TYPE_SERVICE_REQUEST.
- * @param handle client or service handle.
- * @param transaction the transaction (increment on each request).
+ * @param endpointState State of the endpoint.
  * @param len Length of the response message (including header) in bytes. Note
  *        that the specified length must be at least equal to the length of the
  *        app layer header.
  *
  * @return Pointer to allocated memory.
  */
-struct ChppAppHeader *chppAllocRequest(uint8_t type, uint8_t handle,
-                                       uint8_t *transaction, size_t len);
+struct ChppAppHeader *chppAllocRequest(uint8_t type,
+                                       struct ChppEndpointState *endpointState,
+                                       size_t len);
 
 /**
  * Allocates a response message of a specified length, populating the (app

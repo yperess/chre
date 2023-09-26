@@ -138,9 +138,7 @@ struct ChppAppHeader *chppAllocServiceNotification(size_t len) {
 struct ChppAppHeader *chppAllocServiceRequest(
     struct ChppEndpointState *serviceState, size_t len) {
   CHPP_DEBUG_NOT_NULL(serviceState);
-  return chppAllocRequest(CHPP_MESSAGE_TYPE_SERVICE_REQUEST,
-                          serviceState->handle, &serviceState->transaction,
-                          len);
+  return chppAllocRequest(CHPP_MESSAGE_TYPE_SERVICE_REQUEST, serviceState, len);
 }
 
 struct ChppAppHeader *chppAllocServiceRequestCommand(
