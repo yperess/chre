@@ -181,15 +181,12 @@ TEST_F(PalBleTest, FilteredScan) {
   chreBleGenericFilter uuidFilters[kNumScanFilters];
   createBleScanFilterForKnownBeacons(filter, uuidFilters, kNumScanFilters);
 
-  EXPECT_TRUE(mApi->startScan(CHRE_BLE_SCAN_MODE_BACKGROUND,
-                              kBleBatchDurationMs, &filter));
-
   LockGuard<Mutex> lock(gCallbacks->mMutex);
+  EXPECT_TRUE(mApi->startScan(CHRE_BLE_SCAN_MODE_AGGRESSIVE,
+                              kBleBatchDurationMs, &filter));
   gCallbacks->mCondVarStatus.wait_for(gCallbacks->mMutex, kBleStatusTimeoutNs);
-  EXPECT_TRUE(gCallbacks->mEnabled.has_value());
-  if (gCallbacks->mEnabled.has_value()) {
-    EXPECT_TRUE(gCallbacks->mEnabled.value());
-  }
+  ASSERT_TRUE(gCallbacks->mEnabled.has_value());
+  EXPECT_TRUE(gCallbacks->mEnabled.value());
 
   gCallbacks->mCondVarEvents.wait_for(gCallbacks->mMutex, kBleEventTimeoutNs);
   EXPECT_TRUE(gCallbacks->mEventData.full());

@@ -108,21 +108,35 @@ void stopAllTasks() {
 
 bool startScan() {
   stopAllTasks();
-  gCallbacks->scanStatusChangeCallback(true, CHRE_ERROR_NONE);
-  gBleEnabled = true;
 
   std::lock_guard<std::mutex> lock(gBatchMutex);
   gLastAdDataTimestamp = std::chrono::steady_clock::now();
 
   gBleAdReportEventTaskId =
       TaskManagerSingleton::get()->addTask(sendAdReportEvents, gScanInterval);
-  if (gReportDelayMs.has_value() && gBleAdReportEventTaskId.has_value()) {
+  if (!gBleAdReportEventTaskId.has_value()) {
+    return false;
+  }
+
+  if (gReportDelayMs.has_value()) {
     gBleFlushTaskId = TaskManagerSingleton::get()->addTask(
         flush, std::chrono::duration_cast<std::chrono::nanoseconds>(
                    std::chrono::milliseconds(gReportDelayMs.value())));
+    if (!gBleFlushTaskId.has_value()) {
+      stopAllTasks();
+      return false;
+    }
   }
-  return gBleAdReportEventTaskId.has_value() &&
-         (!gReportDelayMs.has_value() || gBleFlushTaskId.has_value());
+
+  std::optional<uint32_t> callbackTaskId = TaskManagerSingleton::get()->addTask(
+      []() { gCallbacks->scanStatusChangeCallback(true, CHRE_ERROR_NONE); });
+  if (!callbackTaskId.has_value()) {
+    stopAllTasks();
+    return false;
+  }
+
+  gBleEnabled = true;
+  return true;
 }
 
 uint32_t chrePalBleGetCapabilities() {
@@ -150,18 +164,19 @@ bool chrePalBleStartScan(chreBleScanMode mode, uint32_t reportDelayMs,
 
   updateScanInterval(mode);
   flush();
-  if (gDelayScanStart) {
-    return true;
-  }
-  return startScan();
+  return gDelayScanStart || startScan();
 }
 
 bool chrePalBleStopScan() {
   stopAllTasks();
   flush();
-  gCallbacks->scanStatusChangeCallback(false, CHRE_ERROR_NONE);
-  gBleEnabled = false;
-  return true;
+
+  std::optional<uint32_t> callbackTaskId = TaskManagerSingleton::get()->addTask(
+      []() { gCallbacks->scanStatusChangeCallback(false, CHRE_ERROR_NONE); });
+
+  // If the callback is successfully scheduled, then BLE is disabled.
+  gBleEnabled = !callbackTaskId.has_value();
+  return callbackTaskId.has_value();
 }
 
 void chrePalBleReleaseAdvertisingEvent(
@@ -175,8 +190,12 @@ void chrePalBleReleaseAdvertisingEvent(
 }
 
 bool chrePalBleReadRssi(uint16_t connectionHandle) {
-  gCallbacks->readRssiCallback(CHRE_ERROR_NONE, connectionHandle, -65);
-  return true;
+  std::optional<uint32_t> readRssiTaskId =
+      TaskManagerSingleton::get()->addTask([connectionHandle]() {
+        gCallbacks->readRssiCallback(CHRE_ERROR_NONE, connectionHandle, -65);
+      });
+
+  return readRssiTaskId.has_value();
 }
 
 bool chrePalBleFlush() {
