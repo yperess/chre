@@ -151,8 +151,8 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
  * ChppAppHeader.
  *
  * @param len Length of the notification (including header) in bytes. Note
- * that the specified length must be at least equal to the length of the app
- * layer header.
+ *        that the specified length must be at least equal to the length of the
+ *        app layer header.
  *
  * @return Pointer to allocated memory
  */
@@ -195,7 +195,7 @@ struct ChppAppHeader *chppAllocServiceRequestCommand(
  * invoked.
  *
  * @param serviceState State of the service sending the request.
- * @param outReqState State for each request/response
+ * @param outReqState State of the request/response.
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  * @param timeoutNs Time in nanoseconds before a timeout response is generated.
@@ -215,7 +215,7 @@ bool chppServiceSendTimestampedRequestOrFail(
  * until a response is received. Used for synchronous requests.
  *
  * @param serviceState State of the service sending the request.
- * @param outReqState State for each request/response
+ * @param outReqState State of the request/response.
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  *
@@ -232,7 +232,7 @@ bool chppServiceSendTimestampedRequestAndWait(
  * timeout.
  *
  * @param serviceState State of the service sending the request.
- * @param outReqState State for each request/response
+ * @param outReqState State of the request/response.
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  *

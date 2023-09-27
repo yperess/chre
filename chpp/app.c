@@ -1044,20 +1044,19 @@ bool chppSendTimestampedResponseOrFail(
 }
 
 bool chppSendTimestampedRequestOrFail(
-    struct ChppAppState *appState, struct ChppSyncResponse *syncResponse,
+    struct ChppEndpointState *endpointState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs) {
-  CHPP_DEBUG_NOT_NULL(appState);
-  CHPP_DEBUG_NOT_NULL(syncResponse);
   CHPP_DEBUG_NOT_NULL(outReqState);
   CHPP_DEBUG_NOT_NULL(buf);
   CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
 
-  chppTimestampOutgoingRequest(appState, outReqState, buf, timeoutNs);
-  syncResponse->ready = false;
+  chppTimestampOutgoingRequest(endpointState->appContext, outReqState, buf,
+                               timeoutNs);
+  endpointState->syncResponse.ready = false;
 
-  bool success =
-      chppEnqueueTxDatagramOrFail(appState->transportContext, buf, len);
+  bool success = chppEnqueueTxDatagramOrFail(
+      endpointState->appContext->transportContext, buf, len);
 
   // Failure to enqueue a TX datagram means that a request was known to be not
   // transmitted. We explicitly set requestState to be in the NONE state, so

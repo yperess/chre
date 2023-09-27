@@ -238,7 +238,7 @@ struct ChppAppHeader *chppAllocClientRequestCommand(
  * invoked.
  *
  * @param clientState State of the client sending the request.
- * @param outReqState State for each request/response
+ * @param outReqState State of the request/response
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  * @param timeoutNs Time in nanoseconds before a timeout response is generated.
@@ -261,7 +261,7 @@ bool chppClientSendTimestampedRequestOrFail(
  * initialized using chppNotifierInit() upon initialization of the client.
  *
  * @param clientState State of the client sending the request.
- * @param outReqState State for each request/response
+ * @param outReqState State of the request/response.
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  *
@@ -278,7 +278,7 @@ bool chppClientSendTimestampedRequestAndWait(
  * timeout.
  *
  * @param clientState State of the client sending the request.
- * @param outReqState State for each request/response
+ * @param outReqState State of the request/response.
  * @param buf Datagram payload allocated through chppMalloc. Cannot be null.
  * @param len Datagram length in bytes.
  *
@@ -306,7 +306,7 @@ void chppClientPseudoOpen(struct ChppEndpointState *clientState);
  * opening a pseudo-open service.
  *
  * @param clientState State of the client.
- * @param openReqState Request/response state for the open command.
+ * @param openReqState State of the request/response for the open command.
  * @param openCommand Open command to be sent.
  * @param blocking Indicates a blocking (vs. non-blocking) open request.
  *

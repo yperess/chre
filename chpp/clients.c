@@ -327,9 +327,8 @@ bool chppClientSendTimestampedRequestOrFail(
     return false;
   }
 
-  return chppSendTimestampedRequestOrFail(clientState->appContext,
-                                          &clientState->syncResponse,
-                                          outReqState, buf, len, timeoutNs);
+  return chppSendTimestampedRequestOrFail(clientState, outReqState, buf, len,
+                                          timeoutNs);
 }
 
 bool chppClientSendTimestampedRequestAndWait(

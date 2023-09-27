@@ -156,9 +156,8 @@ bool chppServiceSendTimestampedRequestOrFail(
     struct ChppEndpointState *serviceState,
     struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
     uint64_t timeoutNs) {
-  return chppSendTimestampedRequestOrFail(serviceState->appContext,
-                                          &serviceState->syncResponse,
-                                          outReqState, buf, len, timeoutNs);
+  return chppSendTimestampedRequestOrFail(serviceState, outReqState, buf, len,
+                                          timeoutNs);
 }
 
 bool chppServiceSendTimestampedRequestAndWait(
