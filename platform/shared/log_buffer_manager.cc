@@ -18,6 +18,7 @@
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/shared/bt_snoop_log.h"
+#include "chre/platform/shared/generated/host_messages_generated.h"
 #include "chre/util/lock_guard.h"
 
 void chrePlatformLogToBuffer(chreLogLevel chreLogLevel, const char *format,
@@ -43,6 +44,8 @@ void chrePlatformBtSnoopLog(BtSnoopDirection direction, const uint8_t *buffer,
 }
 
 namespace chre {
+
+using LogType = fbs::LogType;
 
 void LogBufferManager::onLogsReady() {
   LockGuard<Mutex> lockGuard(mFlushLogsMutex);
@@ -124,7 +127,15 @@ uint32_t LogBufferManager::getTimestampMs() {
   return static_cast<uint32_t>(timeNs / kOneMillisecondInNanoseconds);
 }
 
-void LogBufferManager::bufferOverflowGuard(size_t logSize) {
+void LogBufferManager::bufferOverflowGuard(size_t logSize, LogType type) {
+  if (type == LogType::STRING) {
+    // Add one byte because of the null terminator added at the end.
+    logSize = logSize + LogBuffer::kStringLogOverhead;
+  } else if (type == LogType::TOKENIZED) {
+    logSize = logSize + LogBuffer::kTokenizedLogOffset;
+  } else if (type == LogType::BLUETOOTH) {
+    logSize = logSize + LogBuffer::kBtSnoopLogOffset;
+  }
   if (mPrimaryLogBuffer.logWouldCauseOverflow(logSize)) {
     LockGuard<Mutex> lockGuard(mFlushLogsMutex);
     if (!mLogFlushToHostPending) {
@@ -142,7 +153,7 @@ void LogBufferManager::logVa(chreLogLevel logLevel, const char *formatStr,
   va_copy(getSizeArgs, args);
   size_t logSize = vsnprintf(nullptr, 0, formatStr, getSizeArgs);
   va_end(getSizeArgs);
-  bufferOverflowGuard(logSize);
+  bufferOverflowGuard(logSize, LogType::STRING);
   mPrimaryLogBuffer.handleLogVa(chreToLogBufferLogLevel(logLevel),
                                 getTimestampMs(), formatStr, args);
 }
@@ -150,7 +161,7 @@ void LogBufferManager::logVa(chreLogLevel logLevel, const char *formatStr,
 void LogBufferManager::logBtSnoop(BtSnoopDirection direction,
                                   const uint8_t *buffer, size_t size) {
 #ifdef CHRE_BLE_SUPPORT_ENABLED
-  bufferOverflowGuard(size);
+  bufferOverflowGuard(size, LogType::BLUETOOTH);
   mPrimaryLogBuffer.handleBtLog(direction, getTimestampMs(), buffer, size);
 #else
   UNUSED_VAR(direction);
@@ -162,7 +173,7 @@ void LogBufferManager::logBtSnoop(BtSnoopDirection direction,
 void LogBufferManager::logEncoded(chreLogLevel logLevel,
                                   const uint8_t *encodedLog,
                                   size_t encodedLogSize) {
-  bufferOverflowGuard(encodedLogSize);
+  bufferOverflowGuard(encodedLogSize, LogType::TOKENIZED);
   mPrimaryLogBuffer.handleEncodedLog(chreToLogBufferLogLevel(logLevel),
                                      getTimestampMs(), encodedLog,
                                      encodedLogSize);

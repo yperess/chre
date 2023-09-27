@@ -53,41 +53,44 @@ void LogBuffer::handleLogVa(LogBufferLogLevel logLevel, uint32_t timestampMs,
 #ifdef CHRE_BLE_SUPPORT_ENABLED
 void LogBuffer::handleBtLog(BtSnoopDirection direction, uint32_t timestampMs,
                             const uint8_t *buffer, size_t size) {
-  if (size > 0) {
-    auto logLen = static_cast<uint8_t>(size);
-
-    if (size < kLogMaxSize) {
-      LockGuard<Mutex> lockGuard(mLock);
-
-      // No additional terminator towards the end.
-      discardExcessOldLogsLocked(false, logLen);
-
-      uint8_t logType = static_cast<uint8_t>(LogType::BLUETOOTH);
-      uint8_t snoopLogDirection = static_cast<uint8_t>(direction);
-
-      // Set all BT logs to the CHRE_LOG_LEVEL_INFO.
-      uint8_t metadata =
-          (static_cast<uint8_t>(logType) << 4) | CHRE_LOG_LEVEL_INFO;
-      copyToBuffer(sizeof(metadata), &metadata);
-
-      copyToBuffer(sizeof(timestampMs), &timestampMs);
-      copyToBuffer(sizeof(direction), &snoopLogDirection);
-      copyToBuffer(sizeof(logLen), &logLen);
-
-      copyToBuffer(logLen, buffer);
-    } else {
-      // Cannot truncate a BT event. Log a failure message instead.
-      constexpr char kBtSnoopLogGenericErrorMsg[] =
-          "Bt Snoop log message too large";
-      static_assert(
-          sizeof(kBtSnoopLogGenericErrorMsg) <= kLogMaxSize,
-          "Error meessage size needs to be smaller than max log length");
-      logLen = static_cast<uint8_t>(sizeof(kBtSnoopLogGenericErrorMsg));
-      copyLogToBuffer(LogBufferLogLevel::INFO, timestampMs,
-                      kBtSnoopLogGenericErrorMsg, logLen, false /* encoded */);
-    }
-    dispatch();
+  if (size == 0) {
+    return;
   }
+  auto logLen = static_cast<uint8_t>(size);
+
+  if (size < kLogMaxSize) {
+    LockGuard<Mutex> lockGuard(mLock);
+
+    static_assert(sizeof(LogType) == sizeof(uint8_t),
+                  "LogType size is not equal to size of uint8_t");
+    static_assert(sizeof(direction) == sizeof(uint8_t),
+                  "BtSnoopDirection size is not equal to the size of uint8_t");
+    uint8_t snoopLogDirection = static_cast<uint8_t>(direction);
+
+    discardExcessOldLogsLocked(logLen + kBtSnoopLogOffset);
+
+    // Set all BT logs to the CHRE_LOG_LEVEL_INFO.
+    uint8_t metadata =
+        setLogMetadata(LogType::BLUETOOTH, LogBufferLogLevel::INFO);
+
+    copyVarToBuffer(&metadata);
+    copyVarToBuffer(&timestampMs);
+    copyVarToBuffer(&snoopLogDirection);
+    copyVarToBuffer(&logLen);
+
+    copyToBuffer(logLen, buffer);
+  } else {
+    // Cannot truncate a BT event. Log a failure message instead.
+    constexpr char kBtSnoopLogGenericErrorMsg[] =
+        "Bt Snoop log message too large";
+    static_assert(
+        sizeof(kBtSnoopLogGenericErrorMsg) <= kLogMaxSize,
+        "Error meessage size needs to be smaller than max log length");
+    logLen = static_cast<uint8_t>(sizeof(kBtSnoopLogGenericErrorMsg));
+    copyLogToBuffer(LogBufferLogLevel::INFO, timestampMs,
+                    kBtSnoopLogGenericErrorMsg, logLen, false /* encoded */);
+  }
+  dispatch();
 }
 #endif  // CHRE_BLE_SUPPORT_ENABLED
 
@@ -105,8 +108,7 @@ size_t LogBuffer::copyLogs(void *destination, size_t size,
 
 bool LogBuffer::logWouldCauseOverflow(size_t logSize) {
   LockGuard<Mutex> lock(mLock);
-  return (mBufferDataSize + logSize + kLogDataOffset + 1 /* nullptr */ >
-          mBufferMaxSize);
+  return (mBufferDataSize + logSize + kLogDataOffset > mBufferMaxSize);
 }
 
 void LogBuffer::transferTo(LogBuffer &buffer) {
@@ -201,8 +203,6 @@ size_t LogBuffer::copyLogsLocked(void *destination, size_t size,
       copySize = mBufferDataSize;
     } else {
       size_t logSize;
-      // There is guaranteed to be a null terminator within the max log length
-      // number of bytes so logStartIndex will not be maxBytes + 1
       size_t logStartIndex = getNextLogIndex(mBufferDataHeadIndex, &logSize);
       while (copySize + logSize <= size &&
              copySize + logSize <= mBufferDataSize) {
@@ -228,69 +228,80 @@ void LogBuffer::resetLocked() {
 size_t LogBuffer::getNextLogIndex(size_t startingIndex, size_t *logSize) {
   size_t logDataStartIndex =
       incrementAndModByBufferMaxSize(startingIndex, kLogDataOffset);
-
-  size_t logDataSize = getLogDataLength(logDataStartIndex);
+  LogType type = getLogTypeFromMetadata(mBufferData[startingIndex]);
+  size_t logDataSize = getLogDataLength(logDataStartIndex, type);
   *logSize = kLogDataOffset + logDataSize;
   return incrementAndModByBufferMaxSize(startingIndex, *logSize);
 }
 
-size_t LogBuffer::getLogDataLength(size_t startingIndex) {
+size_t LogBuffer::getLogDataLength(size_t startingIndex, LogType type) {
   size_t currentIndex = startingIndex;
-  constexpr size_t maxBytes = kLogMaxSize - kLogDataOffset;
-  size_t numBytes = maxBytes + 1;
+  size_t numBytes = kLogMaxSize;
 
-  for (size_t i = 0; i < maxBytes; i++) {
-    if (mBufferData[currentIndex] == '\0') {
-      // +1 to include the null terminator
-      numBytes = i + 1;
-      break;
+  if (type == LogType::STRING) {
+    for (size_t i = 0; i < kLogMaxSize; i++) {
+      if (mBufferData[currentIndex] == '\0') {
+        // +1 to include the null terminator
+        numBytes = i + 1;
+        break;
+      }
+      currentIndex = incrementAndModByBufferMaxSize(currentIndex, 1);
     }
-    currentIndex = incrementAndModByBufferMaxSize(currentIndex, 1);
+  } else if (type == LogType::TOKENIZED) {
+    numBytes = mBufferData[startingIndex] + kTokenizedLogOffset;
+  } else if (type == LogType::BLUETOOTH) {
+    currentIndex = incrementAndModByBufferMaxSize(startingIndex, 1);
+    numBytes = mBufferData[currentIndex] + kBtSnoopLogOffset;
+  } else {
+    CHRE_ASSERT_LOG(false, "Received unexpected log message type");
   }
+
   return numBytes;
 }
 
 void LogBuffer::processLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
                            const void *logBuffer, size_t size, bool encoded) {
-  if (size > 0) {
-    auto logLen = static_cast<uint8_t>(size);
-    if (size >= kLogMaxSize) {
-      if (!encoded) {
-        // Leave space for null terminator to be copied on end
-        logLen = static_cast<uint8_t>(kLogMaxSize - 1);
-      } else {
-        // There is no way of decoding an encoded message if we truncate it, so
-        // we do the next best thing and try to log a generic failure message
-        // reusing the logbuffer for as much as we can. Note that we also need
-        // flip the encoding flag for proper decoding by the host log message
-        // parser.
-        constexpr char kTokenizedLogGenericErrorMsg[] =
-            "Tokenized log message too large";
-        static_assert(
-            sizeof(kTokenizedLogGenericErrorMsg) <= kLogMaxSize,
-            "Error meessage size needs to be smaller than max log length");
-        logBuffer = kTokenizedLogGenericErrorMsg;
-        logLen = static_cast<uint8_t>(sizeof(kTokenizedLogGenericErrorMsg));
-        encoded = false;
-      }
-    }
-    copyLogToBuffer(logLevel, timestampMs, logBuffer, logLen, encoded);
-    dispatch();
+  if (size == 0) {
+    return;
   }
+  auto logLen = static_cast<uint8_t>(size);
+
+  // For tokenized logs, need to leave space for the message size offset. For
+  // string logs, need to leave 1 byte for the null terminator at the end.
+  if (!encoded && size >= kLogMaxSize - 1) {
+    // String logs longer than kLogMaxSize - 1 will be truncated.
+    logLen = static_cast<uint8_t>(kLogMaxSize - 1);
+  } else if (encoded && size >= kLogMaxSize - kTokenizedLogOffset) {
+    // There is no way of decoding an encoded message if we truncate it, so
+    // we do the next best thing and try to log a generic failure message
+    // reusing the logbuffer for as much as we can. Note that we also need
+    // flip the encoding flag for proper decoding by the host log message
+    // parser.
+    constexpr char kTokenizedLogGenericErrorMsg[] =
+        "Tokenized log message too large";
+    static_assert(
+        sizeof(kTokenizedLogGenericErrorMsg) <= kLogMaxSize - 1,
+        "Error meessage size needs to be smaller than max log length");
+    logBuffer = kTokenizedLogGenericErrorMsg;
+    logLen = static_cast<uint8_t>(sizeof(kTokenizedLogGenericErrorMsg));
+    encoded = false;
+  }
+  copyLogToBuffer(logLevel, timestampMs, logBuffer, logLen, encoded);
+  dispatch();
 }
 
 void LogBuffer::copyLogToBuffer(LogBufferLogLevel level, uint32_t timestampMs,
                                 const void *logBuffer, uint8_t logLen,
                                 bool encoded) {
   LockGuard<Mutex> lockGuard(mLock);
-  discardExcessOldLogsLocked(encoded, logLen);
+  // For STRING logs, add 1 byte for null terminator. For TOKENIZED logs, add 1
+  // byte for the size metadata added to the message.
+  discardExcessOldLogsLocked(logLen + 1);
   encodeAndCopyLogLocked(level, timestampMs, logBuffer, logLen, encoded);
 }
 
-void LogBuffer::discardExcessOldLogsLocked(bool encoded,
-                                           uint8_t currentLogLen) {
-  size_t totalLogSize =
-      kLogDataOffset + (encoded ? currentLogLen : currentLogLen + 1);
+void LogBuffer::discardExcessOldLogsLocked(uint8_t currentLogLen) {
+  size_t totalLogSize = kLogDataOffset + currentLogLen;
   while (mBufferDataSize + totalLogSize > mBufferMaxSize) {
     mNumLogsDropped++;
     size_t logSize;
@@ -304,13 +315,13 @@ void LogBuffer::encodeAndCopyLogLocked(LogBufferLogLevel level,
                                        const void *logBuffer, uint8_t logLen,
                                        bool encoded) {
   uint8_t metadata =
-      (static_cast<uint8_t>(encoded) << 4) | static_cast<uint8_t>(level);
+      setLogMetadata(encoded ? LogType::TOKENIZED : LogType::STRING, level);
 
-  copyToBuffer(sizeof(uint8_t), &metadata);
-  copyToBuffer(sizeof(timestampMs), &timestampMs);
+  copyVarToBuffer(&metadata);
+  copyVarToBuffer(&timestampMs);
 
   if (encoded) {
-    copyToBuffer(sizeof(uint8_t), &logLen);
+    copyVarToBuffer(&logLen);
   }
   copyToBuffer(logLen, logBuffer);
   if (!encoded) {
@@ -336,6 +347,22 @@ void LogBuffer::dispatch() {
       }
     }
   }
+}
+
+LogType LogBuffer::getLogTypeFromMetadata(uint8_t metadata) {
+  LogType type;
+  if ((metadata & 0x20) != 0) {
+    type = LogType::BLUETOOTH;
+  } else if ((metadata & 0x10) != 0) {
+    type = LogType::TOKENIZED;
+  } else {
+    type = LogType::STRING;
+  }
+  return type;
+}
+
+uint8_t LogBuffer::setLogMetadata(LogType type, LogBufferLogLevel logLevel) {
+  return static_cast<uint8_t>(type) << 4 | static_cast<uint8_t>(logLevel);
 }
 
 }  // namespace chre

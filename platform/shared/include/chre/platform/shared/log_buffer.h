@@ -23,8 +23,11 @@
 
 #include "chre/platform/mutex.h"
 #include "chre/platform/shared/bt_snoop_log.h"
+#include "chre/platform/shared/generated/host_messages_generated.h"
 
 namespace chre {
+
+using LogType = fbs::LogType;
 
 /**
  * Values that represent a preferred setting for when the LogBuffer should
@@ -85,6 +88,21 @@ class LogBuffer {
   //! encountered. This is determined by the size of the 'header' in the log
   //! message.
   static constexpr size_t kLogDataOffset = 5;
+
+  //! The number of overhead bytes in a printf style string entry. This value
+  //! indicates the size of the null terminator appended to the end of each log.
+  static constexpr size_t kStringLogOverhead = 1;
+
+  //! The number of bytes in a tokenized log entry of the buffer after the
+  //! 'header' and before the tokenized log data is encountered. The value
+  //! indicate the size of the uint8_t logSize field.
+  static constexpr size_t kTokenizedLogOffset = 1;
+
+  //! The number of bytes in a bt snoop log entry of the buffer after the
+  //! 'header' and before the bt snoop log data is encountered. The value
+  //! indicate the size of the uint8_t size field and the BtSnoopDirection
+  //! field.
+  static constexpr size_t kBtSnoopLogOffset = 2;
 
   /**
    * @param callback The callback object that will receive notifications about
@@ -169,7 +187,8 @@ class LogBuffer {
 
   /**
    *
-   * @param logSize The size of the log text in bytes.
+   * @param logSize The size of the log payload, including overhead like
+   * metadata, null terminator, etc.
    * @return true if log would cause an overflow of the buffer and would
    * overwrite a log if it was pushed onto the buffer.
    */
@@ -233,6 +252,16 @@ class LogBuffer {
    */
   size_t getNumLogsDropped();
 
+  /**
+   * @param startingIndex The index to start from.
+   * @param type. The type of the log. See host_message.fbs.
+   * @return The length of the data portion of a log along with the null
+   *         terminator. If a null terminator was not found at most
+   *         kLogMaxSize - kLogDataOffset bytes away from the startingIndex
+   *         then kLogMaxSize - kLogDataOffset + 1 is returned.
+   */
+  size_t getLogDataLength(size_t startingIndex, LogType type);
+
  private:
   /**
    * Increment the value and take the modulus of the max size of the buffer.
@@ -252,6 +281,11 @@ class LogBuffer {
    * @param source The memory location to copy from.
    */
   void copyToBuffer(size_t size, const void *source);
+
+  template <typename Type>
+  void copyVarToBuffer(const Type *var) {
+    copyToBuffer(sizeof(Type), var);
+  }
 
   /**
    * Copy from the buffer data to a destination memory location ensuring that
@@ -284,15 +318,6 @@ class LogBuffer {
   size_t getNextLogIndex(size_t startingIndex, size_t *logSize);
 
   /**
-   * @param startingIndex The index to start from.
-   * @return The length of the data portion of a log along with the null
-   *         terminator. If a null terminator was not found at most
-   *         kLogMaxSize - kLogDataOffset bytes away from the startingIndex
-   *         then kLogMaxSize - kLogDataOffset + 1 is returned.
-   */
-  size_t getLogDataLength(size_t startingIndex);
-
-  /**
    * Encode the received log message (if tokenization or similar encoding
    * is used) and dispatch it.
    */
@@ -311,7 +336,7 @@ class LogBuffer {
    * than max size. This function must only be called with the log buffer mutex
    * locked.
    */
-  void discardExcessOldLogsLocked(bool encoded, uint8_t currentLogLen);
+  void discardExcessOldLogsLocked(uint8_t currentLogLen);
 
   /**
    * Add an encoding header to the log message if the encoding param is true.
@@ -326,6 +351,21 @@ class LogBuffer {
    * setting
    */
   void dispatch();
+
+  /**
+   * @param metadata The metadata of the log message.
+   * @return The log type of the log message.
+   */
+  LogType getLogTypeFromMetadata(uint8_t metadata);
+
+  /**
+   * Set the upper nibble of the log metadata based on log type and log level.
+   *
+   * @param type The log type of the log message.
+   * @param logLevel The log level of the log message.
+   * @return The metadata of the log message.
+   */
+  uint8_t setLogMetadata(LogType type, LogBufferLogLevel logLevel);
 
   /**
    * The buffer data is stored in the format
