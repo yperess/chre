@@ -91,10 +91,27 @@ static void chppReset(struct ChppTransportState *context,
                       enum ChppTransportErrorCode error);
 struct ChppAppHeader *chppTransportGetRequestTimeoutResponse(
     struct ChppTransportState *context, enum ChppEndpointType type);
+static const char *chppGetRxStatusLabel(enum ChppRxState state);
 
 /************************************************
  *  Private Functions
  ***********************************************/
+
+/** Returns a string representation of the passed ChppRxState */
+static const char *chppGetRxStatusLabel(enum ChppRxState state) {
+  switch (state) {
+    case CHPP_STATE_PREAMBLE:
+      return "PREAMBLE (0)";
+    case CHPP_STATE_HEADER:
+      return "HEADER (1)";
+    case CHPP_STATE_PAYLOAD:
+      return "PAYLOAD (2)";
+    case CHPP_STATE_FOOTER:
+      return "FOOTER (3)";
+  }
+
+  return "invalid";
+}
 
 /**
  * Called any time the Rx state needs to be changed. Ensures that the location
@@ -106,9 +123,11 @@ struct ChppAppHeader *chppTransportGetRequestTimeoutResponse(
  */
 static void chppSetRxState(struct ChppTransportState *context,
                            enum ChppRxState newState) {
-  CHPP_LOGD("Changing RX transport state from %" PRIu8 " to %" PRIu8
-            " after %" PRIuSIZE " bytes",
-            context->rxStatus.state, newState, context->rxStatus.locInState);
+  CHPP_LOGD(
+      "Changing RX transport state from %s to %s"
+      " after %" PRIuSIZE " bytes",
+      chppGetRxStatusLabel(context->rxStatus.state),
+      chppGetRxStatusLabel(newState), context->rxStatus.locInState);
   context->rxStatus.locInState = 0;
   context->rxStatus.state = newState;
 }
@@ -1020,10 +1039,11 @@ static void chppTransportDoWork(struct ChppTransportState *context) {
   } else {
     CHPP_LOGW(
         "DoWork nothing to send. hasPackets=%d, linkBusy=%d, pending=%" PRIu8
-        ", RX ACK=%" PRIu8 ", TX seq=%" PRIu8 ", RX state=%" PRIu8,
+        ", RX ACK=%" PRIu8 ", TX seq=%" PRIu8 ", RX state=%s",
         context->txStatus.hasPacketsToSend, context->txStatus.linkBusy,
         context->txDatagramQueue.pending, context->rxStatus.receivedAckSeq,
-        context->txStatus.sentSeq, context->rxStatus.state);
+        context->txStatus.sentSeq,
+        chppGetRxStatusLabel(context->rxStatus.state));
   }
 
   chppMutexUnlock(&context->mutex);
@@ -1455,8 +1475,8 @@ bool chppRxDataCb(struct ChppTransportState *context, const uint8_t *buf,
   }
   chppMutexUnlock(&context->mutex);
 
-  CHPP_LOGD("RX %" PRIuSIZE " bytes: state=%" PRIu8, len,
-            context->rxStatus.state);
+  CHPP_LOGD("RX %" PRIuSIZE " bytes: state=%s", len,
+            chppGetRxStatusLabel(context->rxStatus.state));
   uint64_t now = chppGetCurrentTimeNs();
   context->rxStatus.lastDataTimeMs = (uint32_t)(now / CHPP_NSEC_PER_MSEC);
   context->rxStatus.numTotalDataBytes += len;
@@ -1503,10 +1523,9 @@ bool chppRxDataCb(struct ChppTransportState *context, const uint8_t *buf,
 void chppRxPacketCompleteCb(struct ChppTransportState *context) {
   chppMutexLock(&context->mutex);
   if (context->rxStatus.state != CHPP_STATE_PREAMBLE) {
-    CHPP_LOGE("RX pkt ended early: state=%" PRIu8 " seq=%" PRIu8
-              " len=%" PRIu16,
-              context->rxStatus.state, context->rxHeader.seq,
-              context->rxHeader.length);
+    CHPP_LOGE("RX pkt ended early: state=%s seq=%" PRIu8 " len=%" PRIu16,
+              chppGetRxStatusLabel(context->rxStatus.state),
+              context->rxHeader.seq, context->rxHeader.length);
     chppAbortRxPacket(context);
     chppEnqueueTxPacket(context, CHPP_TRANSPORT_ERROR_HEADER);  // NACK
   }
