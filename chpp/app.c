@@ -1053,6 +1053,14 @@ bool chppSendTimestampedRequestOrFail(
   CHPP_DEBUG_NOT_NULL(buf);
   CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
 
+  if (timeoutNs < CHPP_TRANSPORT_TX_TIMEOUT_NS) {
+    // The app layer sits above the transport layer.
+    // Request timeout (app layer) should be longer than the transport timeout.
+    CHPP_LOGW("Request timeout (%" PRIu64
+              "ns) should be longer than the transport timeout (%" PRIu64 "ns)",
+              timeoutNs, (uint64_t)CHPP_TRANSPORT_TX_TIMEOUT_NS);
+  }
+
   chppTimestampOutgoingRequest(endpointState->appContext, outReqState, buf,
                                timeoutNs);
   endpointState->syncResponse.ready = false;
