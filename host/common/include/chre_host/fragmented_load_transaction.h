@@ -115,10 +115,15 @@ class FragmentedLoadTransaction {
     return mTransactionId;
   }
 
+  uint64_t getNanoappId() const {
+    return mNanoappId;
+  }
+
  private:
   std::vector<FragmentedLoadRequest> mFragmentRequests;
   size_t mCurrentRequestIndex = 0;
   uint32_t mTransactionId;
+  uint64_t mNanoappId;
 
   static constexpr size_t kDefaultFragmentSize =
       CHRE_HOST_DEFAULT_FRAGMENT_SIZE;
