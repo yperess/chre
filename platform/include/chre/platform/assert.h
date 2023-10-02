@@ -21,19 +21,26 @@
 
 /**
  * @file
- * Defines the CHRE_ASSERT and CHRE_ASSERT_LOG macros for CHRE platforms.
- * Platforms must supply an implementation for assertCondition or use the shared
- * implementation.
+ * Includes the platform-specific header file that supplies an assertion macro.
+ * The platform header must supply the following symbol as a macro or free
+ * function:
+ *
+ *   CHRE_ASSERT(scalar expression)
+ *
+ * Where expression will be checked to be false (ie: compares equal to zero) and
+ * terminate the program if found to be the case.
  */
 
-#if defined(CHRE_ASSERTIONS_ENABLED)
+#if defined(CHRE_ASSERTIONS_ENABLED) && defined(CHRE_ASSERTIONS_DISABLED)
+#error "CHRE_ASSERT is both enabled and disabled!"
 
-#define CHRE_ASSERT(condition)               \
-  do {                                       \
-    if (!(condition)) {                      \
-      chreDoAssert(CHRE_FILENAME, __LINE__); \
-    }                                        \
-  } while (0)
+#elif defined(CHRE_ASSERTIONS_ENABLED)
+
+#include "chre/target_platform/assert.h"
+
+#ifndef CHRE_ASSERT
+#error "CHRE_ASSERT must be defined by the target platform's assert.h"
+#endif  // CHRE_ASSERT
 
 #elif defined(CHRE_ASSERTIONS_DISABLED)
 
@@ -79,22 +86,6 @@
 #define CHRE_ASSERT_LOG_IF_NOT_TEST(condition, fmt, ...) \
   CHRE_ASSERT_LOG(condition, fmt, ##__VA_ARGS__)
 #define CHRE_ASSERT_IF_NOT_TEST(condition) CHRE_ASSERT(condition)
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/**
- * Performs assertion while logging the filename and line provided.
- *
- * @param filename The filename containing the assertion being fired.
- * @param line The line that contains the assertion being fired.
- */
-void chreDoAssert(const char *filename, size_t line);
-
-#ifdef __cplusplus
-}
 #endif
 
 #endif  // CHRE_PLATFORM_ASSERT_H_
