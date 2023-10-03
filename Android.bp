@@ -83,6 +83,27 @@ cc_library_static {
     cflags: ["-Wall", "-Werror"]
 }
 
+cc_library {
+    name: "chre_metrics_reporter",
+    export_include_dirs: [
+        "host/common/include",
+    ],
+    srcs: [
+        "host/common/metrics_reporter.cc",
+    ],
+    shared_libs: [
+        "android.frameworks.stats-V1-ndk",
+        "chremetrics-cpp",
+        "chre_atoms_log",
+        "libbinder_ndk",
+        "libcutils",
+        "liblog",
+        "libutils",
+    ],
+    vendor: true,
+    cflags: ["-Wall", "-Werror"]
+}
+
 cc_binary {
     name: "chre_test_client",
     vendor: true,
