@@ -323,7 +323,8 @@ table LogMessageV2 {
   /// uint8_t                 - Log metadata, encoded as follows:
   ///                           [EI(Upper nibble) | Level(Lower nibble)]
   ///                            * Log Type
-  ///                              (0 = No encoding, 1 = Tokenized log, 2 = BT snoop log)
+  ///                              (0 = No encoding, 1 = Tokenized log,
+  ///                               2 = BT snoop log, 3 = Nanoapp Tokenized log)
   ///                            * LogBuffer log level (1 = error, 2 = warn,
   ///                                                   3 = info,  4 = debug,
   ///                                                   5 = verbose)
@@ -335,7 +336,7 @@ table LogMessageV2 {
   ///   terminated string (eg: pass to string manipulation functions, get its
   ///   size via strlen(), etc.).
   ///
-  /// * Encoded logs: The first byte of the log buffer indicates the size of
+  /// * Tokenized logs: The first byte of the log buffer indicates the size of
   ///   the actual encoded data to follow. For example, if a tokenized log of
   ///   size 24 bytes were to be represented, a buffer of size 25 bytes would
   ///   be needed to encode this as: [Size(1B) | Data(24B)]. A decoder would
@@ -348,6 +349,15 @@ table LogMessageV2 {
   ///   of the actual BT payload followed. For example, if a bt snoop log of
   ///   size 24 bytes were to be represented, a buffer of size 26 bytes would
   ///   be needed to encode this as: [Direction(1B) | Size(1B) | Data(24B)].
+  ///
+  /// * Tokenized nanoapp logs: This log type is specifically for nanoapps with
+  ///   tokenized logs enabled. Similar to tokenized logs, the first byte is the
+  ///   size of the tokenized log data at the end. The next two bytes is the instance
+  ///   ID of the nanoapp which sends this tokenized log message. This instance ID
+  ///   will be used to map to the corresponding detokenizer in the log message parser.
+  ///   For example, if a nanoapp tokenized log of size 24 bytes were to be sent,
+  ///   a buffer of size 27 bytes would be needed to encode this as:
+  ///   [Size(1B) | InstanceId (2B) | Data(24B)].
   ///
   /// This pattern repeats until the end of the buffer for multiple log
   /// messages. The last byte will always be a null-terminator. There are no
