@@ -244,6 +244,7 @@ public abstract class ContextHubGeneralTestExecutor extends ContextHubClientCall
 
     private void handleBleTestSetup() {
         mInitialBluetoothEnabled = mSettingsUtil.isBluetoothEnabled();
+        Log.i(TAG, "Initial bluetooth setting enabled: " + mInitialBluetoothEnabled);
         if (mInitialBluetoothEnabled) {
             return;
         }
@@ -255,6 +256,7 @@ public abstract class ContextHubGeneralTestExecutor extends ContextHubClientCall
         try {
             bluetoothUpdateListener.mBluetoothLatch.await(10, TimeUnit.SECONDS);
             Assert.assertTrue(mSettingsUtil.isBluetoothEnabled());
+            Log.i(TAG, "Bluetooth enabled successfully");
             // Wait a few seconds to ensure setting is propagated to CHRE path
             // TODO(b/302018530): Remove Thread.sleep calls for CHRE settings propagation
             Thread.sleep(2000);

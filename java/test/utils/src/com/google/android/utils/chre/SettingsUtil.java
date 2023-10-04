@@ -169,7 +169,7 @@ public class SettingsUtil {
     public boolean isBluetoothEnabled() {
         String out = ChreTestUtil.executeShellCommand(
                 mInstrumentation, "settings get global bluetooth_on");
-        return ChreTestUtil.convertToIntegerOrFail(out) > 0;
+        return ChreTestUtil.convertToIntegerOrFail(out) == 1;
     }
 
     /**
