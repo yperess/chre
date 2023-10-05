@@ -269,11 +269,11 @@ void BleRequestManager::handleAdvertisementEvent(
 
 void BleRequestManager::handlePlatformChange(bool enable, uint8_t errorCode) {
   auto callback = [](uint16_t /*type*/, void *data, void *extraData) {
-    bool enable = NestedDataPtr<bool>(data);
-    uint8_t errorCode = NestedDataPtr<uint8_t>(extraData);
+    bool enableCb = NestedDataPtr<bool>(data);
+    uint8_t errorCodeCb = NestedDataPtr<uint8_t>(extraData);
     EventLoopManagerSingleton::get()
         ->getBleRequestManager()
-        .handlePlatformChangeSync(enable, errorCode);
+        .handlePlatformChangeSync(enableCb, errorCodeCb);
   };
 
   EventLoopManagerSingleton::get()->deferCallback(
