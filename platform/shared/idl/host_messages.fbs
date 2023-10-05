@@ -196,6 +196,11 @@ table LoadNanoappResponse {
   // TODO: detailed error code?
 }
 
+table NanoappInstanceIdInfo {
+  instance_id: uint;
+  app_id:ulong;
+}
+
 table UnloadNanoappRequest {
   transaction_id:uint;
 
@@ -492,6 +497,8 @@ union ChreMessage {
 
   PulseRequest,
   PulseResponse,
+
+  NanoappInstanceIdInfo,
 }
 
 struct HostAddress {

@@ -36,6 +36,9 @@ struct LoadNanoappRequestBuilder;
 struct LoadNanoappResponse;
 struct LoadNanoappResponseBuilder;
 
+struct NanoappInstanceIdInfo;
+struct NanoappInstanceIdInfoBuilder;
+
 struct UnloadNanoappRequest;
 struct UnloadNanoappRequestBuilder;
 
@@ -317,11 +320,12 @@ enum class ChreMessage : uint8_t {
   DebugConfiguration = 28,
   PulseRequest = 29,
   PulseResponse = 30,
+  NanoappInstanceIdInfo = 31,
   MIN = NONE,
-  MAX = PulseResponse
+  MAX = NanoappInstanceIdInfo
 };
 
-inline const ChreMessage (&EnumValuesChreMessage())[31] {
+inline const ChreMessage (&EnumValuesChreMessage())[32] {
   static const ChreMessage values[] = {
     ChreMessage::NONE,
     ChreMessage::NanoappMessage,
@@ -353,13 +357,14 @@ inline const ChreMessage (&EnumValuesChreMessage())[31] {
     ChreMessage::NanConfigurationUpdate,
     ChreMessage::DebugConfiguration,
     ChreMessage::PulseRequest,
-    ChreMessage::PulseResponse
+    ChreMessage::PulseResponse,
+    ChreMessage::NanoappInstanceIdInfo
   };
   return values;
 }
 
 inline const char * const *EnumNamesChreMessage() {
-  static const char * const names[32] = {
+  static const char * const names[33] = {
     "NONE",
     "NanoappMessage",
     "HubInfoRequest",
@@ -391,13 +396,14 @@ inline const char * const *EnumNamesChreMessage() {
     "DebugConfiguration",
     "PulseRequest",
     "PulseResponse",
+    "NanoappInstanceIdInfo",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameChreMessage(ChreMessage e) {
-  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::PulseResponse)) return "";
+  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::NanoappInstanceIdInfo)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesChreMessage()[index];
 }
@@ -524,6 +530,10 @@ template<> struct ChreMessageTraits<chre::fbs::PulseRequest> {
 
 template<> struct ChreMessageTraits<chre::fbs::PulseResponse> {
   static const ChreMessage enum_value = ChreMessage::PulseResponse;
+};
+
+template<> struct ChreMessageTraits<chre::fbs::NanoappInstanceIdInfo> {
+  static const ChreMessage enum_value = ChreMessage::NanoappInstanceIdInfo;
 };
 
 bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, ChreMessage type);
@@ -1446,6 +1456,58 @@ inline flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(
   builder_.add_fragment_id(fragment_id);
   builder_.add_transaction_id(transaction_id);
   builder_.add_success(success);
+  return builder_.Finish();
+}
+
+struct NanoappInstanceIdInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef NanoappInstanceIdInfoBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_INSTANCE_ID = 4,
+    VT_APP_ID = 6
+  };
+  uint32_t instance_id() const {
+    return GetField<uint32_t>(VT_INSTANCE_ID, 0);
+  }
+  uint64_t app_id() const {
+    return GetField<uint64_t>(VT_APP_ID, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_INSTANCE_ID) &&
+           VerifyField<uint64_t>(verifier, VT_APP_ID) &&
+           verifier.EndTable();
+  }
+};
+
+struct NanoappInstanceIdInfoBuilder {
+  typedef NanoappInstanceIdInfo Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_instance_id(uint32_t instance_id) {
+    fbb_.AddElement<uint32_t>(NanoappInstanceIdInfo::VT_INSTANCE_ID, instance_id, 0);
+  }
+  void add_app_id(uint64_t app_id) {
+    fbb_.AddElement<uint64_t>(NanoappInstanceIdInfo::VT_APP_ID, app_id, 0);
+  }
+  explicit NanoappInstanceIdInfoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  NanoappInstanceIdInfoBuilder &operator=(const NanoappInstanceIdInfoBuilder &);
+  flatbuffers::Offset<NanoappInstanceIdInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<NanoappInstanceIdInfo>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<NanoappInstanceIdInfo> CreateNanoappInstanceIdInfo(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t instance_id = 0,
+    uint64_t app_id = 0) {
+  NanoappInstanceIdInfoBuilder builder_(_fbb);
+  builder_.add_app_id(app_id);
+  builder_.add_instance_id(instance_id);
   return builder_.Finish();
 }
 
@@ -2704,6 +2766,9 @@ struct MessageContainer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const chre::fbs::PulseResponse *message_as_PulseResponse() const {
     return message_type() == chre::fbs::ChreMessage::PulseResponse ? static_cast<const chre::fbs::PulseResponse *>(message()) : nullptr;
   }
+  const chre::fbs::NanoappInstanceIdInfo *message_as_NanoappInstanceIdInfo() const {
+    return message_type() == chre::fbs::ChreMessage::NanoappInstanceIdInfo ? static_cast<const chre::fbs::NanoappInstanceIdInfo *>(message()) : nullptr;
+  }
   /// The originating or destination client ID on the host side, used to direct
   /// responses only to the client that sent the request. Although initially
   /// populated by the requesting client, this is enforced to be the correct
@@ -2841,6 +2906,10 @@ template<> inline const chre::fbs::PulseRequest *MessageContainer::message_as<ch
 
 template<> inline const chre::fbs::PulseResponse *MessageContainer::message_as<chre::fbs::PulseResponse>() const {
   return message_as_PulseResponse();
+}
+
+template<> inline const chre::fbs::NanoappInstanceIdInfo *MessageContainer::message_as<chre::fbs::NanoappInstanceIdInfo>() const {
+  return message_as_NanoappInstanceIdInfo();
 }
 
 struct MessageContainerBuilder {
@@ -3005,6 +3074,10 @@ inline bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, 
     }
     case ChreMessage::PulseResponse: {
       auto ptr = reinterpret_cast<const chre::fbs::PulseResponse *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::NanoappInstanceIdInfo: {
+      auto ptr = reinterpret_cast<const chre::fbs::NanoappInstanceIdInfo *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

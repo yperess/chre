@@ -50,8 +50,8 @@ struct FragmentedLoadRequest {
   std::vector<uint8_t> binary;
 
   FragmentedLoadRequest(size_t fragmentId, uint32_t transactionId,
-                        const std::vector<uint8_t> &binary)
-      : FragmentedLoadRequest(fragmentId, transactionId, 0, 0, 0, 0, 0,
+                        uint64_t appId, const std::vector<uint8_t> &binary)
+      : FragmentedLoadRequest(fragmentId, transactionId, appId, 0, 0, 0, 0,
                               binary) {}
 
   FragmentedLoadRequest(size_t fragmentId, uint32_t transactionId,

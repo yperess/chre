@@ -63,7 +63,7 @@ FragmentedLoadTransaction::FragmentedLoadTransaction(
           getSubVector(appBinary, byteIndex, fragmentSize));
     } else {
       mFragmentRequests.emplace_back(
-          fragmentId++, transactionId,
+          fragmentId++, transactionId, appId,
           getSubVector(appBinary, byteIndex, fragmentSize));
     }
 

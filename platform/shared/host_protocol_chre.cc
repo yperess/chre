@@ -272,6 +272,14 @@ void HostProtocolChre::encodeLoadNanoappResponse(ChreFlatBufferBuilder &builder,
            hostClientId);
 }
 
+void HostProtocolChre::encodeNanoappInstanceIdInfo(
+    ChreFlatBufferBuilder &builder, uint16_t hostClientId, uint16_t instanceId,
+    uint64_t appId) {
+  auto response = fbs::CreateNanoappInstanceIdInfo(builder, instanceId, appId);
+  finalize(builder, fbs::ChreMessage::NanoappInstanceIdInfo, response.Union(),
+           hostClientId);
+}
+
 void HostProtocolChre::encodeUnloadNanoappResponse(
     ChreFlatBufferBuilder &builder, uint16_t hostClientId,
     uint32_t transactionId, bool success) {

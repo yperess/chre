@@ -192,10 +192,6 @@ bool EventLoop::startNanoapp(UniquePtr<Nanoapp> &nanoapp) {
   } else if (!mNanoapps.prepareForPush()) {
     LOG_OOM();
   } else {
-    nanoapp->setInstanceId(eventLoopManager->getNextInstanceId());
-    LOGD("Instance ID %" PRIu16 " assigned to app ID 0x%016" PRIx64,
-         nanoapp->getInstanceId(), nanoapp->getAppId());
-
     Nanoapp *newNanoapp = nanoapp.get();
     {
       LockGuard<Mutex> lock(mNanoappsLock);

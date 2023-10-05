@@ -45,6 +45,10 @@ struct LoadNanoappResponse;
 struct LoadNanoappResponseBuilder;
 struct LoadNanoappResponseT;
 
+struct NanoappInstanceIdInfo;
+struct NanoappInstanceIdInfoBuilder;
+struct NanoappInstanceIdInfoT;
+
 struct UnloadNanoappRequest;
 struct UnloadNanoappRequestBuilder;
 struct UnloadNanoappRequestT;
@@ -350,11 +354,12 @@ enum class ChreMessage : uint8_t {
   DebugConfiguration = 28,
   PulseRequest = 29,
   PulseResponse = 30,
+  NanoappInstanceIdInfo = 31,
   MIN = NONE,
-  MAX = PulseResponse
+  MAX = NanoappInstanceIdInfo
 };
 
-inline const ChreMessage (&EnumValuesChreMessage())[31] {
+inline const ChreMessage (&EnumValuesChreMessage())[32] {
   static const ChreMessage values[] = {
     ChreMessage::NONE,
     ChreMessage::NanoappMessage,
@@ -386,13 +391,14 @@ inline const ChreMessage (&EnumValuesChreMessage())[31] {
     ChreMessage::NanConfigurationUpdate,
     ChreMessage::DebugConfiguration,
     ChreMessage::PulseRequest,
-    ChreMessage::PulseResponse
+    ChreMessage::PulseResponse,
+    ChreMessage::NanoappInstanceIdInfo
   };
   return values;
 }
 
 inline const char * const *EnumNamesChreMessage() {
-  static const char * const names[32] = {
+  static const char * const names[33] = {
     "NONE",
     "NanoappMessage",
     "HubInfoRequest",
@@ -424,13 +430,14 @@ inline const char * const *EnumNamesChreMessage() {
     "DebugConfiguration",
     "PulseRequest",
     "PulseResponse",
+    "NanoappInstanceIdInfo",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameChreMessage(ChreMessage e) {
-  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::PulseResponse)) return "";
+  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::NanoappInstanceIdInfo)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesChreMessage()[index];
 }
@@ -557,6 +564,10 @@ template<> struct ChreMessageTraits<chre::fbs::PulseRequest> {
 
 template<> struct ChreMessageTraits<chre::fbs::PulseResponse> {
   static const ChreMessage enum_value = ChreMessage::PulseResponse;
+};
+
+template<> struct ChreMessageTraits<chre::fbs::NanoappInstanceIdInfo> {
+  static const ChreMessage enum_value = ChreMessage::NanoappInstanceIdInfo;
 };
 
 struct ChreMessageUnion {
@@ -830,6 +841,14 @@ struct ChreMessageUnion {
   const chre::fbs::PulseResponseT *AsPulseResponse() const {
     return type == ChreMessage::PulseResponse ?
       reinterpret_cast<const chre::fbs::PulseResponseT *>(value) : nullptr;
+  }
+  chre::fbs::NanoappInstanceIdInfoT *AsNanoappInstanceIdInfo() {
+    return type == ChreMessage::NanoappInstanceIdInfo ?
+      reinterpret_cast<chre::fbs::NanoappInstanceIdInfoT *>(value) : nullptr;
+  }
+  const chre::fbs::NanoappInstanceIdInfoT *AsNanoappInstanceIdInfo() const {
+    return type == ChreMessage::NanoappInstanceIdInfo ?
+      reinterpret_cast<const chre::fbs::NanoappInstanceIdInfoT *>(value) : nullptr;
   }
 };
 
@@ -2063,6 +2082,80 @@ inline flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(
 }
 
 flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(flatbuffers::FlatBufferBuilder &_fbb, const LoadNanoappResponseT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct NanoappInstanceIdInfoT : public flatbuffers::NativeTable {
+  typedef NanoappInstanceIdInfo TableType;
+  uint32_t instance_id;
+  uint64_t app_id;
+  NanoappInstanceIdInfoT()
+      : instance_id(0),
+        app_id(0) {
+  }
+};
+
+struct NanoappInstanceIdInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef NanoappInstanceIdInfoT NativeTableType;
+  typedef NanoappInstanceIdInfoBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_INSTANCE_ID = 4,
+    VT_APP_ID = 6
+  };
+  uint32_t instance_id() const {
+    return GetField<uint32_t>(VT_INSTANCE_ID, 0);
+  }
+  bool mutate_instance_id(uint32_t _instance_id) {
+    return SetField<uint32_t>(VT_INSTANCE_ID, _instance_id, 0);
+  }
+  uint64_t app_id() const {
+    return GetField<uint64_t>(VT_APP_ID, 0);
+  }
+  bool mutate_app_id(uint64_t _app_id) {
+    return SetField<uint64_t>(VT_APP_ID, _app_id, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_INSTANCE_ID) &&
+           VerifyField<uint64_t>(verifier, VT_APP_ID) &&
+           verifier.EndTable();
+  }
+  NanoappInstanceIdInfoT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(NanoappInstanceIdInfoT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<NanoappInstanceIdInfo> Pack(flatbuffers::FlatBufferBuilder &_fbb, const NanoappInstanceIdInfoT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct NanoappInstanceIdInfoBuilder {
+  typedef NanoappInstanceIdInfo Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_instance_id(uint32_t instance_id) {
+    fbb_.AddElement<uint32_t>(NanoappInstanceIdInfo::VT_INSTANCE_ID, instance_id, 0);
+  }
+  void add_app_id(uint64_t app_id) {
+    fbb_.AddElement<uint64_t>(NanoappInstanceIdInfo::VT_APP_ID, app_id, 0);
+  }
+  explicit NanoappInstanceIdInfoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  NanoappInstanceIdInfoBuilder &operator=(const NanoappInstanceIdInfoBuilder &);
+  flatbuffers::Offset<NanoappInstanceIdInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<NanoappInstanceIdInfo>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<NanoappInstanceIdInfo> CreateNanoappInstanceIdInfo(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t instance_id = 0,
+    uint64_t app_id = 0) {
+  NanoappInstanceIdInfoBuilder builder_(_fbb);
+  builder_.add_app_id(app_id);
+  builder_.add_instance_id(instance_id);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<NanoappInstanceIdInfo> CreateNanoappInstanceIdInfo(flatbuffers::FlatBufferBuilder &_fbb, const NanoappInstanceIdInfoT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 struct UnloadNanoappRequestT : public flatbuffers::NativeTable {
   typedef UnloadNanoappRequest TableType;
@@ -3727,6 +3820,9 @@ struct MessageContainer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const chre::fbs::PulseResponse *message_as_PulseResponse() const {
     return message_type() == chre::fbs::ChreMessage::PulseResponse ? static_cast<const chre::fbs::PulseResponse *>(message()) : nullptr;
   }
+  const chre::fbs::NanoappInstanceIdInfo *message_as_NanoappInstanceIdInfo() const {
+    return message_type() == chre::fbs::ChreMessage::NanoappInstanceIdInfo ? static_cast<const chre::fbs::NanoappInstanceIdInfo *>(message()) : nullptr;
+  }
   void *mutable_message() {
     return GetPointer<void *>(VT_MESSAGE);
   }
@@ -3873,6 +3969,10 @@ template<> inline const chre::fbs::PulseRequest *MessageContainer::message_as<ch
 
 template<> inline const chre::fbs::PulseResponse *MessageContainer::message_as<chre::fbs::PulseResponse>() const {
   return message_as_PulseResponse();
+}
+
+template<> inline const chre::fbs::NanoappInstanceIdInfo *MessageContainer::message_as<chre::fbs::NanoappInstanceIdInfo>() const {
+  return message_as_NanoappInstanceIdInfo();
 }
 
 struct MessageContainerBuilder {
@@ -4244,6 +4344,35 @@ inline flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(flatbu
       _transaction_id,
       _success,
       _fragment_id);
+}
+
+inline NanoappInstanceIdInfoT *NanoappInstanceIdInfo::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<chre::fbs::NanoappInstanceIdInfoT> _o = std::unique_ptr<chre::fbs::NanoappInstanceIdInfoT>(new NanoappInstanceIdInfoT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void NanoappInstanceIdInfo::UnPackTo(NanoappInstanceIdInfoT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = instance_id(); _o->instance_id = _e; }
+  { auto _e = app_id(); _o->app_id = _e; }
+}
+
+inline flatbuffers::Offset<NanoappInstanceIdInfo> NanoappInstanceIdInfo::Pack(flatbuffers::FlatBufferBuilder &_fbb, const NanoappInstanceIdInfoT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateNanoappInstanceIdInfo(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<NanoappInstanceIdInfo> CreateNanoappInstanceIdInfo(flatbuffers::FlatBufferBuilder &_fbb, const NanoappInstanceIdInfoT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const NanoappInstanceIdInfoT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _instance_id = _o->instance_id;
+  auto _app_id = _o->app_id;
+  return chre::fbs::CreateNanoappInstanceIdInfo(
+      _fbb,
+      _instance_id,
+      _app_id);
 }
 
 inline UnloadNanoappRequestT *UnloadNanoappRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
@@ -5010,6 +5139,10 @@ inline bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, 
       auto ptr = reinterpret_cast<const chre::fbs::PulseResponse *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case ChreMessage::NanoappInstanceIdInfo: {
+      auto ptr = reinterpret_cast<const chre::fbs::NanoappInstanceIdInfo *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -5148,6 +5281,10 @@ inline void *ChreMessageUnion::UnPack(const void *obj, ChreMessage type, const f
       auto ptr = reinterpret_cast<const chre::fbs::PulseResponse *>(obj);
       return ptr->UnPack(resolver);
     }
+    case ChreMessage::NanoappInstanceIdInfo: {
+      auto ptr = reinterpret_cast<const chre::fbs::NanoappInstanceIdInfo *>(obj);
+      return ptr->UnPack(resolver);
+    }
     default: return nullptr;
   }
 }
@@ -5274,6 +5411,10 @@ inline flatbuffers::Offset<void> ChreMessageUnion::Pack(flatbuffers::FlatBufferB
       auto ptr = reinterpret_cast<const chre::fbs::PulseResponseT *>(value);
       return CreatePulseResponse(_fbb, ptr, _rehasher).Union();
     }
+    case ChreMessage::NanoappInstanceIdInfo: {
+      auto ptr = reinterpret_cast<const chre::fbs::NanoappInstanceIdInfoT *>(value);
+      return CreateNanoappInstanceIdInfo(_fbb, ptr, _rehasher).Union();
+    }
     default: return 0;
   }
 }
@@ -5398,6 +5539,10 @@ inline ChreMessageUnion::ChreMessageUnion(const ChreMessageUnion &u) : type(u.ty
     }
     case ChreMessage::PulseResponse: {
       value = new chre::fbs::PulseResponseT(*reinterpret_cast<chre::fbs::PulseResponseT *>(u.value));
+      break;
+    }
+    case ChreMessage::NanoappInstanceIdInfo: {
+      value = new chre::fbs::NanoappInstanceIdInfoT(*reinterpret_cast<chre::fbs::NanoappInstanceIdInfoT *>(u.value));
       break;
     }
     default:
@@ -5554,6 +5699,11 @@ inline void ChreMessageUnion::Reset() {
     }
     case ChreMessage::PulseResponse: {
       auto ptr = reinterpret_cast<chre::fbs::PulseResponseT *>(value);
+      delete ptr;
+      break;
+    }
+    case ChreMessage::NanoappInstanceIdInfo: {
+      auto ptr = reinterpret_cast<chre::fbs::NanoappInstanceIdInfoT *>(value);
       delete ptr;
       break;
     }

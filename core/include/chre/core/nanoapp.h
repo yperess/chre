@@ -76,14 +76,6 @@ class Nanoapp : public PlatformNanoapp {
   }
 
   /**
-   * Assigns an instance ID to this Nanoapp. This must be called prior to
-   * starting this Nanoapp.
-   */
-  void setInstanceId(uint16_t instanceId) {
-    mInstanceId = instanceId;
-  }
-
-  /**
    * @return The current total number of bytes the nanoapp has allocated.
    */
   size_t getTotalAllocatedBytes() const {

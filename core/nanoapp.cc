@@ -39,6 +39,7 @@ constexpr size_t Nanoapp::kMaxSizeWakeupBuckets;
 Nanoapp::Nanoapp() {
   // Push first bucket onto wakeup bucket queue
   cycleWakeupBuckets(1);
+  mInstanceId = EventLoopManagerSingleton::get()->getNextInstanceId();
 }
 
 bool Nanoapp::start() {
