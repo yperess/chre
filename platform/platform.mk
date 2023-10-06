@@ -334,6 +334,8 @@ endif
 
 # GoogleTest Compiler Flags ####################################################
 
+GOOGLETEST_CFLAGS += $(FLATBUFFERS_CFLAGS)
+
 # The order here is important so that the googletest target prefers shared,
 # linux and then SLPI.
 GOOGLETEST_CFLAGS += -Iplatform/shared/include

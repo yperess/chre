@@ -17,6 +17,8 @@
 #ifndef CHRE_UTIL_SYNCHRONIZED_EXPANDABLE_MEMORY_POOL_IMPL_H_
 #define CHRE_UTIL_SYNCHRONIZED_EXPANDABLE_MEMORY_POOL_IMPL_H_
 
+#include <algorithm>
+
 #include "chre/util/lock_guard.h"
 #include "chre/util/memory_pool.h"
 #include "chre/util/synchronized_expandable_memory_pool.h"
