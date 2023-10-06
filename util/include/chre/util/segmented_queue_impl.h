@@ -20,9 +20,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "chre/util/segmented_queue.h"
-
 #include "chre/util/container_support.h"
+#include "chre/util/segmented_queue.h"
 
 namespace chre {
 
@@ -205,11 +204,29 @@ void SegmentedQueue<ElementType, kBlockSize>::fillGaps(
     return;
   }
 
-  // TODO(b/264326627): Check if gapIndices is reverse order.
-  // TODO(b/264326627): Give a detailed explanation (example)\.
   // Move the elements between each gap indices section by section from the
   // section that is closest to the head. The destination index = the gap index
   // - how many gaps has been filled.
+  //
+  // For instance, assuming we have elements that we want to remove (gaps) at
+  // these indices = [8, 7, 5, 2] and the last element is at index 10.
+  //
+  // The first iteration will move the items at index 3, 4, which is the first
+  // section, to index 2, 3 and overwrite the original item at index 2, making
+  // the queue: [0, 1, 3, 4, x, 5, 6, ...., 10] where x means empty slot.
+  //
+  // The second iteration will do a similar thing, move item 6 to the empty
+  // slot, which could be calculated by using the index of the last gap and how
+  // many gaps has been filled. So the queue turns into:
+  // [0, 1, 3, 4, 6, x, x, 7, 8, 9, 10], note that there are now two empty slots
+  // since there are two gaps filled.
+  //
+  // The third iteration does not move anything since there are no items between
+  // 7 and 8.
+  //
+  // The final iteration is a special case to close the final gap. After the
+  // final iteration, the queue will become: [1, 3, 4, 6, 9, 10].
+
   for (size_t i = gapCount - 1; i > 0; --i) {
     moveElements(advanceOrWrapAround(gapIndices[i]),
                  subtractOrWrapAround(gapIndices[i], gapCount - 1 - i),
