@@ -44,6 +44,9 @@ constexpr uint32_t kGnssLocationCookie = 0x3456;
 constexpr uint32_t kGnssMeasurementCookie = 0x4567;
 constexpr uint32_t kWwanCellInfoCookie = 0x5678;
 
+// The default audio handle.
+constexpr uint32_t kAudioHandle = 0;
+
 // Flag to verify if an audio data event was received after a valid sampling
 // change event (i.e., we only got the data event after a source-enabled-and-
 // not-suspended event).
@@ -182,7 +185,7 @@ bool Manager::isFeatureSupported(Feature feature) {
     }
     case Feature::AUDIO: {
       struct chreAudioSource source;
-      supported = chreAudioGetSource(0 /* handle */, &source);
+      supported = chreAudioGetSource(kAudioHandle, &source);
       break;
     }
     case Feature::BLE_SCANNING: {
@@ -348,8 +351,8 @@ bool Manager::startTestForFeature(Feature feature) {
 
     case Feature::AUDIO: {
       struct chreAudioSource source;
-      if ((success = chreAudioGetSource(0 /* handle */, &source))) {
-        success = chreAudioConfigureSource(0 /* handle */, true /* enable */,
+      if ((success = chreAudioGetSource(kAudioHandle, &source))) {
+        success = chreAudioConfigureSource(kAudioHandle, true /* enable */,
                                            source.minBufferDuration,
                                            source.minBufferDuration);
       }
@@ -547,52 +550,61 @@ void Manager::handleWwanCellInfoResult(const chreWwanCellInfoResult *result) {
 
 void Manager::handleAudioSourceStatusEvent(
     const struct chreAudioSourceStatusEvent *event) {
-  bool success = false;
-  if (mTestSession.has_value()) {
-    if (mTestSession->featureState == FeatureState::ENABLED) {
-      if (event->status.suspended) {
-        struct chreAudioSource source;
-        if (chreAudioGetSource(0 /* handle */, &source)) {
-          const uint64_t duration =
-              source.minBufferDuration + kOneSecondInNanoseconds;
-          gAudioDataTimerHandle = chreTimerSet(duration, &kAudioDataTimerCookie,
-                                               true /* oneShot */);
+  LOGI("Received sampling status event suspended %d", event->status.suspended);
+  mAudioSamplingEnabled = !event->status.suspended;
+  if (!mTestSession.has_value()) {
+    return;
+  }
 
-          if (gAudioDataTimerHandle == CHRE_TIMER_INVALID) {
-            LOGE("Failed to set data check timer");
-          } else {
-            success = true;
-          }
+  bool success = false;
+  if (mTestSession->featureState == FeatureState::ENABLED) {
+    if (event->status.suspended) {
+      if (gAudioStatusTimerHandle != CHRE_TIMER_INVALID) {
+        chreTimerCancel(gAudioStatusTimerHandle);
+        gAudioStatusTimerHandle = CHRE_TIMER_INVALID;
+      }
+
+      struct chreAudioSource source;
+      if (chreAudioGetSource(kAudioHandle, &source)) {
+        const uint64_t duration =
+            source.minBufferDuration + kOneSecondInNanoseconds;
+        gAudioDataTimerHandle =
+            chreTimerSet(duration, &kAudioDataTimerCookie, true /* oneShot */);
+
+        if (gAudioDataTimerHandle == CHRE_TIMER_INVALID) {
+          LOGE("Failed to set data check timer");
         } else {
-          LOGE("Failed to query audio source");
-        }
-      } else {
-        // There might be a corner case where CHRE might have queued an audio
-        // available event just as the microphone disable setting change is
-        // received that might wrongfully indicate that microphone access
-        // wasn't disabled when it is dispatched. We add a 2 second timer to
-        // allow CHRE to send the source status change event to account for
-        // this, and fail the test if the timer expires without getting said
-        // event.
-        LOGW("Source wasn't suspended when Mic Access disabled, waiting 2 sec");
-        gAudioStatusTimerHandle =
-            chreTimerSet(2 * kOneSecondInNanoseconds, &kAudioStatusTimerCookie,
-                         true /* oneShot */);
-        if (gAudioStatusTimerHandle == CHRE_TIMER_INVALID) {
-          LOGE("Failed to set audio status check timer");
-        } else {
-          // continue the test, fail on timeout.
           success = true;
         }
+      } else {
+        LOGE("Failed to query audio source");
       }
     } else {
-      gGotSourceEnabledEvent = true;
-      success = true;
+      // There might be a corner case where CHRE might have queued an audio
+      // available event just as the microphone disable setting change is
+      // received that might wrongfully indicate that microphone access
+      // wasn't disabled when it is dispatched. We add a 2 second timer to
+      // allow CHRE to send the source status change event to account for
+      // this, and fail the test if the timer expires without getting said
+      // event.
+      LOGW("Source wasn't suspended when Mic Access disabled, waiting 2 sec");
+      gAudioStatusTimerHandle =
+          chreTimerSet(2 * kOneSecondInNanoseconds, &kAudioStatusTimerCookie,
+                       true /* oneShot */);
+      if (gAudioStatusTimerHandle == CHRE_TIMER_INVALID) {
+        LOGE("Failed to set audio status check timer");
+      } else {
+        // continue the test, fail on timeout.
+        success = true;
+      }
     }
+  } else {
+    gGotSourceEnabledEvent = true;
+    success = true;
+  }
 
-    if (!success) {
-      sendTestResult(mTestSession->hostEndpointId, success);
-    }
+  if (!success) {
+    sendTestResult(mTestSession->hostEndpointId, success);
   }
 }
 
@@ -609,7 +621,7 @@ void Manager::handleAudioDataEvent(const struct chreAudioDataEvent *event) {
     } else if (gGotSourceEnabledEvent) {
       success = true;
     }
-    chreAudioConfigureSource(0 /* handle */, false /* enable */,
+    chreAudioConfigureSource(kAudioHandle, false /* enable */,
                              0 /* minBufferDuration */,
                              0 /* maxbufferDuration */);
     sendTestResult(mTestSession->hostEndpointId, success);
@@ -619,18 +631,18 @@ void Manager::handleAudioDataEvent(const struct chreAudioDataEvent *event) {
 void Manager::handleTimeout(const void *eventData) {
   bool testSuccess = false;
   auto *cookie = static_cast<const uint32_t *>(eventData);
+  // Ignore the audio status timer if the suspended status was received.
+  if (*cookie == kAudioStatusTimerCookie && !mAudioSamplingEnabled) {
+    gAudioStatusTimerHandle = CHRE_TIMER_INVALID;
+    return;
+  }
 
   if (*cookie == kAudioDataTimerCookie) {
     gAudioDataTimerHandle = CHRE_TIMER_INVALID;
     testSuccess = true;
-    if (gAudioStatusTimerHandle != CHRE_TIMER_INVALID) {
-      chreTimerCancel(gAudioStatusTimerHandle);
-      gAudioStatusTimerHandle = CHRE_TIMER_INVALID;
-    }
   } else if (*cookie == kAudioStatusTimerCookie) {
-    LOGE("Source wasn't suspended when Mic Access was disabled");
     gAudioStatusTimerHandle = CHRE_TIMER_INVALID;
-    testSuccess = false;
+    LOGE("Source wasn't suspended when Mic Access was disabled");
   } else {
     LOGE("Invalid timer cookie: %" PRIx32, *cookie);
   }

@@ -184,6 +184,10 @@ class Manager {
 
   //! The number of scan result received when after getting a wifi async result.
   uint16_t mReceivedScanResults;
+
+  //! True if we have received a chreAudioSourceStatusEvent with suspended ==
+  //! false.
+  bool mAudioSamplingEnabled;
 };
 
 // The settings test manager singleton.
