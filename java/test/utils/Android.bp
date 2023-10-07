@@ -32,7 +32,7 @@ java_library {
         "chre_pigweed_utils",
         "compatibility-device-util-axt",
         "pw_rpc_java_client",
-        "truth-prebuilt",
+        "truth",
     ],
 
     sdk_version: "test_current",
