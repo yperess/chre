@@ -28,7 +28,7 @@ java_library {
 
     static_libs: [
         "androidx.test.rules",
-        "truth-prebuilt",
+        "truth",
         "chre_api_test_proto_java_lite",
         "chre_pigweed_utils",
         "pw_rpc_java_client",
