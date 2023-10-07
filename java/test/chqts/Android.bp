@@ -30,7 +30,7 @@ java_library {
         "androidx.test.rules",
         "chre-test-utils",
         "chre_pigweed_utils",
-        "truth-prebuilt",
+        "truth",
         "guava",
         "chre_api_test_proto_java_lite",
         "pw_rpc_java_client",
