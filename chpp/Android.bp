@@ -191,9 +191,10 @@ cc_test_host {
     name: "chre_chpp_fake_link_sync_tests",
     defaults: ["chre_chpp_core_without_link"],
     cflags: [
-        // Speed up tests by setting timeouts to 10 ms
-        "-DCHPP_TRANSPORT_TX_TIMEOUT_NS=10000000",
-        "-DCHPP_TRANSPORT_RX_TIMEOUT_NS=10000000",
+        // Speed up tests by setting timeouts to 50 ms.
+        // Note: the value shouldn't be too low to avoid timeouts on slow test servers.
+        "-DCHPP_TRANSPORT_TX_TIMEOUT_NS=50000000",
+        "-DCHPP_TRANSPORT_RX_TIMEOUT_NS=50000000",
     ],
     local_include_dirs: [
         "include",
