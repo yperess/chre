@@ -417,9 +417,9 @@ bool HalChreSocketConnection::sendFragmentedLoadNanoAppRequest(
   return success;
 }
 
+#ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
 // TODO(b/298459533): Remove this the flag_log_nanoapp_load_metrics flag is
 // cleaned up
-#ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
 void HalChreSocketConnection::reportMetric(const VendorAtom atom) {
   const std::string statsServiceName =
       std::string(IStats::descriptor).append("/default");
@@ -440,6 +440,7 @@ void HalChreSocketConnection::reportMetric(const VendorAtom atom) {
     ALOGE("Failed to report vendor atom");
   }
 }
+// TODO(b/298459533): Remove end
 
 std::shared_ptr<MetricsReporter> HalChreSocketConnection::getMetricsReporter() {
   std::call_once(mMetricsReporterOnceFlag, [this]() {
@@ -451,7 +452,6 @@ std::shared_ptr<MetricsReporter> HalChreSocketConnection::getMetricsReporter() {
   return mMetricsReporter;
 }
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
-// TODO(b/298459533): Remove end
 
 }  // namespace implementation
 }  // namespace common
