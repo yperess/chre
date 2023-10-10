@@ -25,10 +25,14 @@
  * implement.
  */
 
+// TODO(b/298459533): metrics_reporter_in_the_daemon ramp up -> remove old
+// code
+
 #include <atomic>
 #include <csignal>
 #include <cstdint>
 #include <map>
+#include <mutex>
 #include <queue>
 #include <string>
 #include <thread>
@@ -40,6 +44,8 @@
 #ifdef CHRE_DAEMON_METRIC_ENABLED
 #include <aidl/android/frameworks/stats/IStats.h>
 #include <android/binder_manager.h>
+
+#include "chre_host/metrics_reporter.h"
 #endif  // CHRE_DAEMON_METRIC_ENABLED
 
 namespace android {
@@ -230,16 +236,15 @@ class ChreDaemonBase {
 #ifdef CHRE_LOG_ATOM_EXTENSION_ENABLED
   /**
    * Handles additional metrics that aren't logged by the common CHRE code.
-   *
    */
   virtual void handleVendorMetricLog(
       const ::chre::fbs::MetricLogT *metric_msg) = 0;
 #endif  // CHRE_LOG_ATOM_EXTENSION_ENABLED
 
   /**
-   * Create and report CHRE vendor atom and send it to stats_client
+   * Create and report CHRE vendor atom and send it to stats_client.
    *
-   * @param atom the vendor atom to be reported
+   * @param atom the vendor atom to be reported.
    */
   void reportMetric(const aidl::android::frameworks::stats::VendorAtom &atom);
 #endif  // CHRE_DAEMON_METRIC_ENABLED
@@ -262,6 +267,10 @@ class ChreDaemonBase {
 
   //! Server used to communicate with daemon clients
   SocketServer mServer;
+
+#ifdef CHRE_DAEMON_METRIC_ENABLED
+  android::chre::MetricsReporter mMetricsReporter;
+#endif  // CHRE_DAEMON_METRIC_ENABLED
 
  private:
   LogMessageParser mLogger;

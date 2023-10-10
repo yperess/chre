@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// TODO(b/298459533): metrics_reporter_in_the_daemon ramp up -> remove old
+// code
+
 #include <cstdlib>
 #include <fstream>
 
@@ -26,11 +29,8 @@
 #ifdef CHRE_DAEMON_METRIC_ENABLED
 #include <aidl/android/frameworks/stats/IStats.h>
 #include <android/binder_manager.h>
+#include <android_chre_flags.h>
 #include <chre_atoms_log.h>
-
-using ::aidl::android::frameworks::stats::IStats;
-using ::aidl::android::frameworks::stats::VendorAtom;
-using ::aidl::android::frameworks::stats::VendorAtomValue;
 #endif  // CHRE_DAEMON_METRIC_ENABLED
 
 // Aliased for consistency with the way these symbols are referenced in
@@ -39,6 +39,14 @@ namespace fbs = ::chre::fbs;
 
 namespace android {
 namespace chre {
+
+#ifdef CHRE_DAEMON_METRIC_ENABLED
+using ::aidl::android::frameworks::stats::IStats;
+using ::aidl::android::frameworks::stats::VendorAtom;
+using ::aidl::android::frameworks::stats::VendorAtomValue;
+using ::android::chre::Atoms::ChreHalNanoappLoadFailed;
+using ::android::chre::flags::metrics_reporter_in_the_daemon;
+#endif  // CHRE_DAEMON_METRIC_ENABLED
 
 bool FbsDaemonBase::sendNanoappLoad(uint64_t appId, uint32_t appVersion,
                                     uint32_t appTargetApiVersion,
@@ -176,18 +184,27 @@ void FbsDaemonBase::handleDaemonMessage(const uint8_t *message) {
              mPreloadedNanoappPendingTransactions.front().transactionId);
 
 #ifdef CHRE_DAEMON_METRIC_ENABLED
-        std::vector<VendorAtomValue> values(3);
-        values[0].set<VendorAtomValue::longValue>(
-            mPreloadedNanoappPendingTransactions.front().nanoappId);
-        values[1].set<VendorAtomValue::intValue>(
-            Atoms::ChreHalNanoappLoadFailed::TYPE_PRELOADED);
-        values[2].set<VendorAtomValue::intValue>(
-            Atoms::ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC);
-        const VendorAtom atom{
-            .atomId = Atoms::CHRE_HAL_NANOAPP_LOAD_FAILED,
-            .values{std::move(values)},
-        };
-        reportMetric(atom);
+        if (metrics_reporter_in_the_daemon()) {
+          if (!mMetricsReporter.logNanoappLoadFailed(
+                  mPreloadedNanoappPendingTransactions.front().nanoappId,
+                  ChreHalNanoappLoadFailed::TYPE_PRELOADED,
+                  ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC)) {
+            LOGE("Could not log the nanoapp load failed metric");
+          }
+        } else {
+          std::vector<VendorAtomValue> values(3);
+          values[0].set<VendorAtomValue::longValue>(
+              mPreloadedNanoappPendingTransactions.front().nanoappId);
+          values[1].set<VendorAtomValue::intValue>(
+              Atoms::ChreHalNanoappLoadFailed::TYPE_PRELOADED);
+          values[2].set<VendorAtomValue::intValue>(
+              Atoms::ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC);
+          const VendorAtom atom{
+              .atomId = Atoms::CHRE_HAL_NANOAPP_LOAD_FAILED,
+              .values{std::move(values)},
+          };
+          reportMetric(atom);
+        }
 #endif  // CHRE_DAEMON_METRIC_ENABLED
       }
       mPreloadedNanoappPendingTransactions.pop();
