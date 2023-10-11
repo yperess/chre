@@ -6,3 +6,10 @@ flag {
   description: "This flag controls nanoapp load failure logging in the HAL and the addition of MetricsReporter"
   bug: "298459533"
 }
+
+flag {
+  name: "metrics_reporter_in_the_daemon"
+  namespace: "context_hub"
+  description: "This flag controls the addition of MetricsReporter into the CHRE daemon"
+  bug: "298459533"
+}
