@@ -55,12 +55,13 @@ static bool chppProcessPredefinedServiceResponse(struct ChppAppState *context,
 static bool chppDatagramLenIsOk(struct ChppAppState *context,
                                 const struct ChppAppHeader *rxHeader,
                                 size_t len);
-ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
-                                              uint8_t handle,
-                                              enum ChppMessageType type);
-ChppNotifierFunction *chppGetClientResetNotifierFunction(
+static ChppDispatchFunction *chppGetDispatchFunction(
+    struct ChppAppState *context, uint8_t handle, enum ChppMessageType type);
+#ifdef CHPP_CLIENT_ENABLED_DISCOVERY
+static ChppNotifierFunction *chppGetClientResetNotifierFunction(
     struct ChppAppState *context, uint8_t index);
-ChppNotifierFunction *chppGetServiceResetNotifierFunction(
+#endif  // CHPP_CLIENT_ENABLED_DISCOVERY
+static ChppNotifierFunction *chppGetServiceResetNotifierFunction(
     struct ChppAppState *context, uint8_t index);
 static inline const struct ChppService *chppServiceOfHandle(
     struct ChppAppState *appContext, uint8_t handle);
@@ -277,9 +278,8 @@ static bool chppDatagramLenIsOk(struct ChppAppState *context,
  * @return Pointer to a function that dispatches incoming datagrams for any
  * particular client/service.
  */
-ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
-                                              uint8_t handle,
-                                              enum ChppMessageType type) {
+static ChppDispatchFunction *chppGetDispatchFunction(
+    struct ChppAppState *context, uint8_t handle, enum ChppMessageType type) {
   CHPP_DEBUG_NOT_NULL(context);
   // chppDatagramLenIsOk() has already confirmed that the handle # is valid.
   // Therefore, no additional checks are necessary for chppClientOfHandle(),
@@ -323,6 +323,7 @@ ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
   return NULL;
 }
 
+#ifdef CHPP_CLIENT_ENABLED_DISCOVERY
 /**
  * Returns the reset notification function pointer of a particular negotiated
  * client.
@@ -334,11 +335,12 @@ ChppDispatchFunction *chppGetDispatchFunction(struct ChppAppState *context,
  *
  * @return Pointer to the reset notification function.
  */
-ChppNotifierFunction *chppGetClientResetNotifierFunction(
+static ChppNotifierFunction *chppGetClientResetNotifierFunction(
     struct ChppAppState *context, uint8_t index) {
   CHPP_DEBUG_NOT_NULL(context);
   return context->registeredClients[index]->resetNotifierFunctionPtr;
 }
+#endif  // CHPP_CLIENT_ENABLED_DISCOVERY
 
 /**
  * Returns the reset function pointer of a particular registered service.

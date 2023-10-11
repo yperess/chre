@@ -74,6 +74,7 @@ static struct ChppTransportHeader *chppAddHeader(
     struct ChppTransportState *context);
 static void chppAddPayload(struct ChppTransportState *context);
 static void chppAddFooter(struct ChppTransportState *context);
+// Can not be static (used in tests).
 size_t chppDequeueTxDatagram(struct ChppTransportState *context);
 static void chppClearTxDatagramQueue(struct ChppTransportState *context);
 static void chppTransportDoWork(struct ChppTransportState *context);
@@ -82,7 +83,7 @@ static void chppAppendToPendingTxPacket(struct ChppTransportState *context,
 static const char *chppGetPacketAttrStr(uint8_t packetCode);
 static bool chppEnqueueTxDatagram(struct ChppTransportState *context,
                                   uint8_t packetCode, void *buf, size_t len);
-enum ChppLinkErrorCode chppSendPendingPacket(
+static enum ChppLinkErrorCode chppSendPendingPacket(
     struct ChppTransportState *context);
 
 static void chppResetTransportContext(struct ChppTransportState *context);
@@ -1208,7 +1209,7 @@ static bool chppEnqueueTxDatagram(struct ChppTransportState *context,
  *
  * @return Result of Send().
  */
-enum ChppLinkErrorCode chppSendPendingPacket(
+static enum ChppLinkErrorCode chppSendPendingPacket(
     struct ChppTransportState *context) {
   enum ChppLinkErrorCode error =
       context->linkApi->send(context->linkContext, context->linkBufferSize);

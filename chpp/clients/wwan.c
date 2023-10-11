@@ -402,8 +402,8 @@ static void chppWwanGetCellInfoAsyncResult(
  */
 static bool chppWwanClientOpen(const struct chrePalSystemApi *systemApi,
                                const struct chrePalWwanCallbacks *callbacks) {
-  CHPP_DEBUG_ASSERT(systemApi != NULL);
-  CHPP_DEBUG_ASSERT(callbacks != NULL);
+  CHPP_DEBUG_NOT_NULL(systemApi);
+  CHPP_DEBUG_NOT_NULL(callbacks);
 
   bool result = false;
   gSystemApi = systemApi;

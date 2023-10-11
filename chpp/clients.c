@@ -51,7 +51,7 @@
  ***********************************************/
 
 static bool chppIsClientApiReady(struct ChppEndpointState *clientState);
-ChppClientDeinitFunction *chppGetClientDeinitFunction(
+static ChppClientDeinitFunction *chppGetClientDeinitFunction(
     struct ChppAppState *context, uint8_t index);
 
 /************************************************
@@ -111,7 +111,7 @@ static bool chppIsClientApiReady(struct ChppEndpointState *clientState) {
  *
  * @return Pointer to the match notification function.
  */
-ChppClientDeinitFunction *chppGetClientDeinitFunction(
+static ChppClientDeinitFunction *chppGetClientDeinitFunction(
     struct ChppAppState *context, uint8_t index) {
   CHPP_DEBUG_NOT_NULL(context);
 

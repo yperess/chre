@@ -834,8 +834,8 @@ static void chppWifiNanSubscriptionCanceledNotification(uint8_t *buf,
  */
 static bool chppWifiClientOpen(const struct chrePalSystemApi *systemApi,
                                const struct chrePalWifiCallbacks *callbacks) {
-  CHPP_DEBUG_ASSERT(systemApi != NULL);
-  CHPP_DEBUG_ASSERT(callbacks != NULL);
+  CHPP_DEBUG_NOT_NULL(systemApi);
+  CHPP_DEBUG_NOT_NULL(callbacks);
 
   bool result = false;
   gSystemApi = systemApi;

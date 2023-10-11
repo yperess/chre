@@ -293,20 +293,20 @@ class AppReqRespParamTest : public testing::TestWithParam<ChppMessageType> {
     chppClearTotalAllocBytes();
     chppNotifierInit(&mClientState.common.notifier);
     chppNotifierInit(&mServiceState.common.notifier);
-    memset(&mClientLinkContext, 0, sizeof(mClientLinkContext));
-    memset(&mServiceLinkContext, 0, sizeof(mServiceLinkContext));
+    memset(&mClientLinkState, 0, sizeof(mClientLinkState));
+    memset(&mServiceLinkState, 0, sizeof(mServiceLinkState));
 
-    mServiceLinkContext.linkThreadName = "Host Link";
-    mServiceLinkContext.workThreadName = "Host worker";
-    mServiceLinkContext.isLinkActive = true;
-    mServiceLinkContext.remoteLinkState = &mClientLinkContext;
-    mServiceLinkContext.rxInRemoteEndpointWorker = false;
+    mServiceLinkState.linkThreadName = "Service Link";
+    mServiceLinkState.workThreadName = "Service worker";
+    mServiceLinkState.isLinkActive = true;
+    mServiceLinkState.remoteLinkState = &mClientLinkState;
+    mServiceLinkState.rxInRemoteEndpointWorker = false;
 
-    mClientLinkContext.linkThreadName = "CHRE Link";
-    mClientLinkContext.workThreadName = "CHRE worker";
-    mClientLinkContext.isLinkActive = true;
-    mClientLinkContext.remoteLinkState = &mServiceLinkContext;
-    mClientLinkContext.rxInRemoteEndpointWorker = false;
+    mClientLinkState.linkThreadName = "Client Link";
+    mClientLinkState.workThreadName = "Client worker";
+    mClientLinkState.isLinkActive = true;
+    mClientLinkState.remoteLinkState = &mServiceLinkState;
+    mClientLinkState.rxInRemoteEndpointWorker = false;
 
     // No default clients/services.
     struct ChppClientServiceSet set;
@@ -315,64 +315,63 @@ class AppReqRespParamTest : public testing::TestWithParam<ChppMessageType> {
     const struct ChppLinkApi *linkApi = getLinuxLinkApi();
 
     // Init client side.
-    chppTransportInit(&mClientTransportContext, &mClientAppContext,
-                      &mClientLinkContext, linkApi);
-    chppAppInitWithClientServiceSet(&mClientAppContext,
-                                    &mClientTransportContext, set);
+    chppTransportInit(&mClientTransportState, &mClientAppState,
+                      &mClientLinkState, linkApi);
+    chppAppInitWithClientServiceSet(&mClientAppState, &mClientTransportState,
+                                    set);
 
     // Init service side.
-    chppTransportInit(&mServiceTransportContext, &mServiceAppContext,
-                      &mServiceLinkContext, linkApi);
-    chppAppInitWithClientServiceSet(&mServiceAppContext,
-                                    &mServiceTransportContext, set);
+    chppTransportInit(&mServiceTransportState, &mServiceAppState,
+                      &mServiceLinkState, linkApi);
+    chppAppInitWithClientServiceSet(&mServiceAppState, &mServiceTransportState,
+                                    set);
 
     BringUpClient();
     std::this_thread::sleep_for(std::chrono::milliseconds(450));
     BringUpService();
-    mClientLinkContext.linkEstablished = true;
-    mServiceLinkContext.linkEstablished = true;
+    mClientLinkState.linkEstablished = true;
+    mServiceLinkState.linkEstablished = true;
 
-    chppTransportWaitForResetComplete(&mClientTransportContext,
-                                      kResetWaitTimeMs);
-    chppWaitForDiscoveryComplete(&mClientAppContext, kDiscoveryWaitTimeMs);
-    chppWaitForDiscoveryComplete(&mServiceAppContext, kDiscoveryWaitTimeMs);
+    chppTransportWaitForResetComplete(&mClientTransportState, kResetWaitTimeMs);
+    chppWaitForDiscoveryComplete(&mClientAppState, kDiscoveryWaitTimeMs);
+    chppWaitForDiscoveryComplete(&mServiceAppState, kDiscoveryWaitTimeMs);
   }
 
   void BringUpClient() {
     memset(&mClientState, 0, sizeof(mClientState));
-    chppRegisterClient(&mClientAppContext, &mClientState,
+    chppRegisterClient(&mClientAppState, &mClientState,
                        &mClientState.chppClientState,
                        &mClientState.outReqStates[0], &kClient);
 
     pthread_create(&mClientWorkThread, NULL, workThread,
-                   &mClientTransportContext);
+                   &mClientTransportState);
   }
 
   void BringUpService() {
     memset(&mServiceState, 0, sizeof(mServiceState));
-    chppRegisterService(&mServiceAppContext, &mServiceState,
+    chppRegisterService(&mServiceAppState, &mServiceState,
                         &mServiceState.chppServiceState,
                         &mServiceState.outReqStates[0], &kService);
 
     pthread_create(&mServiceWorkThread, NULL, workThread,
-                   &mServiceTransportContext);
+                   &mServiceTransportState);
   }
 
   void TearDown() {
     chppNotifierDeinit(&mClientState.common.notifier);
     chppNotifierDeinit(&mServiceState.common.notifier);
-    chppWorkThreadStop(&mClientTransportContext);
-    chppWorkThreadStop(&mServiceTransportContext);
+    chppWorkThreadStop(&mClientTransportState);
+    chppWorkThreadStop(&mServiceTransportState);
     pthread_join(mClientWorkThread, NULL);
     pthread_join(mServiceWorkThread, NULL);
 
     // Deinit client side.
-    chppAppDeinit(&mClientAppContext);
-    chppTransportDeinit(&mClientTransportContext);
+    chppAppDeinit(&mClientAppState);
+    chppTransportDeinit(&mClientTransportState);
 
     // Deinit service side.
-    chppAppDeinit(&mServiceAppContext);
-    chppTransportDeinit(&mServiceTransportContext);
+    chppAppDeinit(&mServiceAppState);
+    chppTransportDeinit(&mServiceTransportState);
 
     EXPECT_EQ(chppGetTotalAllocBytes(), 0);
   }
@@ -420,18 +419,18 @@ class AppReqRespParamTest : public testing::TestWithParam<ChppMessageType> {
   }
 
   // Client side.
-  ChppLinuxLinkState mClientLinkContext = {};
-  ChppTransportState mClientTransportContext = {};
-  ChppAppState mClientAppContext = {};
-  pthread_t mClientWorkThread;
+  ChppLinuxLinkState mClientLinkState = {};
+  ChppTransportState mClientTransportState = {};
+  ChppAppState mClientAppState = {};
   ClientState mClientState;
+  pthread_t mClientWorkThread;
 
   // Service side
-  ChppLinuxLinkState mServiceLinkContext = {};
-  ChppTransportState mServiceTransportContext = {};
-  ChppAppState mServiceAppContext = {};
+  ChppLinuxLinkState mServiceLinkState = {};
+  ChppTransportState mServiceTransportState = {};
+  ChppAppState mServiceAppState = {};
+  ServiceState mServiceState = {};
   pthread_t mServiceWorkThread;
-  ServiceState mServiceState;
 };
 
 TEST_P(AppReqRespParamTest, sendsRequestAndReceiveResponse) {

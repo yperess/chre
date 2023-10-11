@@ -250,7 +250,10 @@ struct ChppAppHeader {
 CHPP_PACKED_END
 
 /**
- * Function type that dispatches incoming datagrams for any client or service
+ * Function type that dispatches incoming datagrams for any client or service.
+ *
+ * The buffer is freed shortly after the function returns.
+ * User code must make a copy for later processing if needed.
  */
 typedef enum ChppAppErrorCode(ChppDispatchFunction)(void *context, uint8_t *buf,
                                                     size_t len);
@@ -418,7 +421,7 @@ struct ChppClient {
  */
 enum ChppRequestState {
   CHPP_REQUEST_STATE_NONE = 0,              //!< No request sent ever
-  CHPP_REQUEST_STATE_REQUEST_SENT = 1,      //!< Sent but no response yet
+  CHPP_REQUEST_STATE_REQUEST_SENT = 1,      //!< Sent, waiting for a response
   CHPP_REQUEST_STATE_RESPONSE_RCV = 2,      //!< Sent and response received
   CHPP_REQUEST_STATE_RESPONSE_TIMEOUT = 3,  //!< Timeout. Responded as need be
 };

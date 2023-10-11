@@ -591,8 +591,8 @@ static void chppGnssMeasurementResultNotification(
  */
 static bool chppGnssClientOpen(const struct chrePalSystemApi *systemApi,
                                const struct chrePalGnssCallbacks *callbacks) {
-  CHPP_DEBUG_ASSERT(systemApi != NULL);
-  CHPP_DEBUG_ASSERT(callbacks != NULL);
+  CHPP_DEBUG_NOT_NULL(systemApi);
+  CHPP_DEBUG_NOT_NULL(callbacks);
 
   bool result = false;
   gSystemApi = systemApi;
