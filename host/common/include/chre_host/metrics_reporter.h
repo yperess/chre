@@ -57,6 +57,25 @@ class MetricsReporter {
       android::chre::Atoms::ChreHalNanoappLoadFailed::Reason reason);
 
   /**
+   * Reports a PAL open failed metric.
+   *
+   * @return whether the operation was successful.
+   */
+  bool logPalOpenFailed(
+      android::chre::Atoms::ChrePalOpenFailed::ChrePalType pal,
+      android::chre::Atoms::ChrePalOpenFailed::Type type);
+
+  /**
+   * Reports a event queue snapshot reported metric.
+   *
+   * @return whether the operation was successful.
+   */
+  bool logEventQueueSnapshotReported(int32_t snapshotChreGetTimeMs,
+                                     int32_t max_event_queue_size,
+                                     int32_t mean_event_queue_size,
+                                     int32_t num_dropped_events);
+
+  /**
    * Called when the binder dies for the stats service.
    */
   void onBinderDied();

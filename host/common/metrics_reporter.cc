@@ -19,6 +19,7 @@
 #include <android/binder_manager.h>
 #include <chre_atoms_log.h>
 #include <chre_host/log.h>
+#include <limits>
 #include <mutex>
 
 namespace android::chre {
@@ -27,8 +28,11 @@ using ::aidl::android::frameworks::stats::IStats;
 using ::aidl::android::frameworks::stats::VendorAtom;
 using ::aidl::android::frameworks::stats::VendorAtomValue;
 using ::android::chre::Atoms::CHRE_AP_WAKE_UP_OCCURRED;
+using ::android::chre::Atoms::CHRE_EVENT_QUEUE_SNAPSHOT_REPORTED;
 using ::android::chre::Atoms::CHRE_HAL_NANOAPP_LOAD_FAILED;
+using ::android::chre::Atoms::CHRE_PAL_OPEN_FAILED;
 using ::android::chre::Atoms::ChreHalNanoappLoadFailed;
+using ::android::chre::Atoms::ChrePalOpenFailed;
 
 std::shared_ptr<IStats> MetricsReporter::getStatsService() {
   const std::string statsServiceName =
@@ -107,6 +111,46 @@ bool MetricsReporter::logNanoappLoadFailed(
 
   const VendorAtom atom{
       .atomId = CHRE_HAL_NANOAPP_LOAD_FAILED,
+      .values{std::move(values)},
+  };
+
+  return reportMetric(atom);
+}
+
+bool MetricsReporter::logPalOpenFailed(ChrePalOpenFailed::ChrePalType pal,
+                                       ChrePalOpenFailed::Type type) {
+  std::vector<VendorAtomValue> values(2);
+  values[0].set<VendorAtomValue::intValue>(pal);
+  values[1].set<VendorAtomValue::intValue>(type);
+
+  const VendorAtom atom{
+      .atomId = CHRE_PAL_OPEN_FAILED,
+      .values{std::move(values)},
+  };
+
+  return reportMetric(atom);
+}
+
+bool MetricsReporter::logEventQueueSnapshotReported(
+    int32_t snapshotChreGetTimeMs, int32_t maxEventQueueSize,
+    int32_t meanEventQueueSize, int32_t numDroppedEvents) {
+  std::vector<VendorAtomValue> values(6);
+  values[0].set<VendorAtomValue::intValue>(snapshotChreGetTimeMs);
+  values[1].set<VendorAtomValue::intValue>(maxEventQueueSize);
+  values[2].set<VendorAtomValue::intValue>(meanEventQueueSize);
+  values[3].set<VendorAtomValue::intValue>(numDroppedEvents);
+
+  // TODO(b/298459533): Implement these two values
+  // Last two values are not currently populated and will be implemented
+  // later. To avoid confusion of the interpretation, we use UINT32_MAX
+  // as a placeholder value.
+  values[4].set<VendorAtomValue::longValue>(
+      std::numeric_limits<int64_t>::max());
+  values[5].set<VendorAtomValue::longValue>(
+      std::numeric_limits<int64_t>::max());
+
+  const VendorAtom atom{
+      .atomId = CHRE_EVENT_QUEUE_SNAPSHOT_REPORTED,
       .values{std::move(values)},
   };
 
