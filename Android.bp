@@ -840,9 +840,12 @@ cc_defaults {
         "libjsoncpp",
         "libutils",
         "liblog",
+        "chre_metrics_reporter",
+        "server_configurable_flags",
     ],
     static_libs: [
         "chre_config_util",
+        "chre_flags_c_lib",
     ]
 }
 
