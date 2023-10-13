@@ -30,39 +30,7 @@ using ::android::chre::Atoms::CHRE_AP_WAKE_UP_OCCURRED;
 using ::android::chre::Atoms::CHRE_HAL_NANOAPP_LOAD_FAILED;
 using ::android::chre::Atoms::ChreHalNanoappLoadFailed;
 
-namespace {
-void onBinderDiedCallback(void *cookie) {
-  if (cookie == nullptr) {
-    return;
-  }
-
-  MetricsReporter *metricsReporter = static_cast<MetricsReporter *>(cookie);
-  if (metricsReporter == nullptr) {
-    return;
-  }
-
-  metricsReporter->onBinderDied();
-}
-}  // namespace
-
-std::unique_ptr<MetricsReporter> MetricsReporter::Create() {
-  std::unique_ptr<MetricsReporter> metricsReporter(new MetricsReporter());
-  if (metricsReporter == nullptr) {
-    LOGE("Failed to create a MetricsReporter");
-    return nullptr;
-  }
-
-  std::shared_ptr<IStats> statsService = getStatsService(*metricsReporter);
-  if (statsService == nullptr) {
-    return nullptr;
-  }
-
-  metricsReporter->setStatsService(statsService);
-  return metricsReporter;
-}
-
-std::shared_ptr<IStats> MetricsReporter::getStatsService(
-    MetricsReporter &metricsReporter) {
+std::shared_ptr<IStats> MetricsReporter::getStatsService() {
   const std::string statsServiceName =
       std::string(IStats::descriptor).append("/default");
   if (!AServiceManager_isDeclared(statsServiceName.c_str())) {
@@ -78,8 +46,12 @@ std::shared_ptr<IStats> MetricsReporter::getStatsService(
   }
 
   binder_status_t status = AIBinder_linkToDeath(
-      statsServiceBinder.get(),
-      AIBinder_DeathRecipient_new(onBinderDiedCallback), &metricsReporter);
+      statsServiceBinder.get(), AIBinder_DeathRecipient_new([](void *cookie) {
+        MetricsReporter *metricsReporter =
+            static_cast<MetricsReporter *>(cookie);
+        metricsReporter->onBinderDied();
+      }),
+      this);
   if (status != STATUS_OK) {
     LOGE("Failed to link to death the stats service binder");
     return nullptr;
@@ -98,7 +70,10 @@ bool MetricsReporter::reportMetric(const VendorAtom &atom) {
   {
     std::lock_guard<std::mutex> lock(mStatsServiceMutex);
     if (mStatsService == nullptr) {
-      return false;
+      mStatsService = getStatsService();
+      if (mStatsService == nullptr) {
+        return false;
+      }
     }
 
     ret = mStatsService->reportVendorAtom(atom);
@@ -139,9 +114,11 @@ bool MetricsReporter::logNanoappLoadFailed(
 }
 
 void MetricsReporter::onBinderDied() {
+  LOGI("MetricsReporter: stats service died - reconnecting");
+
   std::lock_guard<std::mutex> lock(mStatsServiceMutex);
   mStatsService.reset();
-  mStatsService = getStatsService(*this);
+  mStatsService = getStatsService();
 }
 
 }  // namespace android::chre

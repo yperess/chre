@@ -241,10 +241,7 @@ void HalChreSocketConnection::SocketCallbacks::handleNanoappMessage(
     mNanoappWokeUpCount++;
     if (mNanoappWokeUpCount < kMaxDailyReportedApWakeUp) {
       if (flag_log_nanoapp_load_metrics()) {
-        std::shared_ptr<MetricsReporter> metricsReporter =
-            mParent.getMetricsReporter();
-        if (metricsReporter != nullptr &&
-            !metricsReporter->logApWakeupOccurred(nanoappId)) {
+        if (!mParent.mMetricsReporter.logApWakeupOccurred(nanoappId)) {
           ALOGE("Could not log AP Wakeup metric");
         }
       } else {
@@ -318,15 +315,14 @@ void HalChreSocketConnection::SocketCallbacks::handleLoadNanoappResponse(
         success = response.success;
 
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
-        if (flag_log_nanoapp_load_metrics()) {
-          std::shared_ptr<MetricsReporter> metricsReporter =
-              mParent.getMetricsReporter();
-          if (!success && metricsReporter != nullptr &&
-              !metricsReporter->logNanoappLoadFailed(
-                  transaction.getNanoappId(),
-                  ChreHalNanoappLoadFailed::TYPE_DYNAMIC,
-                  ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC)) {
-            ALOGE("Could not log the nanoapp load failed metric");
+        if (!success) {
+          if (flag_log_nanoapp_load_metrics()) {
+            if (!mParent.mMetricsReporter.logNanoappLoadFailed(
+                    transaction.getNanoappId(),
+                    ChreHalNanoappLoadFailed::TYPE_DYNAMIC,
+                    ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC)) {
+              ALOGE("Could not log the nanoapp load failed metric");
+            }
           }
         }
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
@@ -385,9 +381,7 @@ bool HalChreSocketConnection::sendFragmentedLoadNanoAppRequest(
 
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
     if (flag_log_nanoapp_load_metrics()) {
-      std::shared_ptr<MetricsReporter> metricsReporter = getMetricsReporter();
-      if (metricsReporter != nullptr &&
-          !metricsReporter->logNanoappLoadFailed(
+      if (!mMetricsReporter.logNanoappLoadFailed(
               request.appId, ChreHalNanoappLoadFailed::TYPE_DYNAMIC,
               ChreHalNanoappLoadFailed::REASON_CONNECTION_ERROR)) {
         ALOGE("Could not log the nanoapp load failed metric");
@@ -441,16 +435,6 @@ void HalChreSocketConnection::reportMetric(const VendorAtom atom) {
   }
 }
 // TODO(b/298459533): Remove end
-
-std::shared_ptr<MetricsReporter> HalChreSocketConnection::getMetricsReporter() {
-  std::call_once(mMetricsReporterOnceFlag, [this]() {
-    mMetricsReporter = MetricsReporter::Create();
-    if (mMetricsReporter == nullptr) {
-      ALOGE("Unable to create a MetricsReporter");
-    }
-  });
-  return mMetricsReporter;
-}
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 
 }  // namespace implementation

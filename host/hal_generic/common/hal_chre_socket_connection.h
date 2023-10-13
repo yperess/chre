@@ -185,8 +185,7 @@ class HalChreSocketConnection {
   std::mutex mPendingLoadTransactionMutex;
 
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
-  std::once_flag mMetricsReporterOnceFlag;
-  std::shared_ptr<android::chre::MetricsReporter> mMetricsReporter = nullptr;
+  android::chre::MetricsReporter mMetricsReporter;
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 
   /**
@@ -222,15 +221,6 @@ class HalChreSocketConnection {
    * @param atom the vendor atom to be reported
    */
   void reportMetric(const aidl::android::frameworks::stats::VendorAtom atom);
-
-  /**
-   * Lazy initializes the MetricsReporter object and returns a shared pointer to
-   * it.
-   *
-   * @return the initialized MetricsReporter object or nullptr if there was an
-   * error.
-   */
-  std::shared_ptr<android::chre::MetricsReporter> getMetricsReporter();
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
   // TODO(b/298459533): Remove end
 };
