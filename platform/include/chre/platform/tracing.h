@@ -41,6 +41,23 @@
 #define TRACE_C "c"
 #define TRACE_S STRINGIFY(CHRE_TRACE_STR_BUFFER_SIZE) "p"
 
+// Check to make sure pointer size macro is defined.
+#ifndef __SIZEOF_POINTER__
+#error "__SIZEOF_POINTER__ macro not defined - unsupported toolchain being used"
+#else
+static_assert(sizeof(void *) == __SIZEOF_POINTER__,
+              "Size of pointer does not match __SIZEOF_POINTER__ macro");
+#endif
+
+// Check the predefined pointer size to use the most accurate size
+#if __SIZEOF_POINTER__ == 8
+#define TRACE_PTR TRACE_U64
+#elif __SIZEOF_POINTER__ == 4
+#define TRACE_PTR TRACE_U32
+#else
+#error "Pointer size is of unsupported size"
+#endif  // __SIZEOF_POINTER__ == 8 || __SIZEOF_POINTER__ == 4
+
 #ifdef CHRE_TRACING_ENABLED
 
 #include "chre/target_platform/tracing.h"

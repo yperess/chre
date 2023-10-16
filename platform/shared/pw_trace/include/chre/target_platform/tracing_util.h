@@ -21,10 +21,19 @@
 
 namespace tracing_internal {
 
+// Check to make sure pointer size macro is defined.
+#ifndef __SIZEOF_POINTER__
+#error "__SIZEOF_POINTER__ macro not defined - unsupported toolchain being used"
+#endif
+
 constexpr size_t kMaxTraceDataSize = 256;
 
 template <typename T>
 inline constexpr std::size_t chreTraceGetSizeOf() {
+  if constexpr (std::is_pointer_v<T>) {
+    return __SIZEOF_POINTER__;
+  }
+
   return sizeof(T);
 }
 
@@ -56,7 +65,8 @@ constexpr std::size_t chreTraceGetSizeOfVarArgs() {
 template <typename Data>
 inline void chreTraceInsertVar(uint8_t *buffer, Data data,
                                std::size_t dataSize) {
-  static_assert(std::is_integral_v<Data>, "Unsupported data type");
+  static_assert(std::is_integral_v<Data> || std::is_pointer_v<Data>,
+                "Unsupported data type");
   memcpy(buffer, &data, dataSize);
 }
 template <>

@@ -37,6 +37,28 @@ namespace {
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 
+TEST(Trace, PopulateBufferWithTracedPtr) {
+  const uint8_t var = 0x12;
+  const uint8_t *data = &var;
+
+  constexpr std::size_t chreTraceDataSize =
+      tracing_internal::chreTraceGetSizeOfVarArgs<TYPE_LIST(data)>();
+
+  EXPECT_EQ(chreTraceDataSize, __SIZEOF_POINTER__);
+
+  uint8_t chreTraceDataBuffer[chreTraceDataSize];
+  tracing_internal::chreTracePopulateBufferWithArgs(chreTraceDataBuffer, data);
+
+// Already verified in chre/platform/tracing.h this value is either 8 or 4.
+#if __SIZEOF_POINTER__ == 8
+  EXPECT_EQ(*((uint64_t *)chreTraceDataBuffer), (uint64_t)data);
+#elif __SIZEOF_POINTER__ == 4
+  EXPECT_EQ(*((uint32_t *)chreTraceDataBuffer), (uint32_t)data);
+#else
+#error "Pointer size is of unsupported size"
+#endif
+}
+
 TEST(Trace, PopulateBufferWithTracedBool) {
   const bool data = true;
 
