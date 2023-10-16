@@ -78,6 +78,10 @@ DLL_EXPORT bool chreBleStartScanAsyncV1_9(
 DLL_EXPORT bool chreBleStartScanAsync(chreBleScanMode mode,
                                       uint32_t reportDelayMs,
                                       const struct chreBleScanFilter *filter) {
+  if (filter == nullptr) {
+    return chreBleStartScanAsyncV1_9(mode, reportDelayMs, nullptr /* filter */,
+                                     nullptr /* cookie */);
+  }
   chreBleScanFilterV1_9 filterV1_9 = {
       filter->rssiThreshold, filter->scanFilterCount, filter->scanFilters,
       0 /* broadcasterAddressFilterCount */,
