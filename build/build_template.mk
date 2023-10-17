@@ -51,6 +51,9 @@ define BUILD_TEMPLATE
 
 # Target Objects ###############################################################
 
+# Remove duplicates
+COMMON_SRCS := $(sort $(COMMON_SRCS))
+
 # Source files.
 $(1)_CC_SRCS = $$(filter %.cc, $(COMMON_SRCS) $(8))
 $(1)_CPP_SRCS = $$(filter %.cpp, $(COMMON_SRCS) $(8))
