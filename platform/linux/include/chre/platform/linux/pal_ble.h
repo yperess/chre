@@ -17,9 +17,28 @@
 #ifndef CHRE_PLATFORM_LINUX_PAL_BLE_H_
 #define CHRE_PLATFORM_LINUX_PAL_BLE_H_
 
+#include <chrono>
+
 /**
  * @return true if the BLE PAL is enabled.
  */
 bool chrePalIsBleEnabled();
+
+/**
+ * Delay starting a BLE scan. Callers should use this function to delay the BLE
+ * start scan async response until startBleScan is called.
+ *
+ * @param delay true if the scan should be delayed.
+ */
+void delayBleScanStart(bool delay);
+
+/**
+ * Starts a BLE scan. This function is intended to be used after delaying the
+ * PAL's async response via delayBleScanStart and after chrePalBleStartScan is
+ * called.
+ *
+ * @return true if the scan was start successfully.
+ */
+bool startBleScan();
 
 #endif  // CHRE_PLATFORM_LINUX_PAL_BLE_H_

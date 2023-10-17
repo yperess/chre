@@ -26,6 +26,7 @@
  */
 
 #include <atomic>
+#include <csignal>
 #include <cstdint>
 #include <map>
 #include <queue>
@@ -48,7 +49,10 @@ class ChreDaemonBase {
  public:
   ChreDaemonBase();
   virtual ~ChreDaemonBase() {
-    mSignalHandlerThread.join();
+    if (mSignalHandlerThread.joinable()) {
+      std::raise(SIGINT);
+      mSignalHandlerThread.join();
+    }
   }
 
   /**

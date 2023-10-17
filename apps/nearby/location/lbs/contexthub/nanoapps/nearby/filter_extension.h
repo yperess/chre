@@ -62,6 +62,8 @@ class FilterExtension {
  public:
   // Updates extended filters (passed in the event) for each end host.
   // Returns generic_filters, which can be used to restart BLE scan.
+  // If config_result->result is not CHREX_NEARBY_RESULT_OK, the returned
+  // generic_filters should be ignored.
   void Update(const chreHostEndpointInfo &host_info,
               const chreMessageFromHostData &event,
               chre::DynamicVector<chreBleGenericFilter> *generic_filters,
