@@ -13,3 +13,10 @@ flag {
   description: "This flag controls the addition of MetricsReporter into the CHRE daemon"
   bug: "298459533"
 }
+
+flag {
+  name: "wait_for_preloaded_nanoapp_start"
+  namespace: "context_hub"
+  description: "This flag controls the waiting-for-nanoapp-start behavior in the CHRE daemon"
+  bug: "298459533"
+}
