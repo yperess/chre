@@ -142,8 +142,12 @@ TEST_F(ChppAppTest, FragmentedLoopback) {
 }
 
 TEST_F(ChppAppTest, Timesync) {
-  constexpr uint64_t kMaxRtt = 2 * CHPP_NSEC_PER_MSEC;    // in ms
-  constexpr int64_t kMaxOffset = 1 * CHPP_NSEC_PER_MSEC;  // in ms
+  // Upper bound for the RTT (response received - request sent).
+  constexpr uint64_t kMaxRttNs = 20 * CHPP_NSEC_PER_MSEC;
+  // The offset is defined as (Time when the service sent the response) - (Time
+  // when the client got the response).
+  // We use half the RTT as the upper bound.
+  constexpr int64_t kMaxOffsetNs = kMaxRttNs / 2;
 
   CHPP_LOGI("Starting timesync test...");
 
@@ -154,11 +158,11 @@ TEST_F(ChppAppTest, Timesync) {
   EXPECT_EQ(chppTimesyncGetResult(&mClientAppContext)->error,
             CHPP_APP_ERROR_NONE);
 
-  EXPECT_LT(chppTimesyncGetResult(&mClientAppContext)->rttNs, kMaxRtt);
+  EXPECT_LT(chppTimesyncGetResult(&mClientAppContext)->rttNs, kMaxRttNs);
   EXPECT_NE(chppTimesyncGetResult(&mClientAppContext)->rttNs, 0);
 
-  EXPECT_LT(chppTimesyncGetResult(&mClientAppContext)->offsetNs, kMaxOffset);
-  EXPECT_GT(chppTimesyncGetResult(&mClientAppContext)->offsetNs, -kMaxOffset);
+  EXPECT_LT(chppTimesyncGetResult(&mClientAppContext)->offsetNs, kMaxOffsetNs);
+  EXPECT_GT(chppTimesyncGetResult(&mClientAppContext)->offsetNs, -kMaxOffsetNs);
   EXPECT_NE(chppTimesyncGetResult(&mClientAppContext)->offsetNs, 0);
 }
 
