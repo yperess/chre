@@ -39,7 +39,7 @@ namespace chre {
 
 namespace {
 
-constexpr uint64_t kResetWaitTimeMs = 1500;
+constexpr uint64_t kResetWaitTimeMs = 5000;
 constexpr uint64_t kDiscoveryWaitTimeMs = 5000;
 
 void *workThread(void *transportState) {
@@ -224,10 +224,14 @@ class AppNotificationTest : public testing::Test {
     mClientLinkContext.linkEstablished = true;
     mServiceLinkContext.linkEstablished = true;
 
-    chppTransportWaitForResetComplete(&mClientTransportContext,
-                                      kResetWaitTimeMs);
-    chppWaitForDiscoveryComplete(&mClientAppContext, kDiscoveryWaitTimeMs);
-    chppWaitForDiscoveryComplete(&mServiceAppContext, kDiscoveryWaitTimeMs);
+    EXPECT_TRUE(chppTransportWaitForResetComplete(&mClientTransportContext,
+                                                  kResetWaitTimeMs));
+    EXPECT_TRUE(chppTransportWaitForResetComplete(&mServiceTransportContext,
+                                                  kResetWaitTimeMs));
+    EXPECT_TRUE(
+        chppWaitForDiscoveryComplete(&mClientAppContext, kDiscoveryWaitTimeMs));
+    EXPECT_TRUE(chppWaitForDiscoveryComplete(&mServiceAppContext,
+                                             kDiscoveryWaitTimeMs));
   }
 
   void BringUpClient() {
