@@ -48,6 +48,12 @@ void PlatformAudio::init() {
   if (mApi != nullptr) {
     if (!mApi->open(&gChrePalSystemApi, &sCallbacks)) {
       LOGE("Audio PAL open returned false");
+
+#ifdef CHRE_TELEMETRY_SUPPORT_ENABLED
+      EventLoopManagerSingleton::get()->getTelemetryManager().onPalOpenFailure(
+          TelemetryManager::PalType::AUDIO);
+#endif  // CHRE_TELEMETRY_SUPPORT_ENABLED
+
       mApi = nullptr;
     } else {
       LOGD("Opened audio PAL version 0x%08" PRIx32, mApi->moduleVersion);

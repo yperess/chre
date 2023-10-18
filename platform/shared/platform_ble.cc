@@ -50,6 +50,12 @@ void PlatformBle::init() {
   if (mBleApi != nullptr) {
     if (!mBleApi->open(&gChrePalSystemApi, &sBleCallbacks)) {
       LOGE("BLE PAL open returned false");
+
+#ifdef CHRE_TELEMETRY_SUPPORT_ENABLED
+      EventLoopManagerSingleton::get()->getTelemetryManager().onPalOpenFailure(
+          TelemetryManager::PalType::BLE);
+#endif  // CHRE_TELEMETRY_SUPPORT_ENABLED
+
       mBleApi = nullptr;
     } else {
       LOGD("Opened BLE PAL version 0x%08" PRIx32, mBleApi->moduleVersion);

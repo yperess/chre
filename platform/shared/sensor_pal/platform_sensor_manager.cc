@@ -44,6 +44,12 @@ void PlatformSensorManager::init() {
   if (mSensorApi != nullptr) {
     if (!mSensorApi->open(&gChrePalSystemApi, &sSensorCallbacks)) {
       LOGE("Sensor PAL open returned false");
+
+#ifdef CHRE_TELEMETRY_SUPPORT_ENABLED
+      EventLoopManagerSingleton::get()->getTelemetryManager().onPalOpenFailure(
+          TelemetryManager::PalType::SENSOR);
+#endif  // CHRE_TELEMETRY_SUPPORT_ENABLED
+
       mSensorApi = nullptr;
     } else {
       LOGD("Opened Sensor PAL version 0x%08" PRIx32, mSensorApi->moduleVersion);
