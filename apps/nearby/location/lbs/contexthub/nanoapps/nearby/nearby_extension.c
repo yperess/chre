@@ -1,5 +1,8 @@
 #include "location/lbs/contexthub/nanoapps/nearby/nearby_extension.h"
 
+#include <string.h>
+
+#include "chre_api/chre.h"
 #include "stddef.h"
 #include "third_party/contexthub/chre/util/include/chre/util/nanoapp/log.h"
 
@@ -27,6 +30,7 @@ static const uint16_t EXT_FILTER_CONFIG_DATA_MASK_INDEX = 1;
 static uint8_t EXT_FILTER_DATA = 0;
 static uint8_t EXT_FILTER_DATA_MASK = 0;
 #define MAX_GENERIC_FILTER_COUNT 10
+#define MAX_SERVICE_CONFIG_LEN 10
 
 struct hwBleScanFilter {
   int8_t rssi_threshold;
@@ -37,6 +41,7 @@ static struct hwBleScanFilter HW_SCAN_FILTER = {
     .rssi_threshold = CHRE_BLE_RSSI_THRESHOLD_NONE,
     .scan_filter_count = 0,
 };
+static uint8_t EXT_SERVICE_CONFIG[MAX_SERVICE_CONFIG_LEN] = {0};
 const char kHostPackageName[] = "com.google.android.nearby.offload.reference";
 
 uint32_t chrexNearbySetExtendedFilterConfig(
@@ -49,7 +54,12 @@ uint32_t chrexNearbySetExtendedFilterConfig(
     LOGE("Invalid scan_filter configuration");
     return CHREX_NEARBY_RESULT_INTERNAL_ERROR;
   }
-  // Performs a deep copy of the hardware scan filter structure
+  if (!host_info->isNameValid ||
+      strcmp(host_info->packageName, kHostPackageName) != 0) {
+    LOGE("Unknown package: %s", host_info->packageName);
+    return CHREX_NEARBY_RESULT_UNKNOWN_PACKAGE;
+  }
+  // Performs a deep copy of the hardware scan filter structure.
   HW_SCAN_FILTER.rssi_threshold = scan_filter->rssiThreshold;
   HW_SCAN_FILTER.scan_filter_count = scan_filter->scanFilterCount;
   for (size_t i = 0; i < HW_SCAN_FILTER.scan_filter_count; ++i) {
@@ -70,14 +80,30 @@ uint32_t chrexNearbySetExtendedFilterConfig(
          HW_SCAN_FILTER.scan_filters[i].type,
          HW_SCAN_FILTER.scan_filters[i].len);
   }
-  if (host_info->isNameValid &&
-      strcmp(host_info->packageName, kHostPackageName) == 0) {
-    EXT_FILTER_DATA = config->data[EXT_FILTER_CONFIG_DATA_INDEX];
-    EXT_FILTER_DATA_MASK = config->data[EXT_FILTER_CONFIG_DATA_MASK_INDEX];
-  }
+  EXT_FILTER_DATA = config->data[EXT_FILTER_CONFIG_DATA_INDEX];
+  EXT_FILTER_DATA_MASK = config->data[EXT_FILTER_CONFIG_DATA_MASK_INDEX];
   *vendorStatusCode = 0;
   LOGD("Set EXT_FILTER_DATA 0x%02X", EXT_FILTER_DATA);
   LOGD("Set EXT_FILTER_DATA_MASK 0x%02X", EXT_FILTER_DATA_MASK);
+  return CHREX_NEARBY_RESULT_OK;
+}
+
+uint32_t chrexNearbySetExtendedServiceConfig(
+    const struct chreHostEndpointInfo *host_info,
+    const struct chrexNearbyExtendedServiceConfig *config,
+    uint32_t *vendorStatusCode) {
+  if (!host_info->isNameValid ||
+      strcmp(host_info->packageName, kHostPackageName) != 0) {
+    LOGE("Unknown package: %s", host_info->packageName);
+    return CHREX_NEARBY_RESULT_UNKNOWN_PACKAGE;
+  }
+  if (config->data_length > MAX_SERVICE_CONFIG_LEN) {
+    return CHREX_NEARBY_RESULT_OUT_OF_RESOURCES;
+  }
+  // Performs a deep copy of the service configuration.
+  memcpy(EXT_SERVICE_CONFIG, config->data, config->data_length);
+  *vendorStatusCode = 0;
+  LOGD("Set EXT_SERVICE_CONFIG 0x%02X", EXT_SERVICE_CONFIG[0]);
   return CHREX_NEARBY_RESULT_OK;
 }
 

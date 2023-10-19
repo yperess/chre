@@ -50,10 +50,13 @@ class AppManager {
  private:
   // Handles a message from host.
   void HandleMessageFromHost(const chreMessageFromHostData *event);
+
   // Acknowledge a host's SET_FILTER_REQUEST to indicate success or failure.
   void RespondHostSetFilterRequest(bool success);
+
   // Handles config request from the host.
   void HandleHostConfigRequest(const uint8_t *message, uint32_t message_size);
+
   // Handles advertise reports to match filters.
   // Advertise reports will be cleared at the end of this function.
   void HandleMatchAdvReports(AdvReportCache &adv_reports);
@@ -97,12 +100,29 @@ class AppManager {
       size_t &encoded_size);
 
 #ifdef ENABLE_EXTENSION
-  static void SendFilterExtensionConfigResultToHost(
-      uint16_t host_end_point,
-      const nearby_extension_FilterConfigResult &config_result);
+  // Handles extended config request from the host.
+  void HandleHostExtConfigRequest(const chreMessageFromHostData *event);
+
+  // Handles extended filter config request from the host.
+  bool HandleExtFilterConfig(
+      const chreHostEndpointInfo &host_info,
+      const nearby_extension_ExtConfigRequest_FilterConfig &config,
+      nearby_extension_ExtConfigResponse *config_response);
+
+  // Handles extended service config request from the host.
+  bool HandleExtServiceConfig(
+      const chreHostEndpointInfo &host_info,
+      const nearby_extension_ExtConfigRequest_ServiceConfig &config,
+      nearby_extension_ExtConfigResponse *config_response);
+
+  static void SendExtConfigResponseToHost(
+      uint32_t request_id, uint16_t host_end_point,
+      nearby_extension_ExtConfigResponse &config_response);
 
   static void SendFilterExtensionResultToHost(
       chre::DynamicVector<FilterExtensionResult> &filter_results);
+
+  static const char *GetExtConfigNameFromTag(pb_size_t config_tag);
 #endif
   // TODO(b/193756395): Find the optimal size or compute the size in runtime.
   // Note: the nanopb API pb_get_encoded_size
@@ -117,7 +137,11 @@ class AppManager {
   static constexpr size_t kFilterResultsBufSize = 300;
   // Default value for Fast Pair cache to expire.
   static constexpr uint64_t kFpFilterResultExpireTimeNanoSec =
+#ifdef USE_SHORT_FP_CACHE_TO
+      3 * chre::kOneSecondInNanoseconds;
+#else
       5 * chre::kOneSecondInNanoseconds;
+#endif
 
   Filter filter_;
 #ifdef ENABLE_EXTENSION

@@ -18,6 +18,7 @@
 
 #include <utility>
 
+#include "chre_api/chre.h"
 #include "third_party/contexthub/chre/util/include/chre/util/nanoapp/log.h"
 
 #define LOG_TAG "[NEARBY][ADV_CACHE]"
@@ -47,15 +48,20 @@ void AdvReportCache::Refresh() {
         cache_expire_nanosec_) {
       // TODO(b/285043291): Refactor cache element by wrapper struct/class
       // which deallocates data in its destructor.
-      if (cache_reports_[index].data != nullptr) {
-        chreHeapFree(const_cast<uint8_t *>(cache_reports_[index].data));
-      }
-      // Don't require to increase index because all elements after the indexed
-      // one are moved forward one position.
-      cache_reports_.erase(index);
+      chreHeapFree(const_cast<uint8_t *>(cache_reports_[index].data));
+      // The index does not need to increase because the current element is
+      // replaced by the end of the element and the list is resized.
+      cache_reports_.swap(index, cache_reports_.size() - 1);
+      cache_reports_.resize(cache_reports_.size() - 1);
     } else {
       ++index;
     }
+  }
+}
+
+void AdvReportCache::RefreshIfNeeded() {
+  if (cache_reports_.size() > kRefreshCacheCountThreshold) {
+    Refresh();
   }
 }
 
@@ -97,6 +103,8 @@ void AdvReportCache::Push(const chreBleAdvertisingReport &event_report) {
           static_cast<uint8_t *>(chreHeapAlloc(sizeof(uint8_t) * dataLength));
       if (data == nullptr) {
         LOGE("Memory allocation failed!");
+        // Clean up expired cache elements for which heap memory is allocated.
+        Refresh();
         return;
       }
       memcpy(data, event_report.data, dataLength);

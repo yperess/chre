@@ -22,7 +22,12 @@
 
 #include <utility>
 
+#include "chre_api/chre.h"
 #include "location/lbs/contexthub/nanoapps/common/math/macros.h"
+#ifdef ENABLE_EXTENSION
+#include "location/lbs/contexthub/nanoapps/nearby/nearby_extension.h"
+#include "location/lbs/contexthub/nanoapps/nearby/proto/nearby_extension.nanopb.h"
+#endif
 #include "location/lbs/contexthub/nanoapps/proto/filter.nanopb.h"
 #include "third_party/contexthub/chre/util/include/chre/util/macros.h"
 #include "third_party/contexthub/chre/util/include/chre/util/nanoapp/log.h"
@@ -136,22 +141,22 @@ void AppManager::HandleMatchAdvReports(AdvReportCache &adv_reports_cache) {
 #ifdef ENABLE_EXTENSION
   // Matches extended filters.
   chre::DynamicVector<FilterExtensionResult> filter_extension_results;
-  chre::DynamicVector<FilterExtensionResult> screen_on_filter_extension_results;
   filter_extension_.Match(adv_reports_cache.GetAdvReports(),
                           &filter_extension_results,
-                          &screen_on_filter_extension_results);
+                          &screen_on_filter_extension_results_);
   if (!filter_extension_results.empty()) {
     SendFilterExtensionResultToHost(filter_extension_results);
   }
-  if (!screen_on_filter_extension_results.empty()) {
+  if (!screen_on_filter_extension_results_.empty()) {
     if (screen_on_) {
       LOGD("Send screen on filter extension results back");
-      SendFilterExtensionResultToHost(screen_on_filter_extension_results);
-    } else {
-      LOGD("Update filter extension result cache");
+      SendFilterExtensionResultToHost(screen_on_filter_extension_results_);
       screen_on_filter_extension_results_.clear();
-      screen_on_filter_extension_results_ =
-          std::move(screen_on_filter_extension_results);
+    } else {
+      for (auto &filter_result : screen_on_filter_extension_results_) {
+        filter_result.RefreshIfNeeded();
+      }
+      LOGD("Updated filter extension result cache");
     }
   }
 #endif
@@ -183,10 +188,8 @@ void AppManager::HandleMessageFromHost(const chreMessageFromHostData *event) {
                               event->messageSize);
       break;
 #ifdef ENABLE_EXTENSION
-    case lbs_FilterMessageType_MESSAGE_FILTER_EXTENSIONS:
-      if (UpdateFilterExtension(event)) {
-        UpdateBleScanState();
-      }
+    case lbs_FilterMessageType_MESSAGE_EXT_CONFIG_REQUEST:
+      HandleHostExtConfigRequest(event);
       break;
 #endif
   }
@@ -254,7 +257,7 @@ void AppManager::HandleHostConfigRequest(const uint8_t *message,
       }
 #ifdef ENABLE_EXTENSION
       if (!screen_on_filter_extension_results_.empty()) {
-        LOGD("send filter extension result from cache");
+        LOGD("try to send filter extension result from cache");
         SendFilterExtensionResultToHost(screen_on_filter_extension_results_);
         screen_on_filter_extension_results_.clear();
       }
@@ -434,43 +437,87 @@ bool AppManager::EncodeFilterResult(const nearby_BleFilterResult &filter_result,
 }
 
 #ifdef ENABLE_EXTENSION
-bool AppManager::UpdateFilterExtension(const chreMessageFromHostData *event) {
+void AppManager::HandleHostExtConfigRequest(
+    const chreMessageFromHostData *event) {
   chreHostEndpointInfo host_info;
-  chre::DynamicVector<chreBleGenericFilter> generic_filters;
-  nearby_extension_FilterConfigResult config_result =
-      nearby_extension_FilterConfigResult_init_zero;
-  if (chreGetHostEndpointInfo(event->hostEndpoint, &host_info)) {
-    if (host_info.isNameValid) {
-      LOGD("host package name %s", host_info.packageName);
-      // TODO(b/283035791) replace "android" with the package name of Nearby
-      // Mainline host.
-      // The event is sent from Nearby Mainline host, not OEM services.
-      if (strcmp(host_info.packageName, "android") == 0) {
-        return false;
-      }
-      filter_extension_.Update(host_info, *event, &generic_filters,
-                               &config_result);
-      if (config_result.result == CHREX_NEARBY_RESULT_OK) {
-        if (!ble_scanner_.UpdateFilters(event->hostEndpoint,
-                                        &generic_filters)) {
-          config_result.result = CHREX_NEARBY_RESULT_INTERNAL_ERROR;
-        }
-      }
-    } else {
-      LOGE("host package name invalid.");
-      config_result.result = CHREX_NEARBY_RESULT_UNKNOWN_PACKAGE;
-    }
-  } else {
-    config_result.result = CHREX_NEARBY_RESULT_INTERNAL_ERROR;
+  pb_istream_t stream =
+      pb_istream_from_buffer(static_cast<const uint8_t *>(event->message),
+                             static_cast<size_t>(event->messageSize));
+  nearby_extension_ExtConfigRequest config =
+      nearby_extension_ExtConfigRequest_init_default;
+  nearby_extension_ExtConfigResponse config_response =
+      nearby_extension_ExtConfigResponse_init_zero;
+
+  if (!pb_decode(&stream, nearby_extension_ExtConfigRequest_fields, &config)) {
+    LOGE("Failed to decode extended config msg: %s", PB_GET_ERROR(&stream));
+  } else if (!chreGetHostEndpointInfo(event->hostEndpoint, &host_info)) {
     LOGE("Failed to get host info.");
+    config_response.result = CHREX_NEARBY_RESULT_INTERNAL_ERROR;
+  } else if (!host_info.isNameValid) {
+    LOGE("Failed to get package name");
+    config_response.result = CHREX_NEARBY_RESULT_UNKNOWN_PACKAGE;
+  } else {
+    LOGD("*** Receiving %s extended config ***",
+         GetExtConfigNameFromTag(config.which_config));
+
+    switch (config.which_config) {
+      case nearby_extension_ExtConfigRequest_filter_config_tag:
+        if (!HandleExtFilterConfig(host_info, config.config.filter_config,
+                                   &config_response)) {
+          LOGE("Failed to handle extended filter config");
+        }
+        break;
+      case nearby_extension_ExtConfigRequest_service_config_tag:
+        if (!HandleExtServiceConfig(host_info, config.config.service_config,
+                                    &config_response)) {
+          LOGE("Failed to handle extended service config");
+        }
+        break;
+      default:
+        LOGE("Unknown extended config %d", config.which_config);
+        config_response.result = CHREX_NEARBY_RESULT_FEATURE_NOT_SUPPORTED;
+        break;
+    }
   }
-  SendFilterExtensionConfigResultToHost(event->hostEndpoint, config_result);
+  SendExtConfigResponseToHost(config.request_id, event->hostEndpoint,
+                              config_response);
+}
+
+bool AppManager::HandleExtFilterConfig(
+    const chreHostEndpointInfo &host_info,
+    const nearby_extension_ExtConfigRequest_FilterConfig &config,
+    nearby_extension_ExtConfigResponse *config_response) {
+  chre::DynamicVector<chreBleGenericFilter> generic_filters;
+
+  filter_extension_.Update(host_info, config, &generic_filters,
+                           config_response);
+  if (config_response->result != CHREX_NEARBY_RESULT_OK) {
+    return false;
+  }
+  if (!ble_scanner_.UpdateFilters(host_info.hostEndpointId, &generic_filters)) {
+    config_response->result = CHREX_NEARBY_RESULT_INTERNAL_ERROR;
+    return false;
+  }
+  UpdateBleScanState();
   return true;
 }
 
-void AppManager::SendFilterExtensionConfigResultToHost(
-    uint16_t host_end_point,
-    const nearby_extension_FilterConfigResult &config_result) {
+bool AppManager::HandleExtServiceConfig(
+    const chreHostEndpointInfo &host_info,
+    const nearby_extension_ExtConfigRequest_ServiceConfig &config,
+    nearby_extension_ExtConfigResponse *config_response) {
+  filter_extension_.ConfigureService(host_info, config, config_response);
+  if (config_response->result != CHREX_NEARBY_RESULT_OK) {
+    return false;
+  }
+  return true;
+}
+
+void AppManager::SendExtConfigResponseToHost(
+    uint32_t request_id, uint16_t host_end_point,
+    nearby_extension_ExtConfigResponse &config_response) {
+  config_response.has_request_id = true;
+  config_response.request_id = request_id;
   uint8_t *msg_buf = (uint8_t *)chreHeapAlloc(kFilterResultsBufSize);
   if (msg_buf == nullptr) {
     LOGE("Failed to allocate message buffer of size %zu for dispatch.",
@@ -478,23 +525,23 @@ void AppManager::SendFilterExtensionConfigResultToHost(
     return;
   }
   size_t encoded_size;
-  if (!FilterExtension::EncodeConfigResult(
-          config_result, ByteArray(msg_buf, kFilterResultsBufSize),
+  if (!FilterExtension::EncodeConfigResponse(
+          config_response, ByteArray(msg_buf, kFilterResultsBufSize),
           &encoded_size)) {
     chreHeapFree(msg_buf);
     return;
   }
-  auto resp_type = (config_result.result == CHREX_NEARBY_RESULT_OK
-                        ? lbs_FilterMessageType_MESSAGE_SUCCESS
-                        : lbs_FilterMessageType_MESSAGE_FAILURE);
-
   if (chreSendMessageWithPermissions(
-          msg_buf, encoded_size, resp_type, host_end_point,
+          msg_buf, encoded_size,
+          lbs_FilterMessageType_MESSAGE_EXT_CONFIG_RESPONSE, host_end_point,
           CHRE_MESSAGE_PERMISSION_BLE,
           [](void *msg, size_t /*size*/) { chreHeapFree(msg); })) {
-    LOGD("Successfully sent the filter extension config result.");
+    LOGD("Successfully sent the extended config response for request %" PRIu32
+         ".",
+         request_id);
   } else {
-    LOGE("Failed to send filter extension config result.");
+    LOGE("Failed to send extended config response for request %" PRIu32 ".",
+         request_id);
   }
 }
 
@@ -505,27 +552,41 @@ void AppManager::SendFilterExtensionResultToHost(
     if (reports.empty()) {
       continue;
     }
-    uint8_t *msg_buf = (uint8_t *)chreHeapAlloc(kFilterResultsBufSize);
-    if (msg_buf == nullptr) {
-      LOGE("Failed to allocate message buffer of size %zu for dispatch.",
-           kFilterResultsBufSize);
-      return;
+    for (auto &report : reports) {
+      size_t encoded_size;
+      uint8_t *msg_buf = (uint8_t *)chreHeapAlloc(kFilterResultsBufSize);
+      if (msg_buf == nullptr) {
+        LOGE("Failed to allocate message buffer of size %zu for dispatch.",
+             kFilterResultsBufSize);
+        return;
+      }
+      if (!FilterExtension::EncodeAdvReport(
+              report, ByteArray(msg_buf, kFilterResultsBufSize),
+              &encoded_size)) {
+        chreHeapFree(msg_buf);
+        return;
+      }
+      if (chreSendMessageWithPermissions(
+              msg_buf, encoded_size,
+              lbs_FilterMessageType_MESSAGE_FILTER_RESULTS, result.end_point,
+              CHRE_MESSAGE_PERMISSION_BLE,
+              [](void *msg, size_t /*size*/) { chreHeapFree(msg); })) {
+        LOGD("Successfully sent the filter extension result.");
+      } else {
+        LOGE("Failed to send filter extension result.");
+      }
     }
-    size_t encoded_size;
-    if (!FilterExtension::Encode(reports,
-                                 ByteArray(msg_buf, kFilterResultsBufSize),
-                                 &encoded_size)) {
-      chreHeapFree(msg_buf);
-      return;
-    }
-    if (chreSendMessageWithPermissions(
-            msg_buf, encoded_size, lbs_FilterMessageType_MESSAGE_FILTER_RESULTS,
-            result.end_point, CHRE_MESSAGE_PERMISSION_BLE,
-            [](void *msg, size_t /*size*/) { chreHeapFree(msg); })) {
-      LOGD("Successfully sent the filter extension result.");
-    } else {
-      LOGE("Failed to send filter extension result.");
-    }
+  }
+}
+
+const char *AppManager::GetExtConfigNameFromTag(pb_size_t config_tag) {
+  switch (config_tag) {
+    case nearby_extension_ExtConfigRequest_filter_config_tag:
+      return "FilterConfig";
+    case nearby_extension_ExtConfigRequest_service_config_tag:
+      return "ServiceConfig";
+    default:
+      return "Unknown";
   }
 }
 #endif
