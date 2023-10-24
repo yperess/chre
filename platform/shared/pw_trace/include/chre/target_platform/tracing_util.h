@@ -73,8 +73,7 @@ template <>
 inline void chreTraceInsertVar<const char *>(uint8_t *buffer, const char *data,
                                              std::size_t) {
   // Insert size byte metadata as the first byte of the pascal string.
-  *buffer = MIN(static_cast<uint8_t>(std::char_traits<char>::length(data)),
-                CHRE_TRACE_MAX_STRING_SIZE);
+  *buffer = static_cast<uint8_t>(strnlen(data, CHRE_TRACE_MAX_STRING_SIZE));
 
   // Insert string after size byte and zero out remainder of buffer.
   strncpy(reinterpret_cast<char *>(buffer + 1), data,
@@ -100,7 +99,9 @@ inline void chreTraceInsertVar<char *>(uint8_t *buffer, char *data,
  *               Assumed to be large enough to hold all data since we use the
  *               same size logic to allocate space for the buffer.
  * @param data   Single piece of data to insert into the buffer. Assumed to
- *               have >= 1 data element to insert into the buffer.
+ *               have >= 1 data element to insert into the buffer. Strings
+ *               assumed to be null-terminated or have length >=
+ *               CHRE_TRACE_MAX_STRING_SIZE.
  * @param args   Variable length argument to hold the remainder of the data
  *               to insert into the buffer.
  */

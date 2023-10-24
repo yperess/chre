@@ -17,8 +17,6 @@
 #ifndef CHRE_PLATFORM_SHARED_TRACING_H_
 #define CHRE_PLATFORM_SHARED_TRACING_H_
 
-#include <type_traits>
-
 #include "chre/target_platform/tracing_util.h"
 #include "pw_trace/trace.h"
 

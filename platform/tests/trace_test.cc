@@ -242,7 +242,7 @@ TEST(Trace, PopulateBufferWithTracedShortStrAndNullBytePadding) {
 
 TEST(Trace, PopulateBufferWithTracedMaxLenStrNoPadding) {
   // String data buffer to hold max-len string.
-  char dataBuffer[CHRE_TRACE_MAX_STRING_SIZE];
+  char dataBuffer[CHRE_TRACE_MAX_STRING_SIZE + 1];
   // Fully populated buffer with data len and no null-byte padding.
   // In this case data len should equal CHRE_TRACE_MAX_STRING_SIZE.
   uint8_t expectedBuffer[CHRE_TRACE_STR_BUFFER_SIZE] = {
@@ -253,6 +253,7 @@ TEST(Trace, PopulateBufferWithTracedMaxLenStrNoPadding) {
     dataBuffer[i] = '0' + (i % 10);
     expectedBuffer[i + 1] = '0' + (i % 10);
   }
+  dataBuffer[CHRE_TRACE_MAX_STRING_SIZE] = '\0';
 
   constexpr std::size_t chreTraceDataSize =
       tracing_internal::chreTraceGetSizeOfVarArgs<TYPE_LIST(dataBuffer)>();
@@ -268,15 +269,16 @@ TEST(Trace, PopulateBufferWithTracedMaxLenStrNoPadding) {
 
 TEST(Trace, PopulateBufferWithTracedStringTuncateToMaxLength) {
   const size_t kBufferPadding = 5;
-  const std::size_t oversizeStrLen =
+  const std::size_t kOversizeStrLen =
       CHRE_TRACE_MAX_STRING_SIZE + kBufferPadding;
   // String data buffer to hold oversized string.
-  char dataBuffer[oversizeStrLen];
+  char dataBuffer[kOversizeStrLen + 1];
 
-  // Populate the buffer with str "0123456789..." until we hit oversizeStrLen.
-  for (std::size_t i = 0; i < oversizeStrLen; i++) {
+  // Populate the buffer with str "0123456789..." until we hit kOversizeStrLen.
+  for (std::size_t i = 0; i < kOversizeStrLen; i++) {
     dataBuffer[i] = '0' + (i % 10);
   }
+  dataBuffer[kOversizeStrLen] = '\0';
 
   constexpr std::size_t chreTraceDataSize =
       tracing_internal::chreTraceGetSizeOfVarArgs<TYPE_LIST(dataBuffer)>();
@@ -289,7 +291,7 @@ TEST(Trace, PopulateBufferWithTracedStringTuncateToMaxLength) {
 
   // Fully populated buffer with data len and truncated string.
   // In this case data len should equal CHRE_TRACE_MAX_STRING_SIZE, not
-  // oversizeStrLen.
+  // kOversizeStrLen.
   uint8_t expectedBuffer[CHRE_TRACE_STR_BUFFER_SIZE] = {
       CHRE_TRACE_MAX_STRING_SIZE};
 
