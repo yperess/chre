@@ -64,13 +64,33 @@ HalClient *HalClientManager::getClientByProcessIdLocked(pid_t pid) {
       [&pid](const HalClient &client) { return client.pid == pid; });
 }
 
+bool HalClientManager::updateNextClientIdLocked() {
+  std::unordered_set<HalClientId> usedClientIds{};
+  for (const HalClient &client : mClients) {
+    usedClientIds.insert(client.clientId);
+  }
+  for (int i = 0; i < kMaxNumOfHalClients; i++) {
+    mNextClientId = (mNextClientId + 1) % kMaxHalClientId;
+    if (mNextClientId != ::chre::kHostClientIdUnspecified &&
+        mReservedClientIds.find(mNextClientId) == mReservedClientIds.end() &&
+        usedClientIds.find(mNextClientId) == usedClientIds.end()) {
+      // Found a client id that is not reserved nor used.
+      return true;
+    }
+  }
+  LOGE("Unable to find the next available client id");
+  mNextClientId = ::chre::kHostClientIdUnspecified;
+  return false;
+}
+
 bool HalClientManager::createClientLocked(
     const std::string &uuid, pid_t pid,
     const std::shared_ptr<IContextHubCallback> &callback,
     void *deathRecipientCookie) {
   if (mClients.size() > kMaxNumOfHalClients ||
-      mNextClientId > kMaxHalClientId) {
-    LOGE("Too many HAL clients registered which should never happen.");
+      mNextClientId == ::chre::kHostClientIdUnspecified) {
+    LOGE("Too many HAL clients (%zu) registered which should never happen.",
+         mClients.size());
     return false;
   }
   mClients.emplace_back(uuid, mNextClientId, pid, callback,
@@ -89,7 +109,7 @@ bool HalClientManager::createClientLocked(
   std::ofstream fileStream(mClientMappingFilePath);
   writer->write(mappings, &fileStream);
   fileStream << std::endl;
-  mNextClientId++;
+  updateNextClientIdLocked();
   return true;
 }
 
@@ -396,10 +416,13 @@ HostEndpointId HalClientManager::convertToOriginalEndpointId(
   return endpointId;
 }
 
-HalClientManager::HalClientManager(DeadClientUnlinker deadClientUnlinker,
-                                   const std::string &clientIdMappingFilePath) {
+HalClientManager::HalClientManager(
+    DeadClientUnlinker deadClientUnlinker,
+    const std::string &clientIdMappingFilePath,
+    const std::unordered_set<HalClientId> &reservedClientIds) {
   mDeadClientUnlinker = std::move(deadClientUnlinker);
   mClientMappingFilePath = clientIdMappingFilePath;
+  mReservedClientIds = reservedClientIds;
   // Parses the file to construct a mapping from process names to client ids.
   Json::Value mappings;
   if (!getClientMappingsFromFile(mClientMappingFilePath, mappings)) {
@@ -407,22 +430,19 @@ HalClientManager::HalClientManager(DeadClientUnlinker deadClientUnlinker,
     //   exist which is expected. Consider to create a default file to avoid
     //   confusions.
     LOGW("Unable to find and read %s.", mClientMappingFilePath.c_str());
-    return;
-  }
-  for (int i = 0; i < mappings.size(); i++) {
-    Json::Value mapping = mappings[i];
-    if (!mapping.isMember(kJsonClientId) || !mapping.isMember(kJsonUuid)) {
-      LOGE("Unable to find expected key name for the entry %d", i);
-      continue;
-    }
-    std::string uuid = mapping[kJsonUuid].asString();
-    auto clientId = static_cast<HalClientId>(mapping[kJsonClientId].asUInt());
-    mClients.emplace_back(uuid, clientId);
-    // mNextClientId should always hold the next available client id
-    if (mNextClientId <= clientId) {
-      mNextClientId = clientId + 1;
+  } else {
+    for (int i = 0; i < mappings.size(); i++) {
+      Json::Value mapping = mappings[i];
+      if (!mapping.isMember(kJsonClientId) || !mapping.isMember(kJsonUuid)) {
+        LOGE("Unable to find expected key name for the entry %d", i);
+        continue;
+      }
+      std::string uuid = mapping[kJsonUuid].asString();
+      auto clientId = static_cast<HalClientId>(mapping[kJsonClientId].asUInt());
+      mClients.emplace_back(uuid, clientId);
     }
   }
+  updateNextClientIdLocked();
 }
 
 bool HalClientManager::isPendingLoadTransactionMatchedLocked(

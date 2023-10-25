@@ -122,11 +122,17 @@ class HalClientManager {
     std::unordered_set<HostEndpointId> endpointIds{};
   };
 
+  // The endpoint id is from a vendor client if the highest bit is set to 1.
+  static constexpr HostEndpointId kVendorEndpointIdBitMask = 0x8000;
+  static constexpr uint8_t kNumOfBitsForEndpointId = 6;
+
   using DeadClientUnlinker = std::function<bool(
       const std::shared_ptr<IContextHubCallback> &callback, void *cookie)>;
 
-  explicit HalClientManager(DeadClientUnlinker deadClientUnlinker,
-                            const std::string &clientIdMappingFilePath);
+  explicit HalClientManager(
+      DeadClientUnlinker deadClientUnlinker,
+      const std::string &clientIdMappingFilePath,
+      const std::unordered_set<HalClientId> &reservedClientIds = {});
   virtual ~HalClientManager() = default;
 
   /** Disable copy constructor and copy assignment to avoid duplicates. */
@@ -308,11 +314,8 @@ class HalClientManager {
   static constexpr char kJsonClientId[] = "ClientId";
   static constexpr char kJsonUuid[] = "uuid";
   static constexpr int64_t kTransactionTimeoutThresholdMs = 5000;  // 5 seconds
-  static constexpr uint8_t kNumOfBitsForEndpointId = 6;
   static constexpr HostEndpointId kMaxVendorEndpointId =
       (1 << kNumOfBitsForEndpointId) - 1;
-  // The endpoint id is from a vendor client if the highest bit is set to 1.
-  static constexpr HostEndpointId kVendorEndpointIdBitMask = 0x8000;
 
   struct PendingTransaction {
     PendingTransaction(HalClientId clientId, uint32_t transactionId,
@@ -360,10 +363,16 @@ class HalClientManager {
    * mLock must be held when this function is called.
    *
    */
-  virtual bool createClientLocked(
-      const std::string &uuid, pid_t pid,
-      const std::shared_ptr<IContextHubCallback> &callback,
-      void *deathRecipientCookie);
+  bool createClientLocked(const std::string &uuid, pid_t pid,
+                          const std::shared_ptr<IContextHubCallback> &callback,
+                          void *deathRecipientCookie);
+
+  /**
+   * Update @p mNextClientId to be the next available one.
+   *
+   * @return true if success, otherwise false.
+   */
+  bool updateNextClientIdLocked();
 
   /**
    * Returns true if @p clientId and @p transactionId match the
@@ -438,7 +447,10 @@ class HalClientManager {
   std::string mClientMappingFilePath{};
 
   // next available client id
-  HalClientId mNextClientId = 1;
+  HalClientId mNextClientId = ::chre::kHostClientIdUnspecified;
+
+  // reserved client ids that will not be used
+  std::unordered_set<HalClientId> mReservedClientIds;
 
   // The lock guarding the access to clients' states and pending transactions
   std::mutex mLock;
