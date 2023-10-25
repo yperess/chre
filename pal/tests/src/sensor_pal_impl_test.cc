@@ -197,6 +197,14 @@ TEST_F(PalSensorTest, EnableAContinuousSensor) {
     EXPECT_EQ(threeAxisData->header.readingCount, 1);
     gApi->releaseSensorDataEvent(data);
   }
+
+  EXPECT_TRUE(gApi->configureSensor(
+      0 /* sensorInfoIndex */, CHRE_SENSOR_CONFIGURE_MODE_DONE,
+      kOneMillisecondInNanoseconds /* intervalNs */, 0 /* latencyNs */));
+  gCallbacks->mCondVarStatus.wait_for(
+      gCallbacks->mMutex,
+      Nanoseconds(kTimeoutMultiplier * kOneMillisecondInNanoseconds));
+  gApi->releaseSamplingStatusEvent(gCallbacks->mStatus.value());
 }
 
 TEST_F(PalSensorTest, DisableAContinuousSensor) {
