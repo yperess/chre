@@ -98,7 +98,7 @@ HalClientId HalClientManager::getClientId(pid_t pid) {
   const HalClient *client = getClientByProcessIdLocked(pid);
   if (client == nullptr) {
     LOGE("Failed to find the client id for pid %d", pid);
-    return kDefaultHalClientId;
+    return ::chre::kHostClientIdUnspecified;
   }
   return client->clientId;
 }

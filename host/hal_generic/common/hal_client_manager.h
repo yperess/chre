@@ -16,18 +16,21 @@
 #ifndef ANDROID_HARDWARE_CONTEXTHUB_COMMON_HAL_CLIENT_MANAGER_H_
 #define ANDROID_HARDWARE_CONTEXTHUB_COMMON_HAL_CLIENT_MANAGER_H_
 
-#include <aidl/android/hardware/contexthub/ContextHubMessage.h>
-#include <aidl/android/hardware/contexthub/IContextHub.h>
-#include <aidl/android/hardware/contexthub/IContextHubCallback.h>
-#include <chre_host/fragmented_load_transaction.h>
-#include <chre_host/preloaded_nanoapp_loader.h>
+#include "chre/platform/shared/host_protocol_common.h"
+#include "chre_host/fragmented_load_transaction.h"
+#include "chre_host/log.h"
+#include "chre_host/preloaded_nanoapp_loader.h"
+#include "hal_client_id.h"
+
 #include <sys/types.h>
 #include <cstddef>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include "chre_host/log.h"
-#include "hal_client_id.h"
+
+#include <aidl/android/hardware/contexthub/ContextHubMessage.h>
+#include <aidl/android/hardware/contexthub/IContextHub.h>
+#include <aidl/android/hardware/contexthub/IContextHubCallback.h>
 
 using aidl::android::hardware::contexthub::ContextHubMessage;
 using aidl::android::hardware::contexthub::HostEndpointInfo;
@@ -85,6 +88,7 @@ class HalClientManager {
  public:
   struct HalClient {
     static constexpr pid_t PID_UNSET = 0;
+
     explicit HalClient(const std::string &uuid, const HalClientId clientId)
         : HalClient(uuid, clientId, /* pid= */ PID_UNSET,
                     /* callback= */ nullptr,
@@ -98,6 +102,7 @@ class HalClientManager {
           pid{pid},
           callback{callback},
           deathRecipientCookie{deathRecipientCookie} {}
+
     /** Resets the client's fields except uuid and clientId. */
     void reset(pid_t processId,
                const std::shared_ptr<IContextHubCallback> &contextHubCallback,
@@ -107,6 +112,7 @@ class HalClientManager {
       deathRecipientCookie = cookie;
       endpointIds.clear();
     }
+
     const std::string uuid;
     const HalClientId clientId;
     pid_t pid{};
@@ -136,8 +142,8 @@ class HalClientManager {
    *
    * @param pid process id of the current client
    *
-   * @return client id assigned to the calling process, or kDefaultHalClientId
-   * if the process id is not found.
+   * @return client id assigned to the calling process, or
+   * ::chre::kHostClientIdUnspecified if the process id is not found.
    */
   HalClientId getClientId(pid_t pid);
 
@@ -432,7 +438,7 @@ class HalClientManager {
   std::string mClientMappingFilePath{};
 
   // next available client id
-  HalClientId mNextClientId = kDefaultHalClientId + 1;
+  HalClientId mNextClientId = 1;
 
   // The lock guarding the access to clients' states and pending transactions
   std::mutex mLock;

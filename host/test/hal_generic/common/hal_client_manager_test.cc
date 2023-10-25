@@ -9,6 +9,7 @@
 #include <aidl/android/hardware/contexthub/BnContextHubCallback.h>
 #include <aidl/android/hardware/contexthub/IContextHub.h>
 #include <aidl/android/hardware/contexthub/NanoappBinary.h>
+#include "chre/platform/shared/host_protocol_common.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "hal_client_manager.h"
@@ -189,7 +190,7 @@ TEST_F(HalClientManagerTest, CallbackRegistryBasic) {
   EXPECT_EQ(client.callback, callback);
   EXPECT_EQ(client.uuid, kSystemServerUuid);
   EXPECT_EQ(client.pid, kSystemServerPid);
-  EXPECT_NE(client.clientId, kDefaultHalClientId);
+  EXPECT_NE(client.clientId, ::chre::kHostClientIdUnspecified);
 }
 
 TEST_F(HalClientManagerTest, CallbackRegistryTwiceFromSameClient) {
@@ -388,7 +389,7 @@ TEST_F(HalClientManagerTest, handleDeathClient) {
   EXPECT_EQ(client.callback, nullptr);
   EXPECT_EQ(client.pid, HalClient::PID_UNSET);
   EXPECT_EQ(client.uuid, kSystemServerUuid);
-  EXPECT_NE(client.clientId, kDefaultHalClientId);
+  EXPECT_NE(client.clientId, ::chre::kHostClientIdUnspecified);
   EXPECT_THAT(client.endpointIds, IsEmpty());
 }
 
