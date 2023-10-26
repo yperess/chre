@@ -28,8 +28,7 @@
 #include <android-base/macros.h>
 #include <cutils/sockets.h>
 
-namespace android {
-namespace chre {
+namespace android::chre {
 
 class SocketServer {
  public:
@@ -81,7 +80,7 @@ class SocketServer {
    */
   bool sendToClientById(const void *data, size_t length, uint16_t clientId);
 
-  void shutdownServer() {
+  static void shutdownServer() {
     sSignalReceived = true;
   }
 
@@ -93,8 +92,18 @@ class SocketServer {
       static_cast<int>(kMaxActiveClients);
   static constexpr size_t kMaxPacketSize = 1024 * 1024;
 
+  // This is the same value as defined in
+  // host/hal_generic/common/hal_client_id.h. It is redefined here to avoid
+  // adding dependency path at multiple places for such a temporary change,
+  // which will be removed after migrating generic HAL to multiclient HAL.
+  static constexpr uint16_t kMaxHalClientId = 0x1ff;
+
   int mSockFd = INVALID_SOCKET;
-  uint16_t mNextClientId = 1;
+  // Socket client id and Hal client id are using the same field in the fbs
+  // message. To keep their id range disjoint enables message routing for both
+  // at the same time. There are 0xffff - 0x01ff = 0xfe00 (65024) socket
+  // client ids to use, which should be more than enough.
+  uint16_t mNextClientId = kMaxHalClientId + 1;
   // TODO: std::vector-ify this
   struct pollfd mPollFds[1 + kMaxActiveClients] = {};
 
@@ -116,16 +125,19 @@ class SocketServer {
   ClientMessageCallback mClientMessageCallback;
 
   void acceptClientConnection();
+
   void disconnectClient(int clientSocket);
+
   void handleClientData(int clientSocket);
+
   bool sendToClientSocket(const void *data, size_t length, int clientSocket,
                           uint16_t clientId);
+
   void serviceSocket();
 
   static std::atomic<bool> sSignalReceived;
 };
 
-}  // namespace chre
-}  // namespace android
+}  // namespace android::chre
 
 #endif  // CHRE_HOST_SOCKET_SERVER_H_
