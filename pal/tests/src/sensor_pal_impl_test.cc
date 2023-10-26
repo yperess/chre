@@ -197,10 +197,14 @@ TEST_F(PalSensorTest, EnableAContinuousSensor) {
     EXPECT_EQ(threeAxisData->header.readingCount, 1);
     gApi->releaseSensorDataEvent(data);
   }
+  // Need to unlock this mutex because the following disable sensor request
+  // needs it.
+  gCallbacks->mMutex.unlock();
 
   EXPECT_TRUE(gApi->configureSensor(
       0 /* sensorInfoIndex */, CHRE_SENSOR_CONFIGURE_MODE_DONE,
       kOneMillisecondInNanoseconds /* intervalNs */, 0 /* latencyNs */));
+  gCallbacks->mMutex.lock();
   gCallbacks->mCondVarStatus.wait_for(
       gCallbacks->mMutex,
       Nanoseconds(kTimeoutMultiplier * kOneMillisecondInNanoseconds));
