@@ -120,6 +120,12 @@ public class ContextHubBleSettingsTestExecutor {
      * @param enableBluetoothScanning   if true, enable BLE scanning; false, otherwise
      */
     private void setBluetoothSettings(boolean enable, boolean enableBluetoothScanning) {
+        // Check if already in the desired state
+        if ((enable == mSettingsUtil.isBluetoothEnabled())
+                 && (enableBluetoothScanning == mSettingsUtil.isBluetoothScanningAlwaysEnabled())) {
+            return;
+        }
+
         int state = BluetoothAdapter.STATE_OFF;
         if (enable) {
             state = BluetoothAdapter.STATE_ON;
