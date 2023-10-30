@@ -62,11 +62,10 @@ namespace fbs = ::chre::fbs;
 
 namespace {
 
-//! The host endpoint we use when sending; set to CHRE_HOST_ENDPOINT_UNSPECIFIED
-//! Other clients below the HAL may use a value above 0x8000 to enable unicast
-//! messaging (currently requires internal coordination to avoid conflict;
-//! in the future these should be assigned by the daemon).
-constexpr uint16_t kHostEndpoint = 0xfffe;
+//! The host endpoint we use when sending; Clients may use a value above
+//! 0x8000 to enable unicast messaging (currently requires internal coordination
+//! to avoid conflict).
+constexpr uint16_t kHostEndpoint = 0x8002;
 
 constexpr uint32_t kDefaultAppVersion = 1;
 constexpr uint32_t kDefaultApiVersion = 0x01000000;
