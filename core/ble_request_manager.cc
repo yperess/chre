@@ -147,6 +147,12 @@ bool BleRequestManager::readRssiAsync(Nanoapp *nanoapp,
 bool BleRequestManager::flushAsync(Nanoapp *nanoapp, const void *cookie) {
   CHRE_ASSERT(nanoapp);
 
+  bool supportsFlush =
+      getCapabilities() & CHRE_BLE_CAPABILITIES_SCAN_RESULT_BATCHING;
+  if (!supportsFlush) {
+    return false;
+  }
+
   bool success = false;
   const BleRequest *foundRequest =
       mRequests.findRequest(nanoapp->getInstanceId(), nullptr);
