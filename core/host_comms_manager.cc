@@ -68,13 +68,17 @@ bool HostCommsManager::sendMessageToHostFromNanoapp(
       success = HostLink::sendMessage(msgToHost);
       if (!success) {
         mMessagePool.deallocate(msgToHost);
-      } else if (wokeHost) {
-        // If message successfully sent and host was suspended before sending
-        EventLoopManagerSingleton::get()
-            ->getEventLoop()
-            .handleNanoappWakeupBuckets();
-        mIsNanoappBlamedForWakeup = true;
-        nanoapp->blameHostWakeup();
+      } else {
+        if (wokeHost) {
+          // If message successfully sent and host was suspended before sending
+          EventLoopManagerSingleton::get()
+              ->getEventLoop()
+              .handleNanoappWakeupBuckets();
+          mIsNanoappBlamedForWakeup = true;
+          nanoapp->blameHostWakeup();
+        }
+        // Record the nanoapp having sent a message to the host
+        nanoapp->blameHostMessageSent();
       }
     }
   }

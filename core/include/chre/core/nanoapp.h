@@ -25,6 +25,7 @@
 #include "chre/core/event_ref_queue.h"
 #include "chre/platform/heap_block_header.h"
 #include "chre/platform/platform_nanoapp.h"
+#include "chre/platform/system_time.h"
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/fixed_size_vector.h"
 #include "chre/util/system/debug_dump.h"
@@ -182,14 +183,23 @@ class Nanoapp : public PlatformNanoapp {
    */
   void blameHostWakeup();
 
+  /**
+   * Log info about a single message sent to the host that this nanoapp
+   * triggered by storing the count of messages in mNumMessagesSentSinceBoot.
+   */
+  void blameHostMessageSent();
+
   /*
    * If buckets not full, then just pushes a 0 to back of buckets. If full, then
    * shifts down all buckets from back to front and sets back to 0, losing the
    * latest bucket value that was in front.
    *
-   * @param numBuckets the number of buckets to cycle into to mWakeupBuckets
+   * With nanoapps tracking their cycling time, there is no reason to ever
+   * cycle more than one bucket at a time. Doing more wastes valuable data
+   *
+   * @param timestamp the current time when this bucket was created
    */
-  void cycleWakeupBuckets(size_t numBuckets);
+  void cycleWakeupBuckets(Nanoseconds timestamp);
 
   /**
    * Prints state in a string buffer. Must only be called from the context of
@@ -198,6 +208,39 @@ class Nanoapp : public PlatformNanoapp {
    * @param debugDump The object that is printed into for debug dump logs.
    */
   void logStateToBuffer(DebugDumpWrapper &debugDump) const;
+
+  /**
+   * Prints header for memory allocation and event processing time stats table
+   * in a string buffer. Must only be called from the context of the main CHRE
+   * thread.
+   *
+   * @param debugDump The object that is printed into for debug dump logs.
+   */
+  void logMemAndComputeHeader(DebugDumpWrapper &debugDump) const;
+
+  /**
+   * Prints memory allocation and event processing time stats in a string
+   * buffer. Must only be called from the context of the main CHRE thread.
+   *
+   * @param debugDump The object that is printed into for debug dump logs.
+   */
+  void logMemAndComputeEntry(DebugDumpWrapper &debugDump) const;
+
+  /**
+   * Prints header for wakeup and host message stats table in a string buffer.
+   * Must only be called from the context of the main CHRE thread.
+   *
+   * @param debugDump The object that is printed into for debug dump logs.
+   */
+  void logMessageHistoryHeader(DebugDumpWrapper &debugDump) const;
+
+  /**
+   * Prints wakeup and host message stats in a string buffer. Must only be
+   * called from the context of the main CHRE thread.
+   *
+   * @param debugDump The object that is printed into for debug dump logs.
+   */
+  void logMessageHistoryEntry(DebugDumpWrapper &debugDump) const;
 
   /**
    * @return true if the nanoapp is permitted to use the provided permission.
@@ -263,6 +306,12 @@ class Nanoapp : public PlatformNanoapp {
   //! The total number of wakeup counts for a nanoapp.
   uint32_t mNumWakeupsSinceBoot = 0;
 
+  //! The total number of messages sent to host by this nanoapp.
+  uint32_t mNumMessagesSentSinceBoot = 0;
+
+  //! The total time in ms spend processing events by this nanoapp.
+  uint64_t mEventProcessTimeSinceBoot = 0;
+
   /**
    * Head of the singly linked list of heap block headers.
    *
@@ -278,13 +327,28 @@ class Nanoapp : public PlatformNanoapp {
   //! The peak total number of bytes allocated by the nanoapp.
   size_t mPeakAllocatedBytes = 0;
 
+  //! Container for "bucketed" stats associated with wakeup logging
+  struct BucketedStats {
+    BucketedStats(uint16_t wakeupCount_, uint16_t hostMessageCount_,
+                  uint64_t eventProcessTime_, uint64_t creationTimestamp_)
+        : wakeupCount(wakeupCount_),
+          hostMessageCount(hostMessageCount_),
+          eventProcessTime(eventProcessTime_),
+          creationTimestamp(creationTimestamp_) {}
+
+    uint16_t wakeupCount = 0;
+    uint16_t hostMessageCount = 0;
+    uint64_t eventProcessTime = 0;
+    uint64_t creationTimestamp = 0;
+  };
+
   //! The number of buckets for wakeup logging, adjust along with
-  //! EventLoop::kIntervalWakupBucketInMins.
-  static constexpr size_t kMaxSizeWakeupBuckets = 4;
+  //! EventLoop::kIntervalWakeupBucket.
+  static constexpr size_t kMaxSizeWakeupBuckets = 5;
 
   //! A fixed size buffer of buckets that keeps track of the number of host
   //! wakeups over time intervals.
-  FixedSizeVector<uint16_t, kMaxSizeWakeupBuckets> mWakeupBuckets;
+  FixedSizeVector<BucketedStats, kMaxSizeWakeupBuckets> mWakeupBuckets;
 
   //! Collects process time in nanoseconds of each event
   StatsContainer<uint64_t> mEventProcessTime;

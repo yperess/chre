@@ -379,7 +379,7 @@ class EventLoop : public NonCopyable {
   //! distributed out to apps yet.
   BlockingSegmentedQueue<Event *, kEventPerBlock> mEvents;
 #endif
-  //! The time interval of nanoapp wakeup buckets, adjust in conjuction with
+  //! The time interval of nanoapp wakeup buckets, adjust in conjunction with
   //! Nanoapp::kMaxSizeWakeupBuckets.
   static constexpr Nanoseconds kIntervalWakeupBucket =
       Nanoseconds(180 * kOneMinuteInNanoseconds);

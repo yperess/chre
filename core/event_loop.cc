@@ -411,12 +411,25 @@ void EventLoop::logStateToBuffer(DebugDumpWrapper &debugDump) const {
   uint64_t durationMins =
       kIntervalWakeupBucket.toRawNanoseconds() / kOneMinuteInNanoseconds;
   debugDump.print("  Nanoapp host wakeup tracking: cycled %" PRIu64
-                  "mins ago, bucketDuration=%" PRIu64 "mins\n",
+                  " mins ago, bucketDuration=%" PRIu64 "mins\n",
                   timeSinceMins, durationMins);
 
   debugDump.print("\nNanoapps:\n");
-  for (const UniquePtr<Nanoapp> &app : mNanoapps) {
-    app->logStateToBuffer(debugDump);
+
+  if (mNanoapps.size()) {
+    for (const UniquePtr<Nanoapp> &app : mNanoapps) {
+      app->logStateToBuffer(debugDump);
+    }
+
+    mNanoapps[0]->logMemAndComputeHeader(debugDump);
+    for (const UniquePtr<Nanoapp> &app : mNanoapps) {
+      app->logMemAndComputeEntry(debugDump);
+    }
+
+    mNanoapps[0]->logMessageHistoryHeader(debugDump);
+    for (const UniquePtr<Nanoapp> &app : mNanoapps) {
+      app->logMessageHistoryEntry(debugDump);
+    }
   }
 }
 
@@ -594,11 +607,9 @@ void EventLoop::handleNanoappWakeupBuckets() {
   Nanoseconds now = SystemTime::getMonotonicTime();
   Nanoseconds duration = now - mTimeLastWakeupBucketCycled;
   if (duration > kIntervalWakeupBucket) {
-    size_t numBuckets = static_cast<size_t>(
-        duration.toRawNanoseconds() / kIntervalWakeupBucket.toRawNanoseconds());
     mTimeLastWakeupBucketCycled = now;
     for (auto &nanoapp : mNanoapps) {
-      nanoapp->cycleWakeupBuckets(numBuckets);
+      nanoapp->cycleWakeupBuckets(now);
     }
   }
 }
