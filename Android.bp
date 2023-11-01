@@ -18,20 +18,6 @@ package {
     default_applicable_licenses: ["system_chre_license"],
 }
 
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
-// See: http://go/android-license-faq
 license {
     name: "system_chre_license",
     visibility: [":__subpackages__"],
@@ -61,6 +47,9 @@ filegroup {
 cc_library_static {
     name: "chre_client",
     vendor_available: true,
+    local_include_dirs: [
+        "chre_api/include/chre_api",
+    ],
     export_include_dirs: [
         "host/common/include",
         "platform/shared/include",
@@ -70,6 +59,8 @@ cc_library_static {
         "host/common/file_stream.cc",
         "host/common/fragmented_load_transaction.cc",
         "host/common/host_protocol_host.cc",
+        "host/common/pigweed/hal_channel_output.cc",
+        "host/common/pigweed/hal_rpc_client.cc",
         "host/common/socket_client.cc",
         "platform/shared/host_protocol_common.cc",
     ],
@@ -80,7 +71,16 @@ cc_library_static {
         "liblog",
         "libutils",
     ],
-    cflags: ["-Wall", "-Werror"]
+    cflags: [
+        "-DCHRE_IS_HOST_BUILD",
+        "-DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4000", // Needed to import CHRE APIs.
+        "-Wall",
+        "-Werror",
+        ],
+    defaults: [
+        "pw_rpc_cflags_chre",
+        "pw_rpc_nanopb_lib_dependencies",
+    ]
 }
 
 cc_library {
@@ -121,6 +121,72 @@ cc_binary {
         "libutils",
     ],
     static_libs: ["chre_client"],
+}
+
+genrule {
+    name: "rpc_world_proto_header",
+    defaults: [
+        "pw_rpc_generate_nanopb_proto",
+    ],
+    srcs: ["apps/rpc_world/rpc/rpc_world.proto"],
+    out: [
+        "rpc_world.pb.h",
+    ],
+}
+
+genrule {
+    name: "rpc_world_proto_source",
+    defaults: [
+        "pw_rpc_generate_nanopb_proto",
+    ],
+    srcs: ["apps/rpc_world/rpc/rpc_world.proto"],
+    out: [
+        "rpc_world.pb.c",
+    ],
+}
+
+genrule {
+    name: "rpc_world_rpc_header",
+    defaults: [
+        "pw_rpc_generate_nanopb_rpc_header",
+    ],
+    srcs: ["apps/rpc_world/rpc/rpc_world.proto"],
+    out: [
+        "rpc_world.rpc.pb.h",
+    ],
+}
+
+cc_binary {
+    name: "chre_test_rpc",
+    vendor: true,
+    local_include_dirs: [
+        "chre_api/include/chre_api",
+        "util/include",
+    ],
+    srcs: [
+        "host/common/test/chre_test_rpc.cc",
+    ],
+    cflags: ["-Wall", "-Werror"],
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libutils",
+    ],
+    static_libs: [
+        "chre_client",
+        "libprotobuf-c-nano",
+    ],
+    generated_sources: [
+        "rpc_world_proto_source",
+    ],
+    generated_headers: [
+        "rpc_world_proto_header",
+        "rpc_world_rpc_header",
+    ],
+    defaults: [
+        "pw_rpc_cflags_chre",
+        "pw_rpc_nanopb_lib_dependencies",
+    ],
 }
 
 cc_binary {
@@ -557,7 +623,7 @@ cc_test_host {
     },
 }
 
-// pw_rpc rules instantiation
+// PW_RPC rules.
 
 cc_defaults {
     name: "pw_rpc_cflags_chre",
@@ -565,6 +631,20 @@ cc_defaults {
         "-DPW_RPC_USE_GLOBAL_MUTEX=0",
         "-DPW_RPC_COMPLETION_REQUEST_CALLBACK",
         "-DPW_RPC_DYNAMIC_ALLOCATION",
+    ],
+}
+
+// Lib dependencies for apps and libs using PW_RPC with nanopb.
+cc_defaults {
+    name: "pw_rpc_nanopb_lib_dependencies",
+    static_libs: [
+        "pw_containers",
+        "pw_protobuf",
+        "pw_rpc_chre",
+        "pw_rpc_nanopb_chre",
+        "pw_status",
+        "pw_stream",
+        "pw_varint",
     ],
 }
 
@@ -593,6 +673,7 @@ cc_library_static {
         "pw_rpc_chre",
     ],
     host_supported: true,
+    vendor_available: true,
 }
 
 cc_library_static {
@@ -605,6 +686,7 @@ cc_library_static {
         "pw_rpc_chre",
     ],
     host_supported: true,
+    vendor_available: true,
 }
 
 genrule {
@@ -627,7 +709,6 @@ genrule {
     out: [
         "rpc_test.pb.c",
     ],
-
 }
 
 genrule {
@@ -666,17 +747,11 @@ cc_test_host {
         "chre_linux",
         "chre_pal_linux",
         "libprotobuf-c-nano",
-        "pw_containers",
-        "pw_protobuf",
-        "pw_rpc_nanopb_chre",
-        "pw_rpc_chre",
-        "pw_status",
-        "pw_stream",
-        "pw_varint",
     ],
     defaults: [
         "chre_linux_cflags",
         "pw_rpc_cflags_chre",
+        "pw_rpc_nanopb_lib_dependencies",
     ],
     sanitize: {
         address: true,

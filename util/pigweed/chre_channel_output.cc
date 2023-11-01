@@ -63,12 +63,6 @@ pw::Status sendToNanoapp(uint32_t targetInstanceId, uint16_t eventType,
 
 }  // namespace
 
-ChreChannelOutputBase::ChreChannelOutputBase() : ChannelOutput("CHRE") {}
-
-size_t ChreChannelOutputBase::MaximumTransmissionUnit() {
-  return CHRE_MESSAGE_TO_HOST_MAX_SIZE - sizeof(ChrePigweedNanoappMessage);
-}
-
 void ChreServerNanoappChannelOutput::setClient(uint32_t nanoappInstanceId) {
   CHRE_ASSERT(nanoappInstanceId <= kRpcNanoappMaxId);
   if (nanoappInstanceId <= kRpcNanoappMaxId) {
@@ -76,6 +70,10 @@ void ChreServerNanoappChannelOutput::setClient(uint32_t nanoappInstanceId) {
   } else {
     mClientInstanceId = 0;
   }
+}
+
+size_t ChreServerNanoappChannelOutput::MaximumTransmissionUnit() {
+  return CHRE_MESSAGE_TO_HOST_MAX_SIZE - sizeof(ChrePigweedNanoappMessage);
 }
 
 pw::Status ChreServerNanoappChannelOutput::Send(
@@ -97,6 +95,10 @@ void ChreClientNanoappChannelOutput::setServer(uint32_t instanceId) {
   }
 }
 
+size_t ChreClientNanoappChannelOutput::MaximumTransmissionUnit() {
+  return CHRE_MESSAGE_TO_HOST_MAX_SIZE - sizeof(ChrePigweedNanoappMessage);
+}
+
 pw::Status ChreClientNanoappChannelOutput::Send(
     pw::span<const std::byte> buffer) {
   return sendToNanoapp(mServerInstanceId, PW_RPC_CHRE_NAPP_REQUEST_EVENT_TYPE,
@@ -105,6 +107,10 @@ pw::Status ChreClientNanoappChannelOutput::Send(
 
 void ChreServerHostChannelOutput::setHostEndpoint(uint16_t hostEndpoint) {
   mEndpointId = hostEndpoint;
+}
+
+size_t ChreServerHostChannelOutput::MaximumTransmissionUnit() {
+  return CHRE_MESSAGE_TO_HOST_MAX_SIZE - sizeof(ChrePigweedNanoappMessage);
 }
 
 pw::Status ChreServerHostChannelOutput::Send(pw::span<const std::byte> buffer) {

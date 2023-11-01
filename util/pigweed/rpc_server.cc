@@ -68,7 +68,7 @@ bool RpcServer::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
   switch (eventType) {
     case CHRE_EVENT_MESSAGE_FROM_HOST:
       return handleMessageFromHost(eventData);
-    case ChreChannelOutputBase::PW_RPC_CHRE_NAPP_REQUEST_EVENT_TYPE:
+    case PW_RPC_CHRE_NAPP_REQUEST_EVENT_TYPE:
       return handleMessageFromNanoapp(senderInstanceId, eventData);
     case CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION:
       handleHostClientNotification(eventData);
@@ -93,8 +93,7 @@ void RpcServer::close() {
 bool RpcServer::handleMessageFromHost(const void *eventData) {
   auto *hostMessage = static_cast<const chreMessageFromHostData *>(eventData);
 
-  if (hostMessage->messageType !=
-      ChreChannelOutputBase::PW_RPC_CHRE_HOST_MESSAGE_TYPE) {
+  if (hostMessage->messageType != PW_RPC_CHRE_HOST_MESSAGE_TYPE) {
     return false;
   }
 
