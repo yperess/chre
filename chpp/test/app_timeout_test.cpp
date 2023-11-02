@@ -440,34 +440,40 @@ TEST_P(TimeoutParamTest, RequestTimeoutAddRemoveMultiple) {
 }
 
 TEST_P(TimeoutParamTest, DuplicateRequestTimeoutResponse) {
+  // Sleep padding to make sure we timeout.
+  constexpr auto kTimeoutPadding = std::chrono::milliseconds(50);
+
   EXPECT_EQ(GetNextRequestTimeoutNs(), CHPP_TIME_MAX);
 
   struct ChppAppHeader *request = AllocRequestCommand(1 /* command */);
   ASSERT_NE(request, nullptr);
 
-  const uint64_t time1Ns = chppGetCurrentTimeNs();
-  constexpr uint64_t kTimeout1Ns = 200 * CHPP_NSEC_PER_MSEC;
+  // Send the first request.
+  constexpr uint64_t kTimeout1Ns = 20 * CHPP_NSEC_PER_MSEC;
+  const uint64_t kShouldTimeout1AtNs = chppGetCurrentTimeNs() + kTimeout1Ns;
   RegisterAndValidateRequestForTimeout(request, kTimeout1Ns,
-                                       time1Ns + kTimeout1Ns);
+                                       kShouldTimeout1AtNs);
 
-  std::this_thread::sleep_for(std::chrono::nanoseconds(kTimeout1Ns / 2));
-
-  const uint64_t time2Ns = chppGetCurrentTimeNs();
-  constexpr uint64_t kTimeout2Ns = 200 * CHPP_NSEC_PER_MSEC;
+  // Override with a new request.
+  constexpr uint64_t kTimeout2Ns = 400 * CHPP_NSEC_PER_MSEC;
+  const uint64_t kShouldTimeout2AtNs = chppGetCurrentTimeNs() + kTimeout2Ns;
   RegisterAndValidateRequestForTimeout(request, kTimeout2Ns,
-                                       time2Ns + kTimeout2Ns);
+                                       kShouldTimeout2AtNs);
 
   std::this_thread::sleep_for(
-      std::chrono::nanoseconds(kTimeout1Ns + time1Ns - chppGetCurrentTimeNs()));
+      std::chrono::nanoseconds(kShouldTimeout1AtNs - chppGetCurrentTimeNs()) +
+      kTimeoutPadding);
   // First request would have timed out but superseded by second request.
-  ASSERT_GT(GetNextRequestTimeoutNs(), chppGetCurrentTimeNs());
+  EXPECT_GT(GetNextRequestTimeoutNs(), chppGetCurrentTimeNs());
 
   std::this_thread::sleep_for(
-      std::chrono::nanoseconds(kTimeout2Ns + time2Ns - chppGetCurrentTimeNs()));
+      std::chrono::nanoseconds(kShouldTimeout2AtNs - chppGetCurrentTimeNs()) +
+      kTimeoutPadding);
   // Second request should have timed out - so we get a response.
-  ASSERT_LT(GetNextRequestTimeoutNs(), chppGetCurrentTimeNs());
+  EXPECT_LT(GetNextRequestTimeoutNs(), chppGetCurrentTimeNs());
 
   struct ChppAppHeader *response = GetTimeoutResponse();
+  ASSERT_NE(response, nullptr);
   validateTimeoutResponse(request, response);
   chppFree(response);
 
