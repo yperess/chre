@@ -67,8 +67,8 @@ constexpr uint64_t makeGoogleNanoappId(uint32_t appNumber) {
 
 // clang-format off
 constexpr uint64_t kHelloWorldAppId       = makeExampleNanoappId(1);
-constexpr uint64_t kMessageWorldAppId     = makeExampleNanoappId(2);
-constexpr uint64_t kTimerWorldAppId       = makeExampleNanoappId(3);
+constexpr uint64_t kTimerWorldAppId       = makeExampleNanoappId(2);
+constexpr uint64_t kMessageWorldAppId     = makeExampleNanoappId(3);
 constexpr uint64_t kSensorWorldAppId      = makeExampleNanoappId(4);
 constexpr uint64_t kGnssWorldAppId        = makeExampleNanoappId(5);
 constexpr uint64_t kWifiWorldAppId        = makeExampleNanoappId(6);
