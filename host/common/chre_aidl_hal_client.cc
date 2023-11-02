@@ -58,11 +58,17 @@ namespace {
 constexpr uint32_t kContextHubId = 0;
 constexpr int32_t kLoadTransactionId = 1;
 constexpr int32_t kUnloadTransactionId = 2;
+
+// Though IContextHub.aidl says loading operation is capped at 30s to finish,
+// multiclient HAL can terminate a load/unload transaction after 5s to avoid
+// blocking other load/unload transactions.
 constexpr auto kTimeOutThresholdInSec = std::chrono::seconds(5);
+
 // 34a3a27e-9b83-4098-b564-e83b0c28d4bb
 std::array<uint8_t, 16> kUuid = {0x34, 0xa3, 0xa2, 0x7e, 0x9b, 0x83,
                                  0x40, 0x98, 0xb5, 0x64, 0xe8, 0x3b,
                                  0x0c, 0x28, 0xd4, 0xbb};
+
 // Locations should be searched in the sequence defined below:
 const char *kPredefinedNanoappPaths[] = {
     "/vendor/etc/chre/",
@@ -70,6 +76,7 @@ const char *kPredefinedNanoappPaths[] = {
     "/vendor/dsp/sdsp/",
     "/vendor/lib/rfsa/adsp/",
 };
+
 // Please keep kUsage in alphabetical order
 constexpr char kUsage[] = R"(
 Usage: chre_aidl_hal_client COMMAND [ARGS]
@@ -90,7 +97,7 @@ COMMAND ARGS...:
                                 in android/hardware/contexthub/Setting.aidl.
   enableTestMode              - enable test mode.
   getContextHubs              - get all the context hubs.
-  getPreloadedNanoappIds      - get a list of ids for the preloaded nanoapps
+  getPreloadedNanoappIds      - get a list of ids for the preloaded nanoapps.
   list <PATH_OF_NANOAPPS>     - list all the nanoapps' header info in the path.
   load <APP_NAME>             - load the nanoapp specified by the name.
                                 If an absolute path like /path/to/awesome.so,
@@ -182,7 +189,7 @@ class ContextHubCallback : public BnContextHubCallback {
                 << "\n\trpcServices: " << ToString(app.rpcServices) << "\n}"
                 << std::endl;
     }
-    setPromiseAndRefresh();
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
@@ -199,11 +206,13 @@ class ContextHubCallback : public BnContextHubCallback {
       std::cout << std::hex << static_cast<uint32_t>(data);
     }
     std::cout << std::endl;
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
   ScopedAStatus handleContextHubAsyncEvent(AsyncEventType event) override {
     std::cout << "Received async event " << toString(event) << std::endl;
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
@@ -212,12 +221,13 @@ class ContextHubCallback : public BnContextHubCallback {
                                         bool success) override {
     std::cout << parseTransactionId(transactionId) << " transaction is "
               << (success ? "successful" : "failed") << std::endl;
-    setPromiseAndRefresh();
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
   ScopedAStatus handleNanSessionRequest(
       const NanSessionRequest & /* request */) override {
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
@@ -226,13 +236,24 @@ class ContextHubCallback : public BnContextHubCallback {
     return ScopedAStatus::ok();
   }
 
-  std::promise<void> promise;
-
- private:
-  void setPromiseAndRefresh() {
+  void resetPromise() {
     promise.set_value();
     promise = std::promise<void>{};
   }
+
+  // TODO(b/247124878):
+  // This promise is shared among all the HAL callbacks to simplify the
+  // implementation. This is based on the assumption that every command should
+  // get a response before timeout and the first callback triggered is for the
+  // response.
+  //
+  // In very rare cases, however, the assumption doesn't hold:
+  //  - multiple callbacks are triggered by a command and come back out of order
+  //  - one command is timed out and the user typed in another command then the
+  //  first callback for the first command is triggered
+  // Once we have a chance we should consider refactor this design to let each
+  // callback use their specific promises.
+  std::promise<void> promise;
 };
 
 std::shared_ptr<IContextHub> gContextHub = nullptr;
@@ -322,6 +343,7 @@ void readNanoappHeaders(std::map<std::string, NanoAppBinaryHeader> &nanoapps,
 
 void verifyStatus(const std::string &operation, const ScopedAStatus &status) {
   if (!status.isOk()) {
+    gCallback->resetPromise();
     throwError(operation + " fails with abnormal status " +
                ToString(status.getMessage()) + " error code " +
                ToString(status.getServiceSpecificError()));
@@ -335,6 +357,7 @@ void verifyStatusAndSignal(const std::string &operation,
   std::future_status future_status =
       future_signal.wait_for(kTimeOutThresholdInSec);
   if (future_status != std::future_status::ready) {
+    gCallback->resetPromise();
     throwError(operation + " doesn't finish within " +
                ToString(kTimeOutThresholdInSec.count()) + " seconds");
   }
