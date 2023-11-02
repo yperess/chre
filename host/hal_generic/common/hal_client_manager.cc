@@ -362,10 +362,20 @@ std::shared_ptr<IContextHubCallback> HalClientManager::getCallbackForEndpoint(
   } else {
     client = getClientByUuidLocked(kSystemServerUuid);
   }
+
+  HostEndpointId originalEndpointId =
+      convertToOriginalEndpointId(mutatedEndpointId);
   if (client == nullptr) {
     LOGE("Unknown endpoint id %" PRIu16 ". Please register the callback first.",
-         mutatedEndpointId);
+         originalEndpointId);
     return nullptr;
+  }
+  if (client->endpointIds.find(originalEndpointId) ==
+      client->endpointIds.end()) {
+    LOGW(
+        "Received a message from CHRE for an unknown or disconnected endpoint "
+        "id %" PRIu16,
+        originalEndpointId);
   }
   return client->callback;
 }

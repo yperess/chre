@@ -426,6 +426,36 @@ TEST_F(HalClientManagerTest, EndpointIdMutationForSystemServer) {
             originalEndpointId);
 }
 
+TEST_F(HalClientManagerTest, EndpointIdUnknownFromChre) {
+  auto halClientManager = std::make_unique<HalClientManagerForTest>(
+      mockDeadClientUnlinker, kClientIdMappingFilePath);
+  std::shared_ptr<ContextHubCallbackForTest> vendorCallback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(kVendorUuid);
+  std::shared_ptr<ContextHubCallbackForTest> systemCallback =
+      ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+          kSystemServerUuid);
+  const HostEndpointId originalEndpointId = 0x10;  // unregistered endpoint id
+  HostEndpointId mutatedEndpointId = originalEndpointId;
+
+  // Register the callback
+  EXPECT_TRUE(halClientManager->registerCallback(
+      kSystemServerPid, systemCallback, /* deathRecipientCookie= */ nullptr));
+  EXPECT_TRUE(halClientManager->registerCallback(
+      kVendorPid, vendorCallback, /* deathRecipientCookie= */ nullptr));
+
+  // As long as a client's callback is registered, hal_client_manager won't
+  // block message exchanged from/to the client even if the endpoint id is
+  // not registered. The enforcement of endpoint id registration is done on the
+  // client side (contextHubService, library, etc.).
+  EXPECT_TRUE(halClientManager->mutateEndpointIdFromHostIfNeeded(
+      kVendorPid, mutatedEndpointId));
+  EXPECT_NE(mutatedEndpointId, originalEndpointId);
+  EXPECT_EQ(halClientManager->convertToOriginalEndpointId(mutatedEndpointId),
+            originalEndpointId);
+  EXPECT_EQ(halClientManager->getCallbackForEndpoint(mutatedEndpointId),
+            vendorCallback);
+}
+
 TEST_F(HalClientManagerTest, handleDeathClient) {
   auto halClientManager = std::make_unique<HalClientManagerForTest>(
       mockDeadClientUnlinker, kClientIdMappingFilePath);
