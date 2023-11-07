@@ -25,16 +25,6 @@
  */
 
 namespace chre {
-
-// Random value chosen that matches Java client util, but is random enough
-// to not conflict with other CHRE messages the nanoapp and client may send.
-static constexpr uint32_t PW_RPC_CHRE_HOST_MESSAGE_TYPE = INT32_MAX - 10;
-
-// Random values chosen to be towards the end of the nanoapp event type region
-// so it doesn't conflict with existing nanoapp messages that can be sent.
-static constexpr uint16_t PW_RPC_CHRE_NAPP_REQUEST_EVENT_TYPE = UINT16_MAX - 10;
-static constexpr uint16_t PW_RPC_CHRE_NAPP_RESPONSE_EVENT_TYPE = UINT16_MAX - 9;
-
 /** The upper 16b of a channel ID are set to 1 for host clients. */
 constexpr uint32_t kChannelIdHostClient = 1 << 16;
 

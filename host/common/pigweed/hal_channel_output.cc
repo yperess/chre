@@ -18,6 +18,7 @@
 
 #include <cstdint>
 
+#include "chre/event.h"
 #include "chre/util/pigweed/rpc_common.h"
 #include "chre_host/host_protocol_host.h"
 #include "chre_host/log.h"
@@ -27,7 +28,6 @@
 
 namespace android::chre {
 
-using ::chre::PW_RPC_CHRE_HOST_MESSAGE_TYPE;
 using ::flatbuffers::FlatBufferBuilder;
 
 size_t HalChannelOutput::MaximumTransmissionUnit() {
@@ -41,8 +41,8 @@ pw::Status HalChannelOutput::Send(pw::span<const std::byte> buffer) {
     FlatBufferBuilder builder(buffer.size() + kFlatBufferPadding);
 
     HostProtocolHost::encodeNanoappMessage(
-        builder, mServerNanoappId, PW_RPC_CHRE_HOST_MESSAGE_TYPE,
-        mHostEndpointId, buffer.data(), buffer.size());
+        builder, mServerNanoappId, CHRE_MESSAGE_TYPE_RPC, mHostEndpointId,
+        buffer.data(), buffer.size());
 
     if (!mSocketClient.sendMessage(builder.GetBufferPointer(),
                                    builder.GetSize())) {

@@ -50,7 +50,7 @@ class RpcClient : public NonCopyable {
    * Handles events related to RPC services.
    *
    * Handles the following events:
-   * - PW_RPC_CHRE_NAPP_RESPONSE_EVENT_TYPE: handle the server responses,
+   * - CHRE_EVENT_RPC_RESPONSE: handle the server responses,
    * - CHRE_EVENT_NANOAPP_STOPPED: close the channel when the server nanoapp
    *   terminates.
    *
@@ -92,8 +92,8 @@ class RpcClient : public NonCopyable {
   /**
    * Handles responses from the server.
    *
-   * This method must be called when nanoapps receive a
-   * PW_RPC_CHRE_NAPP_RESPONSE_EVENT_TYPE event.
+   * This method must be called when nanoapps receive a CHRE_EVENT_RPC_RESPONSE
+   * event.
    *
    * @param senderInstanceId The Instance ID for the source of this event.
    * @param eventData  The associated data, if any.

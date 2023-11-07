@@ -33,7 +33,7 @@ namespace chre {
 bool RpcClient::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
                             const void *eventData) {
   switch (eventType) {
-    case PW_RPC_CHRE_NAPP_RESPONSE_EVENT_TYPE:
+    case CHRE_EVENT_RPC_RESPONSE:
       return handleMessageFromServer(senderInstanceId, eventData);
     case CHRE_EVENT_NANOAPP_STOPPED:
       handleNanoappStopped(eventData);

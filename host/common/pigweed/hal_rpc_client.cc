@@ -27,7 +27,6 @@
 
 namespace android::chre {
 
-using ::chre::PW_RPC_CHRE_HOST_MESSAGE_TYPE;
 using ::chre::fbs::HubInfoResponseT;
 using ::chre::fbs::NanoappListEntryT;
 using ::chre::fbs::NanoappListResponseT;
@@ -187,7 +186,7 @@ void HalRpcClient::Callbacks::onDisconnected() {
 
 void HalRpcClient::Callbacks::handleNanoappMessage(
     const NanoappMessageT &message) {
-  if (message.message_type == PW_RPC_CHRE_HOST_MESSAGE_TYPE) {
+  if (message.message_type == CHRE_MESSAGE_TYPE_RPC) {
     pw::span packet(reinterpret_cast<const std::byte *>(message.message.data()),
                     message.message.size());
 
