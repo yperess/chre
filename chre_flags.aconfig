@@ -20,3 +20,10 @@ flag {
   description: "This flag controls the waiting-for-nanoapp-start behavior in the CHRE daemon"
   bug: "298459533"
 }
+
+flag {
+  name: "metrics_reporter_rate_limiting"
+  namespace: "context_hub"
+  description: "This flag controls rate limiting support in the CHRE daemon"
+  bug: "298459533"
+}
