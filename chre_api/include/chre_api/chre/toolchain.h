@@ -31,6 +31,9 @@
 #define CHRE_DEPRECATED(message) \
   __attribute__((deprecated(message)))
 
+// Indicates that the function does not return (i.e. abort).
+#define CHRE_NO_RETURN __attribute__((noreturn))
+
 // Enable printf-style compiler warnings for mismatched format string and args
 #define CHRE_PRINTF_ATTR(formatPos, argStart) \
   __attribute__((format(printf, formatPos, argStart)))
