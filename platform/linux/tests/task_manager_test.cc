@@ -25,6 +25,10 @@
 
 namespace {
 
+TEST(TaskManager, TaskManagerCanDoNothing) {
+  chre::TaskManager taskManager;
+}
+
 TEST(TaskManager, FlushTasksCanBeCalledMultipleTimes) {
   chre::TaskManager taskManager;
 
@@ -34,11 +38,44 @@ TEST(TaskManager, FlushTasksCanBeCalledMultipleTimes) {
   }
 }
 
+TEST(TaskManager, TaskCanBeAddedToTopOfQueue) {
+  std::mutex mutex;
+  std::condition_variable condVar;
+  chre::TaskManager taskManager;
+
+  std::unique_lock<std::mutex> lock(mutex);
+
+  auto notifyFunc = [&mutex, &condVar]() {
+    { std::unique_lock<std::mutex> lock(mutex); }
+
+    condVar.notify_all();
+  };
+
+  auto taskAfterDelay = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::seconds(1000));
+  std::optional<uint32_t> taskAfter =
+      taskManager.addTask([]() { FAIL(); },
+                          /* intervalOrDelay */ taskAfterDelay,
+                          /* isOneShot */ true);
+  EXPECT_TRUE(taskAfter.has_value());
+
+  std::optional<uint32_t> taskBefore =
+      taskManager.addTask(notifyFunc,
+                          /* intervalOrDelay */ std::chrono::nanoseconds(100),
+                          /* isOneShot */ true);
+  EXPECT_TRUE(taskBefore.has_value());
+
+  condVar.wait(lock);
+  taskManager.flushTasks();
+}
+
 TEST(TaskManager, MultipleNonRepeatingTasksAreExecuted) {
   uint32_t counter = 0;
   std::mutex mutex;
   std::condition_variable condVar;
   chre::TaskManager taskManager;
+
+  std::unique_lock<std::mutex> lock(mutex);
 
   constexpr uint32_t numTasks = 50;
   auto incrementFunc = [&mutex, &condVar, &counter]() {
@@ -49,6 +86,7 @@ TEST(TaskManager, MultipleNonRepeatingTasksAreExecuted) {
 
     condVar.notify_all();
   };
+
   for (uint32_t i = 0; i < numTasks; ++i) {
     std::optional<uint32_t> taskId =
         taskManager.addTask(incrementFunc,
@@ -56,7 +94,6 @@ TEST(TaskManager, MultipleNonRepeatingTasksAreExecuted) {
     EXPECT_TRUE(taskId.has_value());
   }
 
-  std::unique_lock<std::mutex> lock(mutex);
   condVar.wait(lock, [&counter]() { return counter >= numTasks; });
   taskManager.flushTasks();
   EXPECT_EQ(counter, numTasks);
@@ -68,6 +105,8 @@ TEST(TaskManager, RepeatingAndOneShotTasksCanExecuteTogether) {
   std::condition_variable condVar;
   chre::TaskManager taskManager;
 
+  std::unique_lock<std::mutex> lock(mutex);
+
   constexpr uint32_t numTasks = 50;
   auto incrementFunc = [&mutex, &condVar, &counter]() {
     {
@@ -77,6 +116,7 @@ TEST(TaskManager, RepeatingAndOneShotTasksCanExecuteTogether) {
 
     condVar.notify_all();
   };
+
   for (uint32_t i = 0; i < numTasks; ++i) {
     std::optional<uint32_t> taskId =
         taskManager.addTask(incrementFunc,
@@ -89,7 +129,6 @@ TEST(TaskManager, RepeatingAndOneShotTasksCanExecuteTogether) {
   ASSERT_TRUE(taskId.has_value());
 
   constexpr uint32_t taskRepeatTimesMax = 5;
-  std::unique_lock<std::mutex> lock(mutex);
   condVar.wait(
       lock, [&counter]() { return counter >= numTasks + taskRepeatTimesMax; });
   EXPECT_TRUE(taskManager.cancelTask(taskId.value()));
@@ -103,6 +142,8 @@ TEST(TaskManager, TasksCanBeFlushedEvenIfNotCancelled) {
   std::condition_variable condVar;
   chre::TaskManager taskManager;
 
+  std::unique_lock<std::mutex> lock(mutex);
+
   constexpr uint32_t numTasks = 50;
   auto incrementFunc = [&mutex, &condVar, &counter]() {
     {
@@ -112,6 +153,7 @@ TEST(TaskManager, TasksCanBeFlushedEvenIfNotCancelled) {
 
     condVar.notify_all();
   };
+
   for (uint32_t i = 0; i < numTasks; ++i) {
     std::optional<uint32_t> taskId =
         taskManager.addTask(incrementFunc,
@@ -124,7 +166,6 @@ TEST(TaskManager, TasksCanBeFlushedEvenIfNotCancelled) {
   ASSERT_TRUE(taskId.has_value());
 
   constexpr uint32_t taskRepeatTimesMax = 5;
-  std::unique_lock<std::mutex> lock(mutex);
   condVar.wait(
       lock, [&counter]() { return counter >= numTasks + taskRepeatTimesMax; });
   taskManager.flushTasks();

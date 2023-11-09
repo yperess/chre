@@ -17,6 +17,7 @@
 #ifndef CHRE_PLATFORM_LINUX_TASK_UTIL_TASK_MANAGER_H_
 #define CHRE_PLATFORM_LINUX_TASK_UTIL_TASK_MANAGER_H_
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -111,7 +112,7 @@ class TaskManager : public NonCopyable {
    * If true, continue executing in the thread. If false, stop executing in the
    * thread.
    */
-  bool mContinueRunningThread;
+  std::atomic<bool> mContinueRunningThread;
 
   /**
    * The ID counter for Tasks; keeps the Task's ID unique.

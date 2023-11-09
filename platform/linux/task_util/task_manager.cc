@@ -34,12 +34,8 @@ TaskManager::TaskManager()
 TaskManager::~TaskManager() {
   flushTasks();
 
-  {
-    std::lock_guard<std::mutex> lock(mMutex);
-    mContinueRunningThread = false;
-    mConditionVariable.notify_all();
-  }
-
+  mContinueRunningThread = false;
+  mConditionVariable.notify_all();
   if (mThread.joinable()) {
     mThread.join();
   }
@@ -48,26 +44,23 @@ TaskManager::~TaskManager() {
 std::optional<uint32_t> TaskManager::addTask(
     const Task::TaskFunction &func, std::chrono::nanoseconds intervalOrDelay,
     bool isOneShot) {
-  std::lock_guard<std::mutex> lock(mMutex);
-  bool success = false;
-
-  uint32_t returnId;
   if (!mContinueRunningThread) {
     LOGW("Execution thread is shutting down. Cannot add a task.");
-  } else {
-    // select the next ID
-    assert(mCurrentId < std::numeric_limits<uint32_t>::max());
-    returnId = mCurrentId++;
-    Task task(func, intervalOrDelay, returnId, isOneShot);
-    success = mQueue.push(task);
+    return {};
   }
 
-  if (success) {
-    mConditionVariable.notify_all();
-    return returnId;
-  } else {
-    return std::optional<uint32_t>();
+  std::lock_guard<std::mutex> lock(mMutex);
+  assert(mCurrentId < std::numeric_limits<uint32_t>::max());
+  uint32_t returnId = mCurrentId++;
+  Task task(func, intervalOrDelay, returnId, isOneShot);
+  if (!mQueue.push(task)) {
+    return {};
   }
+
+  if (mQueue.top().getId() == task.getId()) {
+    mConditionVariable.notify_all();
+  }
+  return returnId;
 }
 
 bool TaskManager::cancelTask(uint32_t taskId) {
@@ -101,44 +94,38 @@ void TaskManager::flushTasks() {
 }
 
 void TaskManager::run() {
+  auto stopWaitingPredicate = [this]() {
+    return !mContinueRunningThread || !mQueue.empty();
+  };
+
   while (true) {
-    Task task;
-    {
-      std::unique_lock<std::mutex> lock(mMutex);
-      mConditionVariable.wait(lock, [this]() {
-        return !mContinueRunningThread || !mQueue.empty();
-      });
-      if (!mContinueRunningThread) {
-        return;
-      }
+    std::unique_lock<std::mutex> lock(mMutex);
 
-      task = mQueue.top();
+    if (mQueue.empty()) {
+      mConditionVariable.wait(lock, stopWaitingPredicate);
+    } else {
+      Task &task = mQueue.top();
       if (!task.isReadyToExecute()) {
-        auto waitTime =
-            task.getExecutionTimestamp() - std::chrono::steady_clock::now();
-        if (waitTime.count() > 0) {
-          mConditionVariable.wait_for(lock, waitTime);
-        }
-
-        /**
-         * We continue here instead of executing the same task because we are
-         * not guaranteed that the condition variable was not spuriously woken
-         * up, and another task with a timestamp < the current task could have
-         * been added in the current time.
-         */
-        continue;
+        mConditionVariable.wait_until(lock, task.getExecutionTimestamp(),
+                                      stopWaitingPredicate);
       }
-
-      mQueue.pop();
-      mCurrentTask = &task;
     }
-    task.execute();
-    {
-      std::lock_guard<std::mutex> lock(mMutex);
-      mCurrentTask = nullptr;
+    if (!mContinueRunningThread) {
+      return;
+    }
 
-      if (task.isRepeating() && !mQueue.push(task)) {
-        LOGE("TaskManager: Could not push task to priority queue");
+    if (!mQueue.empty()) {
+      Task task = mQueue.top();
+      if (task.isReadyToExecute()) {
+        mQueue.pop();
+        mCurrentTask = &task;
+        lock.unlock();
+        task.execute();
+        lock.lock();
+        mCurrentTask = nullptr;
+        if (task.isRepeating() && !mQueue.push(task)) {
+          LOGE("TaskManager: Could not push task to priority queue");
+        }
       }
     }
   }
