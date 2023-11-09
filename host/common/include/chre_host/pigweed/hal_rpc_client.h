@@ -58,7 +58,7 @@ class HalRpcClient : public ::chre::NonCopyable {
    */
   static std::unique_ptr<HalRpcClient> createClient(
       std::string_view appName, SocketClient &client,
-      sp<SocketClient::ICallbacks> socketCallbacks, uint32_t hostEndpointId,
+      sp<SocketClient::ICallbacks> socketCallbacks, uint16_t hostEndpointId,
       uint64_t serverNanoappId);
 
   ~HalRpcClient() {
@@ -124,7 +124,7 @@ class HalRpcClient : public ::chre::NonCopyable {
   };
 
   HalRpcClient(std::string_view appName, SocketClient &client,
-               uint32_t hostEndpointId, uint64_t serverNanoappId)
+               uint16_t hostEndpointId, uint64_t serverNanoappId)
       : mServerNanoappId(serverNanoappId),
         mHostEndpointId(hostEndpointId),
         mAppName(appName),
@@ -161,7 +161,7 @@ class HalRpcClient : public ::chre::NonCopyable {
   bool retrieveServices();
 
   const uint64_t mServerNanoappId;
-  const uint32_t mHostEndpointId;
+  const uint16_t mHostEndpointId;
   const std::string mAppName;
   SocketClient &mSocketClient;
   std::unique_ptr<HalChannelOutput> mChannelOutput;

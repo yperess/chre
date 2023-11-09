@@ -37,7 +37,7 @@ using ::flatbuffers::FlatBufferBuilder;
 
 std::unique_ptr<HalRpcClient> HalRpcClient::createClient(
     std::string_view appName, SocketClient &client,
-    sp<SocketClient::ICallbacks> socketCallbacks, uint32_t hostEndpointId,
+    sp<SocketClient::ICallbacks> socketCallbacks, uint16_t hostEndpointId,
     uint64_t serverNanoappId) {
   auto rpcClient = std::unique_ptr<HalRpcClient>(
       new HalRpcClient(appName, client, hostEndpointId, serverNanoappId));
