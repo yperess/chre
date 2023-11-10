@@ -56,6 +56,8 @@ class Nanoapp : public PlatformNanoapp {
 
   Nanoapp();
 
+  Nanoapp(uint16_t instanceId);
+
   /**
    * Calls the start function of the nanoapp. For dynamically loaded nanoapps,
    * this must also result in calling through to any of the nanoapp's static
