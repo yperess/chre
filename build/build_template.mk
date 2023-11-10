@@ -242,12 +242,12 @@ $$($(1)_TOKEN_MAP): $$($(1)_AR)
 ifeq ($(IS_BUILD_REQUIRING_RUST),)
 RUST_DEPENDENCIES =
 else
-RUST_DEPENDENCIES = rust_archive
+RUST_DEPENDENCIES = rust_archive_$(1)
 endif
 
 # Always invoke the cargo build, let cargo decide if updates are needed
-.PHONY: rust_archive
-rust_archive:
+.PHONY: rust_archive_$(1)
+rust_archive_$(1):
 	@echo " [Rust Archive] $$@"
 	$(RUST_FLAGS) cargo +nightly build -Z build-std=core,alloc \
 	    --$(RUST_OPT_LEVEL) --target $(RUST_TARGET_DIR)/$(RUST_TARGET).json
