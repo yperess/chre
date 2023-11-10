@@ -77,11 +77,11 @@ cc_library_static {
         "-DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4000", // Needed to import CHRE APIs.
         "-Wall",
         "-Werror",
-        ],
+    ],
     defaults: [
         "pw_rpc_cflags_chre",
         "pw_rpc_nanopb_lib_dependencies",
-    ]
+    ],
 }
 
 cc_library {
