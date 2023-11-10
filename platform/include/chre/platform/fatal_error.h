@@ -40,6 +40,9 @@
   do {                        \
     LOGE(fmt, ##__VA_ARGS__); \
     FATAL_ERROR_QUIT();       \
+    while (1) {               \
+      /* never return */      \
+    }                         \
   } while (0)
 
 /**

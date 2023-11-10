@@ -40,10 +40,7 @@ uintptr_t __stack_chk_guard = 0x56494342;
 void __stack_chk_fail(void) CHRE_NO_RETURN;
 void __stack_chk_fail(void) {
   LOGE("Stack corruption detected");
-  // Enclose in while(true) to satisfy CHRE_NO_RETURN.
-  while (true) {
-    chreAbort(/*abortCode=*/0);
-  }
+  chreAbort(/*abortCode=*/0);
 }
 
 #ifdef __cplusplus
