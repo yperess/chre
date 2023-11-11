@@ -41,6 +41,7 @@ import org.junit.Assert;
 import org.junit.Assume;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -215,6 +216,21 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
     private void sendWifiScanResultsToChre() {
         List<ScanResult> results = mWifiManager.getScanResults();
         Assert.assertTrue("No wifi scan results returned from AP", !results.isEmpty());
+
+        // CHRE does not currently support 6 GHz results, so filter these results from the list
+        int logsRemoved = 0;
+        Iterator<ScanResult> iter = results.iterator();
+        while (iter.hasNext()) {
+            ScanResult current = iter.next();
+            if (current.getBand() == ScanResult.WIFI_BAND_6_GHZ) {
+                iter.remove();
+                logsRemoved++;
+            }
+        }
+        if (logsRemoved > 0) {
+            Log.i(TAG, "Filtering out 6 GHz band scan result for CHRE, total=" + logsRemoved);
+        }
+
         for (int i = 0; i < results.size(); i++) {
             sendMessageToNanoApp(makeWifiScanResultMessage(results.get(i), results.size(), i));
         }
