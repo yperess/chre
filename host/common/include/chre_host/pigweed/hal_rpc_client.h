@@ -25,6 +25,8 @@
 #include <optional>
 #include <string_view>
 
+#include <android-base/thread_annotations.h>
+
 #include "chre/util/pigweed/rpc_common.h"
 #include "chre_host/pigweed/hal_channel_output.h"
 
@@ -169,14 +171,15 @@ class HalRpcClient : public ::chre::NonCopyable {
   bool mIsChannelOpened = false;
 
   /** Request Hub Info. */
-  size_t mMaxMessageLen;
-  std::condition_variable mHubInfoCond;
   std::mutex mHubInfoMutex;
+  size_t mMaxMessageLen GUARDED_BY(mHubInfoMutex);
+  std::condition_variable mHubInfoCond;
 
   /** Request Nanoapps. */
-  std::vector<::chre::fbs::NanoappRpcServiceT> mServices;
-  std::condition_variable mNanoappCond;
   std::mutex mNanoappMutex;
+  std::vector<::chre::fbs::NanoappRpcServiceT> mServices
+      GUARDED_BY(mNanoappMutex);
+  std::condition_variable mNanoappCond;
 };
 
 template <typename T>
