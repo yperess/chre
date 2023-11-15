@@ -50,7 +50,6 @@ pw::Status sendToNanoapp(uint32_t targetInstanceId, uint16_t eventType,
     }
 
     data->msgSize = buffer.size();
-    data->msg = &data[1];
     memcpy(data->msg, buffer.data(), buffer.size());
 
     if (!chreSendEvent(eventType, data, nappMessageFreeCb, targetInstanceId)) {

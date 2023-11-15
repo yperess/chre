@@ -32,7 +32,7 @@ namespace chre {
  */
 struct ChrePigweedNanoappMessage {
   size_t msgSize;
-  void *msg;
+  uint8_t msg[];
 };
 
 /**
