@@ -18,6 +18,7 @@ COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/callbacks.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/debug.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/string.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/wifi.cc
+COMMON_SRCS += $(CHRE_PREFIX)/util/system/ble_util.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/system/event_callbacks.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/system/debug_dump.cc
 
