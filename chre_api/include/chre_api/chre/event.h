@@ -167,6 +167,21 @@ extern "C" {
 #define CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION UINT16_C(0x0008)
 
 /**
+ * Indicates a RPC request from a nanoapp.
+ *
+ * @since v1.9
+ */
+#define CHRE_EVENT_RPC_REQUEST UINT16_C(0x00009)
+
+/**
+ * Indicates a RPC response from a nanoapp.
+ *
+ * @since v1.9
+ */
+#define CHRE_EVENT_RPC_RESPONSE UINT16_C(0x0000A)
+
+
+/**
  * First possible value for CHRE_EVENT_SENSOR events.
  *
  * This allows us to separately define our CHRE_EVENT_SENSOR_* events in
@@ -310,6 +325,15 @@ extern "C" {
 #define CHRE_MESSAGE_PERMISSION_VENDOR_END (UINT32_C(1) << 31)
 
 /** @} */
+
+/**
+ * Reserved message type for RPC messages.
+ *
+ * @see chreSendMessageWithPermissions
+ *
+ * @since v1.9
+ */
+#define CHRE_MESSAGE_TYPE_RPC UINT32_C(0x7FFFFFF5)
 
 /**
  * @see chrePublishRpcServices
@@ -720,6 +744,8 @@ bool chreSendMessageToHostEndpoint(void *message, size_t messageSize,
  *     NOTE: In CHRE API v1.0, support for forwarding this field to the host was
  *     not strictly required, and some implementations did not support it.
  *     However, its support is mandatory as of v1.1.
+ *     NOTE: The value CHRE_MESSAGE_TYPE_RPC is reserved for usage by RPC
+ *     libraries and normally should not be directly used by nanoapps.
  * @param hostEndpoint  An identifier for the intended recipient of the message,
  *     or CHRE_HOST_ENDPOINT_BROADCAST if all registered endpoints on the host
  *     should receive the message.  Endpoint identifiers are assigned on the
