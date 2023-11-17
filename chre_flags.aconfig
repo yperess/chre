@@ -27,3 +27,10 @@ flag {
   description: "This flag controls rate limiting support in the CHRE daemon"
   bug: "298459533"
 }
+
+flag {
+  name: "remove_ap_wakeup_metric_report_limit"
+  namespace: "context_hub"
+  description: "This flag controls removing a count limit on reporting the AP wakeup metric"
+  bug: "298459533"
+}
