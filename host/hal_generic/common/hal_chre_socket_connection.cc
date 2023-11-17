@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// TODO(b/298459533): remove_ap_wakeup_metric_report_limit ramp up -> remove old
+// code
+
 #define LOG_TAG "ContextHubHal"
 #define LOG_NDEBUG 1
 
@@ -53,6 +56,7 @@ using ::aidl::android::frameworks::stats::VendorAtomValue;
 using ::android::chre::Atoms::CHRE_AP_WAKE_UP_OCCURRED;
 using ::android::chre::Atoms::CHRE_HAL_NANOAPP_LOAD_FAILED;
 using ::android::chre::flags::flag_log_nanoapp_load_metrics;
+using ::android::chre::flags::remove_ap_wakeup_metric_report_limit;
 // TODO(b/298459533): Remove end
 
 using ::android::chre::MetricsReporter;
@@ -196,7 +200,9 @@ HalChreSocketConnection::SocketCallbacks::SocketCallbacks(
     HalChreSocketConnection &parent, IChreSocketCallback *callback)
     : mParent(parent), mCallback(callback) {
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
-  mLastClearedTimestamp = elapsedRealtime();
+  if (!remove_ap_wakeup_metric_report_limit()) {
+    mLastClearedTimestamp = elapsedRealtime();
+  }
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 }
 
@@ -231,15 +237,19 @@ void HalChreSocketConnection::SocketCallbacks::handleNanoappMessage(
     // check and update the 24hour timer
     std::lock_guard<std::mutex> lock(mNanoappWokeApCountMutex);
     long nanoappId = message.app_id;
-    long timeElapsed = elapsedRealtime() - mLastClearedTimestamp;
-    if (timeElapsed > kOneDayinMillis) {
-      mNanoappWokeUpCount = 0;
-      mLastClearedTimestamp = elapsedRealtime();
+
+    if (!remove_ap_wakeup_metric_report_limit()) {
+      long timeElapsed = elapsedRealtime() - mLastClearedTimestamp;
+      if (timeElapsed > kOneDayinMillis) {
+        mNanoappWokeUpCount = 0;
+        mLastClearedTimestamp = elapsedRealtime();
+      }
+
+      mNanoappWokeUpCount++;
     }
 
-    // update and report the AP woke up metric
-    mNanoappWokeUpCount++;
-    if (mNanoappWokeUpCount < kMaxDailyReportedApWakeUp) {
+    if (remove_ap_wakeup_metric_report_limit() ||
+        mNanoappWokeUpCount < kMaxDailyReportedApWakeUp) {
       if (flag_log_nanoapp_load_metrics()) {
         if (!mParent.mMetricsReporter.logApWakeupOccurred(nanoappId)) {
           ALOGE("Could not log AP Wakeup metric");
