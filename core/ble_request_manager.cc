@@ -20,6 +20,7 @@
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
 #include "chre/util/nested_data_ptr.h"
+#include "chre/util/system/ble_util.h"
 #include "chre/util/system/event_callbacks.h"
 
 namespace chre {
@@ -240,6 +241,10 @@ void BleRequestManager::freeAdvertisingEventCallback(uint16_t /* eventType */,
 
 void BleRequestManager::handleAdvertisementEvent(
     struct chreBleAdvertisementEvent *event) {
+  for (uint16_t i = 0; i < event->numReports; i++) {
+    populateLegacyAdvertisingReportFields(
+        const_cast<chreBleAdvertisingReport &>(event->reports[i]));
+  }
   EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
       CHRE_EVENT_BLE_ADVERTISEMENT, event, freeAdvertisingEventCallback);
 }
