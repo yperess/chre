@@ -110,7 +110,7 @@ NANOPB_GENERATOR_SRCS = $(NANOPB_PREFIX)/generator/proto/nanopb_pb2.py
 NANOPB_GENERATOR_SRCS += $(NANOPB_PREFIX)/generator/proto/plugin_pb2.py
 
 $(NANOPB_GENERATOR_SRCS):
-	cd $(NANOPB_PREFIX)/generator/proto && make
+	cd $(NANOPB_PREFIX)/generator/proto && $(MAKE)
 
 ifneq ($(NANOPB_OPTIONS),)
 NANOPB_OPTIONS_FLAG = --options-file=$(NANOPB_OPTIONS)
