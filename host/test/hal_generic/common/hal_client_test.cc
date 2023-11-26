@@ -16,6 +16,8 @@
 #include "chre_host/hal_client.h"
 #include "host/hal_generic/common/hal_error.h"
 
+#include <unordered_set>
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -27,6 +29,7 @@ namespace {
 using ::aidl::android::hardware::contexthub::ContextHubMessage;
 using ::aidl::android::hardware::contexthub::HostEndpointInfo;
 using ::aidl::android::hardware::contexthub::IContextHub;
+using ::aidl::android::hardware::contexthub::IContextHubCallbackDefault;
 using ::aidl::android::hardware::contexthub::IContextHubDefault;
 
 using ::ndk::ScopedAStatus;
@@ -38,17 +41,32 @@ using ::testing::IsEmpty;
 using ::testing::Return;
 using ::testing::UnorderedElementsAre;
 
+using HostEndpointId = char16_t;
+constexpr HostEndpointId kEndpointId = 0x10;
+
 class HalClientForTest : public HalClient {
  public:
   HalClientForTest(const std::shared_ptr<IContextHub> &contextHub,
-                   const std::unordered_set<char16_t> &connectedEndpoints)
-      : HalClient(/* callback= */ nullptr) {
+                   const std::vector<HostEndpointId> &connectedEndpoints,
+                   const std::shared_ptr<IContextHubCallback> &callback =
+                       ndk::SharedRefBase::make<IContextHubCallbackDefault>())
+      : HalClient(callback) {
     mContextHub = contextHub;
-    mConnectedEndpoints = connectedEndpoints;
+    for (const HostEndpointId &endpointId : connectedEndpoints) {
+      mConnectedEndpoints[endpointId] = {.hostEndpointId = endpointId};
+    }
   }
 
-  std::unordered_set<char16_t> getConnectedEndpoints() {
-    return mConnectedEndpoints;
+  std::unordered_set<HostEndpointId> getConnectedEndpointIds() {
+    std::unordered_set<HostEndpointId> result{};
+    for (const auto &[endpointId, unusedEndpointInfo] : mConnectedEndpoints) {
+      result.insert(endpointId);
+    }
+    return result;
+  }
+
+  HalClientCallback *getClientCallback() {
+    return mCallback.get();
   }
 };
 
@@ -56,8 +74,8 @@ class MockContextHub : public IContextHubDefault {
  public:
   MOCK_METHOD(ScopedAStatus, onHostEndpointConnected,
               (const HostEndpointInfo &info), (override));
-  MOCK_METHOD(ScopedAStatus, onHostEndpointDisconnected, (char16_t endpointId),
-              (override));
+  MOCK_METHOD(ScopedAStatus, onHostEndpointDisconnected,
+              (HostEndpointId endpointId), (override));
   MOCK_METHOD(ScopedAStatus, queryNanoapps, (int32_t icontextHubId),
               (override));
   MOCK_METHOD(ScopedAStatus, sendMessageToHub,
@@ -69,8 +87,6 @@ class MockContextHub : public IContextHubDefault {
 
 TEST(HalClientTest, EndpointConnectionBasic) {
   auto mockContextHub = ndk::SharedRefBase::make<MockContextHub>();
-  constexpr char16_t kEndpointId = 0x10;
-  std::unordered_set<char16_t> connectedEndpoints{};
   const HostEndpointInfo kInfo = {
       .hostEndpointId = kEndpointId,
       .type = HostEndpointInfo::Type::NATIVE,
@@ -78,9 +94,9 @@ TEST(HalClientTest, EndpointConnectionBasic) {
       .attributionTag{},
   };
 
-  auto halClient =
-      std::make_unique<HalClientForTest>(mockContextHub, connectedEndpoints);
-  EXPECT_THAT(halClient->getConnectedEndpoints(), IsEmpty());
+  auto halClient = std::make_unique<HalClientForTest>(
+      mockContextHub, std::vector<HostEndpointId>{});
+  EXPECT_THAT(halClient->getConnectedEndpointIds(), IsEmpty());
 
   EXPECT_CALL(*mockContextHub,
               onHostEndpointConnected(
@@ -88,15 +104,12 @@ TEST(HalClientTest, EndpointConnectionBasic) {
       .WillOnce(Return(ScopedAStatus::ok()));
 
   halClient->connectEndpoint(kInfo);
-
-  EXPECT_THAT(halClient->getConnectedEndpoints(),
+  EXPECT_THAT(halClient->getConnectedEndpointIds(),
               UnorderedElementsAre(kEndpointId));
 }
 
 TEST(HalClientTest, EndpointConnectionMultipleRequests) {
   auto mockContextHub = ndk::SharedRefBase::make<MockContextHub>();
-  constexpr char16_t kEndpointId = 0x10;
-  std::unordered_set<char16_t> connectedEndpoints{};
   const HostEndpointInfo kInfo = {
       .hostEndpointId = kEndpointId,
       .type = HostEndpointInfo::Type::NATIVE,
@@ -104,9 +117,9 @@ TEST(HalClientTest, EndpointConnectionMultipleRequests) {
       .attributionTag{},
   };
 
-  auto halClient =
-      std::make_unique<HalClientForTest>(mockContextHub, connectedEndpoints);
-  EXPECT_THAT(halClient->getConnectedEndpoints(), IsEmpty());
+  auto halClient = std::make_unique<HalClientForTest>(
+      mockContextHub, std::vector<HostEndpointId>{});
+  EXPECT_THAT(halClient->getConnectedEndpointIds(), IsEmpty());
 
   // multiple requests are tolerated
   EXPECT_CALL(*mockContextHub,
@@ -118,33 +131,30 @@ TEST(HalClientTest, EndpointConnectionMultipleRequests) {
   halClient->connectEndpoint(kInfo);
   halClient->connectEndpoint(kInfo);
 
-  EXPECT_THAT(halClient->getConnectedEndpoints(),
+  EXPECT_THAT(halClient->getConnectedEndpointIds(),
               UnorderedElementsAre(kEndpointId));
 }
 
 TEST(HalClientTest, EndpointDisconnectionBasic) {
   auto mockContextHub = ndk::SharedRefBase::make<MockContextHub>();
-  constexpr char16_t kEndpointId = 0x10;
-  std::unordered_set<char16_t> connectedEndpoints{kEndpointId};
-  auto halClient =
-      std::make_unique<HalClientForTest>(mockContextHub, connectedEndpoints);
-  EXPECT_THAT(halClient->getConnectedEndpoints(),
+  auto halClient = std::make_unique<HalClientForTest>(
+      mockContextHub, std::vector<HostEndpointId>{kEndpointId});
+
+  EXPECT_THAT(halClient->getConnectedEndpointIds(),
               UnorderedElementsAre(kEndpointId));
 
   EXPECT_CALL(*mockContextHub, onHostEndpointDisconnected(kEndpointId))
       .WillOnce(Return(ScopedAStatus::ok()));
-
   halClient->disconnectEndpoint(kEndpointId);
-  EXPECT_THAT(halClient->getConnectedEndpoints(), IsEmpty());
+
+  EXPECT_THAT(halClient->getConnectedEndpointIds(), IsEmpty());
 }
 
 TEST(HalClientTest, EndpointDisconnectionMultipleRequest) {
   auto mockContextHub = ndk::SharedRefBase::make<MockContextHub>();
-  constexpr char16_t kEndpointId = 0x10;
-  std::unordered_set<char16_t> connectedEndpoints{kEndpointId};
-  auto halClient =
-      std::make_unique<HalClientForTest>(mockContextHub, connectedEndpoints);
-  EXPECT_THAT(halClient->getConnectedEndpoints(),
+  auto halClient = std::make_unique<HalClientForTest>(
+      mockContextHub, std::vector<HostEndpointId>{kEndpointId});
+  EXPECT_THAT(halClient->getConnectedEndpointIds(),
               UnorderedElementsAre(kEndpointId));
 
   EXPECT_CALL(*mockContextHub, onHostEndpointDisconnected(kEndpointId))
@@ -154,36 +164,49 @@ TEST(HalClientTest, EndpointDisconnectionMultipleRequest) {
   halClient->disconnectEndpoint(kEndpointId);
   halClient->disconnectEndpoint(kEndpointId);
 
-  EXPECT_THAT(halClient->getConnectedEndpoints(), IsEmpty());
+  EXPECT_THAT(halClient->getConnectedEndpointIds(), IsEmpty());
 }
 
 TEST(HalClientTest, SendMessageBasic) {
   auto mockContextHub = ndk::SharedRefBase::make<MockContextHub>();
-  constexpr char16_t kEndpointId = 0x10;
   const ContextHubMessage contextHubMessage = {
       .nanoappId = 0xbeef,
       .hostEndPoint = kEndpointId,
       .messageBody = {},
       .permissions = {},
   };
-  std::unordered_set<char16_t> connectedEndpoints{kEndpointId};
-  auto halClient =
-      std::make_unique<HalClientForTest>(mockContextHub, connectedEndpoints);
+  auto halClient = std::make_unique<HalClientForTest>(
+      mockContextHub, std::vector<HostEndpointId>{kEndpointId});
 
   EXPECT_CALL(*mockContextHub, sendMessageToHub(_, _))
       .WillOnce(Return(ScopedAStatus::ok()));
-
   halClient->sendMessage(contextHubMessage);
 }
 
 TEST(HalClientTest, QueryNanoapp) {
   auto mockContextHub = ndk::SharedRefBase::make<MockContextHub>();
-  std::unordered_set<char16_t> connectedEndpoints{};
-  auto halClient =
-      std::make_unique<HalClientForTest>(mockContextHub, connectedEndpoints);
+  auto halClient = std::make_unique<HalClientForTest>(
+      mockContextHub, std::vector<HostEndpointId>{});
 
   EXPECT_CALL(*mockContextHub, queryNanoapps(HalClient::kDefaultContextHubId));
-
   halClient->queryNanoapps();
+}
+
+TEST(HalClientTest, HandleChreRestart) {
+  auto mockContextHub = ndk::SharedRefBase::make<MockContextHub>();
+
+  auto halClient = std::make_unique<HalClientForTest>(
+      mockContextHub,
+      std::vector<HostEndpointId>{kEndpointId, kEndpointId + 1});
+
+  EXPECT_CALL(*mockContextHub, onHostEndpointConnected(
+                                   Field(&HostEndpointInfo::hostEndpointId, _)))
+      .WillOnce(Return(ScopedAStatus::ok()))
+      .WillOnce(Return(ScopedAStatus::ok()));
+
+  halClient->getClientCallback()->handleContextHubAsyncEvent(
+      AsyncEventType::RESTARTED);
+  EXPECT_THAT(halClient->getConnectedEndpointIds(),
+              UnorderedElementsAre(kEndpointId, kEndpointId + 1));
 }
 }  // namespace android::chre

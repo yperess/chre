@@ -20,9 +20,10 @@
 #include <cinttypes>
 #include <memory>
 #include <shared_mutex>
-#include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
+#include <aidl/android/hardware/contexthub/BnContextHubCallback.h>
 #include <aidl/android/hardware/contexthub/ContextHubMessage.h>
 #include <aidl/android/hardware/contexthub/HostEndpointInfo.h>
 #include <aidl/android/hardware/contexthub/IContextHub.h>
@@ -36,6 +37,8 @@
 
 namespace android::chre {
 
+using ::aidl::android::hardware::contexthub::AsyncEventType;
+using ::aidl::android::hardware::contexthub::BnContextHubCallback;
 using ::aidl::android::hardware::contexthub::ContextHubInfo;
 using ::aidl::android::hardware::contexthub::ContextHubMessage;
 using ::aidl::android::hardware::contexthub::HostEndpointInfo;
@@ -43,6 +46,8 @@ using ::aidl::android::hardware::contexthub::IContextHub;
 using ::aidl::android::hardware::contexthub::IContextHubCallback;
 using ::aidl::android::hardware::contexthub::IContextHubDefault;
 using ::aidl::android::hardware::contexthub::NanoappBinary;
+using ::aidl::android::hardware::contexthub::NanoappInfo;
+using ::aidl::android::hardware::contexthub::NanSessionRequest;
 using ::aidl::android::hardware::contexthub::Setting;
 using ::ndk::ScopedAStatus;
 
@@ -55,21 +60,10 @@ using ::ndk::ScopedAStatus;
  * already connected to HAL.
  *
  * <p>When the binder connection to HAL is disconnected HalClient will have a
- * death recipient to re-establish the connection. Be aware that it is a
- * client's responsibility to reconnect all the endpoints. This is because when
- * the binder connection is set up, it is possible that all the API calls can't
- * reach CHRE yet if CHRE also restarts at the same time. A client should rely
- * on IContextHubCallback.handleContextHubAsyncEvent() to handle the RESTARTED
- * event which is a signal that CHRE is up running.
- * TODO(b/309690054): In reality HAL rarely crashes. When it does, CHRE could
- *   still be up running so HalClient should try to re-establish the states of
- *   connected endpoints by calling connectEndpoint anyway after the
- *   binder link reconnects.
- *
- * TODO(b/309690054): When CHRE crashes, HAL will bypass this HalCLient library
- *   and notify the client directly via
- *   IContextHubCallback.handleContextHubAsyncEvent(). In this situation
- *   HalClient.mConnectedEndpoints become out-of-date.
+ * death recipient re-establish the connection and reconnect the previously
+ * connected endpoints. In a rare case that CHRE also restarts at the same time,
+ * a client should rely on IContextHubCallback.handleContextHubAsyncEvent() to
+ * handle the RESTARTED event which is a signal that CHRE is up running.
  *
  * TODO(b/297912356): The name of this class is the same as an internal struct
  *   used by HalClientManager. Consider rename the latter one to avoid confusion
@@ -78,19 +72,21 @@ using ::ndk::ScopedAStatus;
 class HalClient {
  public:
   static constexpr int32_t kDefaultContextHubId = 0;
+
+  /**
+   * Create a HalClient unique pointer used to communicate with CHRE HAL.
+   *
+   * @param callback a non-null callback.
+   * @param contextHubId context hub id that only 0 is supported at this moment.
+   *
+   * @return null pointer if the creation fails.
+   */
   static std::unique_ptr<HalClient> create(
       const std::shared_ptr<IContextHubCallback> &callback,
-      int32_t contextHubId = kDefaultContextHubId) {
-    auto halClient =
-        std::unique_ptr<HalClient>(new HalClient(callback, contextHubId));
-    if (halClient->initConnection() != HalError::SUCCESS) {
-      return nullptr;
-    }
-    return halClient;
-  }
+      int32_t contextHubId = kDefaultContextHubId);
 
   ScopedAStatus queryNanoapps() {
-    return callIfConnectedOrError(
+    return callIfConnected(
         [&]() { return mContextHub->queryNanoapps(mContextHubId); });
   }
 
@@ -101,9 +97,59 @@ class HalClient {
   ScopedAStatus disconnectEndpoint(char16_t hostEndpointId);
 
  protected:
+  class HalClientCallback : public BnContextHubCallback {
+   public:
+    explicit HalClientCallback(
+        const std::shared_ptr<IContextHubCallback> &callback,
+        HalClient *halClient)
+        : mCallback(callback), mHalClient(halClient) {}
+
+    ScopedAStatus handleNanoappInfo(
+        const std::vector<NanoappInfo> &appInfo) override {
+      return mCallback->handleNanoappInfo(appInfo);
+    }
+
+    ScopedAStatus handleContextHubMessage(
+        const ContextHubMessage &msg,
+        const std::vector<std::string> &msgContentPerms) override {
+      return mCallback->handleContextHubMessage(msg, msgContentPerms);
+    }
+
+    ScopedAStatus handleContextHubAsyncEvent(AsyncEventType event) override {
+      if (event == AsyncEventType::RESTARTED) {
+        LOGW("CHRE has restarted. Reconnecting endpoints.");
+        tryReconnectEndpoints(mHalClient);
+      }
+      return mCallback->handleContextHubAsyncEvent(event);
+    }
+
+    ScopedAStatus handleTransactionResult(int32_t transactionId,
+                                          bool success) override {
+      return mCallback->handleTransactionResult(transactionId, success);
+    }
+
+    ScopedAStatus handleNanSessionRequest(
+        const NanSessionRequest &request) override {
+      return mCallback->handleNanSessionRequest(request);
+    }
+
+    ScopedAStatus getUuid(std::array<uint8_t, 16> *outUuid) override {
+      return mCallback->getUuid(outUuid);
+    }
+
+    ScopedAStatus getName(std::string *outName) override {
+      return mCallback->getName(outName);
+    }
+
+   private:
+    std::shared_ptr<IContextHubCallback> mCallback;
+    HalClient *mHalClient;
+  };
+
   explicit HalClient(const std::shared_ptr<IContextHubCallback> &callback,
                      int32_t contextHubId = kDefaultContextHubId)
-      : mContextHubId(contextHubId), mCallback(callback) {
+      : mContextHubId(contextHubId) {
+    mCallback = ndk::SharedRefBase::make<HalClientCallback>(callback, this);
     ABinderProcess_startThreadPool();
     mDeathRecipient = ndk::ScopedAIBinder_DeathRecipient(
         AIBinder_DeathRecipient_new(onHalDisconnected));
@@ -122,8 +168,10 @@ class HalClient {
   /** The callback for a disconnected HAL binder connection. */
   static void onHalDisconnected(void *cookie);
 
-  ScopedAStatus callIfConnectedOrError(
-      const std::function<ScopedAStatus()> &func) {
+  /** Reconnect previously connected endpoints after CHRE or HAL restarts. */
+  static void tryReconnectEndpoints(HalClient *halClient);
+
+  ScopedAStatus callIfConnected(const std::function<ScopedAStatus()> &func) {
     std::shared_lock<std::shared_mutex> sharedLock(mConnectionLock);
     if (mContextHub == nullptr) {
       return fromHalError(HalError::BINDER_DISCONNECTED);
@@ -137,14 +185,19 @@ class HalClient {
            mConnectedEndpoints.end();
   }
 
-  void insertConnectedEndpoint(HostEndpointId hostEndpointId) {
+  void insertConnectedEndpoint(const HostEndpointInfo &hostEndpointInfo) {
     std::lock_guard<std::shared_mutex> lock(mStateLock);
-    mConnectedEndpoints.insert(hostEndpointId);
+    mConnectedEndpoints[hostEndpointInfo.hostEndpointId] = hostEndpointInfo;
   }
 
   void removeConnectedEndpoint(HostEndpointId hostEndpointId) {
     std::lock_guard<std::shared_mutex> lock(mStateLock);
     mConnectedEndpoints.erase(hostEndpointId);
+  }
+
+  void clearConnectedEndpoints() {
+    std::lock_guard<std::shared_mutex> lock(mStateLock);
+    mConnectedEndpoints.clear();
   }
 
   static ScopedAStatus fromHalError(HalError errorCode) {
@@ -159,7 +212,7 @@ class HalClient {
 
   // The lock guarding mConnectedEndpoints.
   std::shared_mutex mStateLock;
-  std::unordered_set<HostEndpointId> mConnectedEndpoints{};
+  std::unordered_map<HostEndpointId, HostEndpointInfo> mConnectedEndpoints{};
 
   // The lock guarding mContextHub.
   std::shared_mutex mConnectionLock;
@@ -168,7 +221,7 @@ class HalClient {
   // Handler of the binder disconnection event with HAL.
   ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
 
-  std::shared_ptr<IContextHubCallback> mCallback;
+  std::shared_ptr<HalClientCallback> mCallback;
 };
 
 }  // namespace android::chre

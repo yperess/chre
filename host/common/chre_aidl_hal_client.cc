@@ -30,6 +30,7 @@
 #include <regex>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "chre_api/chre/version.h"
