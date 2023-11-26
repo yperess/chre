@@ -58,6 +58,7 @@ cc_library_static {
     srcs: [
         "host/common/file_stream.cc",
         "host/common/fragmented_load_transaction.cc",
+        "host/common/hal_client.cc",
         "host/common/host_protocol_host.cc",
         "host/common/log.cc",
         "host/common/pigweed/hal_channel_output.cc",
@@ -68,6 +69,8 @@ cc_library_static {
     header_libs: ["chre_flatbuffers"],
     export_header_lib_headers: ["chre_flatbuffers"],
     shared_libs: [
+        "android.hardware.contexthub-V3-ndk",
+        "libbinder_ndk",
         "libcutils",
         "liblog",
         "libutils",
@@ -452,6 +455,7 @@ cc_test_host {
         "host/test/**/*_test.cc",
         "host/hal_generic/common/hal_client_manager.cc",
         "host/common/fragmented_load_transaction.cc",
+        "host/common/hal_client.cc",
     ],
     local_include_dirs: [
         "host/common/include",
