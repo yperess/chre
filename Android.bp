@@ -226,13 +226,15 @@ filegroup {
 cc_binary {
     name: "chre_aidl_hal_client",
     vendor: true,
+    cpp_std: "c++20",
     local_include_dirs: [
         "host/common/include",
         "chre_api/include",
     ],
     srcs: [
-        "host/common/file_stream.cc",
         "host/common/chre_aidl_hal_client.cc",
+        "host/common/file_stream.cc",
+        "host/common/log.cc",
     ],
     shared_libs: [
         "android.hardware.contexthub-V3-ndk",
@@ -242,8 +244,15 @@ cc_binary {
         "liblog",
         "libutils",
     ],
-    static_libs: ["chre_host_common"],
-    cflags: ["-Wall", "-Werror", "-fexceptions"],
+    static_libs: [
+        "chre_client",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-fexceptions",
+        "-DLOG_TAG=\"CHRE.HAL.CLIENT\"",
+    ],
 }
 
 cc_test {
