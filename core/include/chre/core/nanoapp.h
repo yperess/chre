@@ -57,6 +57,8 @@ class Nanoapp : public PlatformNanoapp {
 
   Nanoapp();
 
+  // The nanoapp instance ID should only come from the event loop manager. This
+  // constructor should never be called except for use in unit tests.
   Nanoapp(uint16_t instanceId);
 
   /**

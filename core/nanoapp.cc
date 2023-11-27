@@ -36,9 +36,6 @@ namespace chre {
 
 constexpr size_t Nanoapp::kMaxSizeWakeupBuckets;
 
-// The nanoapp instance ID should only come from event loop manager. The second
-// constructor with an instance ID input should never be called except for unit
-// tests.
 Nanoapp::Nanoapp()
     : Nanoapp(EventLoopManagerSingleton::get()->getNextInstanceId()) {}
 
