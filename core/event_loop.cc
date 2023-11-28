@@ -204,16 +204,10 @@ bool EventLoop::startNanoapp(UniquePtr<Nanoapp> &nanoapp) {
     success = newNanoapp->start();
     mCurrentApp = nullptr;
     if (!success) {
-      // TODO: to be fully safe, need to purge/flush any events and messages
-      // sent by the nanoapp here (but don't call nanoappEnd). For now, we just
-      // destroy the Nanoapp instance.
       LOGE("Nanoapp %" PRIu16 " failed to start", newNanoapp->getInstanceId());
-
-      // Note that this lock protects against concurrent read and modification
-      // of mNanoapps, but we are assured that no new nanoapps were added since
-      // we pushed the new nanoapp
-      LockGuard<Mutex> lock(mNanoappsLock);
-      mNanoapps.pop_back();
+      unloadNanoapp(newNanoapp->getInstanceId(),
+                    /*allowSystemNanoappUnload=*/true,
+                    /*nanoappStarted=*/false);
     } else {
       notifyAppStatusChange(CHRE_EVENT_NANOAPP_STARTED, *newNanoapp);
     }
@@ -223,7 +217,8 @@ bool EventLoop::startNanoapp(UniquePtr<Nanoapp> &nanoapp) {
 }
 
 bool EventLoop::unloadNanoapp(uint16_t instanceId,
-                              bool allowSystemNanoappUnload) {
+                              bool allowSystemNanoappUnload,
+                              bool nanoappStarted) {
   bool unloaded = false;
 
   for (size_t i = 0; i < mNanoapps.size(); i++) {
@@ -248,13 +243,17 @@ bool EventLoop::unloadNanoapp(uint16_t instanceId,
         flushInboundEventQueue();
 
         // Post the unload event now (so we can reference the Nanoapp instance
-        // directly), but nanoapps won't get it until after the unload completes
-        notifyAppStatusChange(CHRE_EVENT_NANOAPP_STOPPED, *mStoppingNanoapp);
+        // directly), but nanoapps won't get it until after the unload
+        // completes. No need to notify status change if nanoapps failed to
+        // start.
+        if (nanoappStarted) {
+          notifyAppStatusChange(CHRE_EVENT_NANOAPP_STOPPED, *mStoppingNanoapp);
+        }
 
         // Finally, we are at a point where there should not be any pending
         // events or messages sent by the app that could potentially reference
         // the nanoapp's memory, so we are safe to unload it
-        unloadNanoappAtIndex(i);
+        unloadNanoappAtIndex(i, nanoappStarted);
         mStoppingNanoapp = nullptr;
 
         LOGD("Unloaded nanoapp with instanceId %" PRIu16, instanceId);
@@ -537,7 +536,7 @@ void EventLoop::notifyAppStatusChange(uint16_t eventType,
   }
 }
 
-void EventLoop::unloadNanoappAtIndex(size_t index) {
+void EventLoop::unloadNanoappAtIndex(size_t index, bool nanoappStarted) {
   const UniquePtr<Nanoapp> &nanoapp = mNanoapps[index];
 
   // Lock here to prevent the nanoapp instance from being accessed between the
@@ -546,7 +545,12 @@ void EventLoop::unloadNanoappAtIndex(size_t index) {
 
   // Let the app know it's going away
   mCurrentApp = nanoapp.get();
-  nanoapp->end();
+
+  // nanoappEnd() is not invoked for nanoapps that return false in
+  // nanoappStart(), per CHRE API
+  if (nanoappStarted) {
+    nanoapp->end();
+  }
 
   // Cleanup resources.
 #ifdef CHRE_WIFI_SUPPORT_ENABLED
@@ -597,10 +601,10 @@ void EventLoop::unloadNanoappAtIndex(size_t index) {
           nanoapp.get());
   logDanglingResources("heap blocks", numFreedBlocks);
 
-  mCurrentApp = nullptr;
-
   // Destroy the Nanoapp instance
   mNanoapps.erase(index);
+
+  mCurrentApp = nullptr;
 }
 
 void EventLoop::handleNanoappWakeupBuckets() {

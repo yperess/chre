@@ -152,10 +152,12 @@ class EventLoop : public NonCopyable {
    * @param instanceId The nanoapp's unique instance identifier
    * @param allowSystemNanoappUnload If false, this function will reject
    *        attempts to unload a system nanoapp
+   * @param nanoappStarted Indicates whether the nanoapp successfully started
    *
    * @return true if the nanoapp with the given instance ID was found & unloaded
    */
-  bool unloadNanoapp(uint16_t instanceId, bool allowSystemNanoappUnload);
+  bool unloadNanoapp(uint16_t instanceId, bool allowSystemNanoappUnload,
+                     bool nanoappStarted = true);
 
   /**
    * Executes the loop that blocks on the event queue and delivers received
@@ -527,8 +529,12 @@ class EventLoop : public NonCopyable {
    * be any pending events in this nanoapp's queue, and there must not be any
    * outstanding events sent by this nanoapp, as they may reference the
    * nanoapp's own memory (even if there is no free callback).
+   *
+   * @param index Index of the nanoapp in the list of nanoapps managed by event
+   * loop.
+   * @param nanoappStarted Indicates whether the nanoapp successfully started
    */
-  void unloadNanoappAtIndex(size_t index);
+  void unloadNanoappAtIndex(size_t index, bool nanoappStarted = true);
 
   /**
    * Logs dangling resources when a nanoapp is unloaded.
