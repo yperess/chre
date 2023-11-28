@@ -390,56 +390,56 @@ public class ChreApiTestUtil {
         return new Service("chre.rpc.ChreApiTestService",
                 Service.unaryMethod(
                         "ChreBleGetCapabilities",
-                        Empty.class,
-                        ChreApiTest.Capabilities.class),
+                        Empty.parser(),
+                        ChreApiTest.Capabilities.parser()),
                 Service.unaryMethod(
                         "ChreBleGetFilterCapabilities",
-                        Empty.class,
-                        ChreApiTest.Capabilities.class),
+                        Empty.parser(),
+                        ChreApiTest.Capabilities.parser()),
                 Service.serverStreamingMethod(
                         "ChreBleStartScanSync",
-                        ChreApiTest.ChreBleStartScanAsyncInput.class,
-                        ChreApiTest.GeneralSyncMessage.class),
+                        ChreApiTest.ChreBleStartScanAsyncInput.parser(),
+                        ChreApiTest.GeneralSyncMessage.parser()),
                 Service.serverStreamingMethod(
                         "ChreBleStopScanSync",
-                        Empty.class,
-                        ChreApiTest.GeneralSyncMessage.class),
+                        Empty.parser(),
+                        ChreApiTest.GeneralSyncMessage.parser()),
                 Service.unaryMethod(
                         "ChreSensorFindDefault",
-                        ChreApiTest.ChreSensorFindDefaultInput.class,
-                        ChreApiTest.ChreSensorFindDefaultOutput.class),
+                        ChreApiTest.ChreSensorFindDefaultInput.parser(),
+                        ChreApiTest.ChreSensorFindDefaultOutput.parser()),
                 Service.unaryMethod(
                         "ChreGetSensorInfo",
-                        ChreApiTest.ChreHandleInput.class,
-                        ChreApiTest.ChreGetSensorInfoOutput.class),
+                        ChreApiTest.ChreHandleInput.parser(),
+                        ChreApiTest.ChreGetSensorInfoOutput.parser()),
                 Service.unaryMethod(
                         "ChreGetSensorSamplingStatus",
-                        ChreApiTest.ChreHandleInput.class,
-                        ChreApiTest.ChreGetSensorSamplingStatusOutput.class),
+                        ChreApiTest.ChreHandleInput.parser(),
+                        ChreApiTest.ChreGetSensorSamplingStatusOutput.parser()),
                 Service.unaryMethod(
                         "ChreSensorConfigure",
-                        ChreApiTest.ChreSensorConfigureInput.class,
-                        ChreApiTest.Status.class),
+                        ChreApiTest.ChreSensorConfigureInput.parser(),
+                        ChreApiTest.Status.parser()),
                 Service.unaryMethod(
                         "ChreSensorConfigureModeOnly",
-                        ChreApiTest.ChreSensorConfigureModeOnlyInput.class,
-                        ChreApiTest.Status.class),
+                        ChreApiTest.ChreSensorConfigureModeOnlyInput.parser(),
+                        ChreApiTest.Status.parser()),
                 Service.unaryMethod(
                         "ChreAudioGetSource",
-                        ChreApiTest.ChreHandleInput.class,
-                        ChreApiTest.ChreAudioGetSourceOutput.class),
+                        ChreApiTest.ChreHandleInput.parser(),
+                        ChreApiTest.ChreAudioGetSourceOutput.parser()),
                 Service.unaryMethod(
                         "ChreConfigureHostEndpointNotifications",
-                        ChreApiTest.ChreConfigureHostEndpointNotificationsInput.class,
-                        ChreApiTest.Status.class),
+                        ChreApiTest.ChreConfigureHostEndpointNotificationsInput.parser(),
+                        ChreApiTest.Status.parser()),
                 Service.unaryMethod(
                         "ChreGetHostEndpointInfo",
-                        ChreApiTest.ChreGetHostEndpointInfoInput.class,
-                        ChreApiTest.ChreGetHostEndpointInfoOutput.class),
+                        ChreApiTest.ChreGetHostEndpointInfoInput.parser(),
+                        ChreApiTest.ChreGetHostEndpointInfoOutput.parser()),
                 Service.serverStreamingMethod(
                         "GatherEvents",
-                        ChreApiTest.GatherEventsInput.class,
-                        ChreApiTest.GeneralEventsMessage.class));
+                        ChreApiTest.GatherEventsInput.parser(),
+                        ChreApiTest.GeneralEventsMessage.parser()));
     }
 
     /**
