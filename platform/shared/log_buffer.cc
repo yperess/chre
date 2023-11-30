@@ -266,6 +266,9 @@ void LogBuffer::processLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
   }
   auto logLen = static_cast<uint8_t>(size);
 
+  constexpr char kTokenizedLogGenericErrorMsg[] =
+      "Tokenized log message too large";
+
   // For tokenized logs, need to leave space for the message size offset. For
   // string logs, need to leave 1 byte for the null terminator at the end.
   if (!encoded && size >= kLogMaxSize - 1) {
@@ -277,8 +280,6 @@ void LogBuffer::processLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
     // reusing the logbuffer for as much as we can. Note that we also need
     // flip the encoding flag for proper decoding by the host log message
     // parser.
-    constexpr char kTokenizedLogGenericErrorMsg[] =
-        "Tokenized log message too large";
     static_assert(
         sizeof(kTokenizedLogGenericErrorMsg) <= kLogMaxSize - 1,
         "Error meessage size needs to be smaller than max log length");
