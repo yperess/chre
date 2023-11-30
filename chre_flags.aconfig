@@ -27,3 +27,10 @@ flag {
   description: "This flag controls removing a count limit on reporting the AP wakeup metric"
   bug: "298459533"
 }
+
+flag {
+  name: "context_hub_callback_uuid_enabled"
+  namespace: "context_hub"
+  description: "Call IContextHubCallback.getUuid() to retrieve the UUID when this flag is on"
+  bug: "247124878"
+}
