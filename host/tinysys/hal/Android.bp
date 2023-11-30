@@ -62,6 +62,7 @@ cc_binary {
         "libbinder_ndk",
         "libpower",
         "libjsoncpp",
+        "server_configurable_flags",
     ],
     header_libs: [
         "chre_api",
@@ -70,6 +71,7 @@ cc_binary {
     ],
     static_libs: [
         "chre_client",
+        "chre_flags_c_lib",
         "event_logger",
         "pw_varint",
         "pw_detokenizer",

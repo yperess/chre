@@ -454,7 +454,6 @@ cc_test_host {
         "host/common/fragmented_load_transaction.cc",
     ],
     local_include_dirs: [
-        "util/include",
         "host/common/include",
         "host/hal_generic/common/",
         "util/include/",
@@ -463,8 +462,9 @@ cc_test_host {
     ],
     static_libs: [
         "android.hardware.contexthub-V3-ndk",
-        "event_logger",
+        "chre_flags_c_lib",
         "chre_host_common",
+        "event_logger",
         "libgmock",
     ],
     shared_libs: [
@@ -474,6 +474,7 @@ cc_test_host {
         "liblog",
         "libjsoncpp",
         "libbinder_ndk",
+        "server_configurable_flags",
     ],
     header_libs: [
         "chre_flatbuffers",
@@ -1045,5 +1046,6 @@ aconfig_declarations {
 cc_aconfig_library {
     name: "chre_flags_c_lib",
     aconfig_declarations: "chre_flags",
+    host_supported: true,
     vendor: true,
 }

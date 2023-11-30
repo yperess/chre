@@ -422,8 +422,8 @@ class HalClientManager {
   }
 
   // TODO(b/290375569): isSystemServerConnectedLocked() and getUuidLocked() are
-  //   temporary solutions to get a pseudo-uuid. callback->getUuid() should be
-  //   used after flag-guarding the changes.
+  //   temporary solutions to get a pseudo-uuid. Remove these two functions when
+  //   flag context_hub_callback_uuid_enabled is ramped up.
   inline bool isSystemServerConnectedLocked() {
     HalClient *client = getClientByUuidLocked(kSystemServerUuid);
     return client != nullptr && client->pid != 0;

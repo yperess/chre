@@ -14,18 +14,23 @@
  * limitations under the License.
  */
 #include "hal_client_manager.h"
+
+#include <fstream>
+
 #include <aidl/android/hardware/contexthub/AsyncEventType.h>
 #include <android-base/strings.h>
+#include <android_chre_flags.h>
 #include <json/json.h>
 #include <utils/SystemClock.h>
-#include <fstream>
 
 namespace android::hardware::contexthub::common::implementation {
 
-using aidl::android::hardware::contexthub::AsyncEventType;
-using aidl::android::hardware::contexthub::ContextHubMessage;
-using aidl::android::hardware::contexthub::HostEndpointInfo;
-using aidl::android::hardware::contexthub::IContextHubCallback;
+using ::aidl::android::hardware::contexthub::AsyncEventType;
+using ::aidl::android::hardware::contexthub::ContextHubMessage;
+using ::aidl::android::hardware::contexthub::HostEndpointInfo;
+using ::aidl::android::hardware::contexthub::IContextHubCallback;
+using ::android::chre::flags::context_hub_callback_uuid_enabled;
+
 using HalClient = HalClientManager::HalClient;
 
 namespace {
@@ -35,6 +40,18 @@ bool getClientMappingsFromFile(const std::string &filePath,
   Json::CharReaderBuilder builder;
   return file.good() &&
          Json::parseFromStream(builder, file, &mappings, /* errs= */ nullptr);
+}
+
+std::string getUuid(const std::shared_ptr<IContextHubCallback> &callback) {
+  std::array<uint8_t, 16> uuidBytes{};
+  callback->getUuid(&uuidBytes);
+  std::ostringstream oStringStream;
+  char buffer[3]{};
+  for (const uint8_t &byte : uuidBytes) {
+    snprintf(buffer, sizeof(buffer), "%02x", static_cast<int>(byte));
+    oStringStream << buffer;
+  }
+  return oStringStream.str();
 }
 }  // namespace
 
@@ -150,7 +167,14 @@ bool HalClientManager::registerCallback(
     client->deathRecipientCookie = deathRecipientCookie;
     return true;
   }
-  std::string uuid = getUuidLocked();
+
+  std::string uuid;
+  if (context_hub_callback_uuid_enabled()) {
+    uuid = getUuid(callback);
+  } else {
+    uuid = getUuidLocked();
+  }
+
   client = getClientByUuidLocked(uuid);
   if (client != nullptr) {
     if (client->pid != HalClient::PID_UNSET) {
