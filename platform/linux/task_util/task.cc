@@ -71,7 +71,7 @@ void Task::execute() {
   func();
   mHasExecuted = true;
   if (isRepeating()) {
-    mExecutionTimestamp += mRepeatInterval;
+    mExecutionTimestamp = std::chrono::steady_clock::now() + mRepeatInterval;
   }
 }
 
