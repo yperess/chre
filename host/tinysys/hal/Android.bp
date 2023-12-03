@@ -33,7 +33,7 @@ cc_binary {
         "tinysys_chre_connection.cc",
         "tinysys_context_hub.cc",
         ":st_hal_lpma_handler",
-        ":contexthub_generic_aidl_hal_core",
+        ":contexthub_hal_core",
     ],
     include_dirs: [
         "system/chre/util/include/",

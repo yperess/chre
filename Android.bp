@@ -31,16 +31,27 @@ license {
 }
 
 filegroup {
-    name: "contexthub_generic_aidl_hal_core",
+    name: "contexthub_hal_socket",
+    srcs: ["host/common/socket_server.cc"]
+}
+
+filegroup {
+    name: "contexthub_hal_wifi",
+    srcs: ["host/common/wifi_ext_hal_handler.cc"]
+}
+
+filegroup {
+    name: "contexthub_hal_core",
     srcs: [
+        "host/common/bt_snoop_log_parser.cc",
+        "host/common/config_util.cc",
+        "host/common/log.cc",
+        "host/common/log_message_parser.cc",
         "host/common/preloaded_nanoapp_loader.cc",
         "host/common/time_syncer.cc",
-        "host/common/config_util.cc",
-        "host/common/log_message_parser.cc",
-        "host/common/bt_snoop_log_parser.cc",
-        "host/hal_generic/common/permissions_util.cc",
         "host/hal_generic/common/hal_client_manager.cc",
         "host/hal_generic/common/multi_client_context_hub_base.cc",
+        "host/hal_generic/common/permissions_util.cc",
     ],
 }
 
