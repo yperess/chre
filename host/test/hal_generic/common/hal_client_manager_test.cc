@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <stdlib.h>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <fstream>
 #include <thread>
 
@@ -50,18 +50,19 @@ using ::testing::UnorderedElementsAre;
 
 using HalClient = HalClientManager::HalClient;
 
-static constexpr pid_t kSystemServerPid = 1000;
+constexpr pid_t kSystemServerPid = 1000;
 // The uuid assigned to ContextHubService
-static const std::string kSystemServerUuid = "9a17008d6bf1445a90116d21bd985b6c";
+const std::string kSystemServerUuid = "9a17008d6bf1445a90116d21bd985b6c";
 
-static constexpr pid_t kVendorPid = 1001;
-static const std::string kVendorUuid = "6e406b36cf4f4c0d8183db3708f45d8f";
+constexpr pid_t kVendorPid = 1001;
+const std::string kVendorUuid = "6e406b36cf4f4c0d8183db3708f45d8f";
 
 const std::string kClientIdMappingFilePath = "./chre_hal_clients.json";
+const std::string kClientName = "HalClientManagerUnitTest";
 
 class ContextHubCallbackForTest : public BnContextHubCallback {
  public:
-  ContextHubCallbackForTest(const std::string &uuid) {
+  explicit ContextHubCallbackForTest(const std::string &uuid) {
     assert(uuid.length() == 32);  // 2 digits for one bytes x 16 bytes
     for (int i = 0; i < 16; i++) {
       mUuid[i] = strtol(uuid.substr(i * 2, 2).c_str(), /* end_ptr= */ nullptr,
@@ -96,6 +97,11 @@ class ContextHubCallbackForTest : public BnContextHubCallback {
   }
   ScopedAStatus getUuid(std::array<uint8_t, 16> *out_uuid) override {
     *out_uuid = mUuid;
+    return ScopedAStatus::ok();
+  }
+
+  ScopedAStatus getName(std::string *out_name) override {
+    *out_name = kClientName;
     return ScopedAStatus::ok();
   }
 
@@ -186,8 +192,9 @@ TEST_F(HalClientManagerTest, ClientIdMappingFile) {
   std::shared_ptr<ContextHubCallbackForTest> callback =
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
           kSystemServerUuid);
-  EXPECT_TRUE(halClientManager->registerCallback(kSystemServerPid, callback,
-                                                 /* cookie= */ nullptr));
+  EXPECT_TRUE(
+      halClientManager->registerCallback(kSystemServerPid, callback,
+                                         /* deathRecipientCookie= */ nullptr));
 
   std::vector<HalClient> clients = halClientManager->getClients();
   const HalClient &client = clients.front();
@@ -207,8 +214,9 @@ TEST_F(HalClientManagerTest, CallbackRegistryBasic) {
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
           kSystemServerUuid);
 
-  EXPECT_TRUE(halClientManager->registerCallback(kSystemServerPid, callback,
-                                                 /* cookie= */ nullptr));
+  EXPECT_TRUE(
+      halClientManager->registerCallback(kSystemServerPid, callback,
+                                         /* deathRecipientCookie= */ nullptr));
 
   std::vector<HalClient> clients = halClientManager->getClients();
   const HalClient &client = clients.front();
@@ -231,13 +239,15 @@ TEST_F(HalClientManagerTest, CallbackRegistryTwiceFromSameClient) {
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
           kSystemServerUuid);
 
-  EXPECT_TRUE(halClientManager->registerCallback(kSystemServerPid, callbackA,
-                                                 /* cookie= */ nullptr));
+  EXPECT_TRUE(
+      halClientManager->registerCallback(kSystemServerPid, callbackA,
+                                         /* deathRecipientCookie= */ nullptr));
   EXPECT_THAT(halClientManager->getClients(), SizeIs(1));
   EXPECT_EQ(halClientManager->getClients().front().callback, callbackA);
   // Same client can override its callback
-  EXPECT_TRUE(halClientManager->registerCallback(kSystemServerPid, callbackB,
-                                                 /* cookie= */ nullptr));
+  EXPECT_TRUE(
+      halClientManager->registerCallback(kSystemServerPid, callbackB,
+                                         /* deathRecipientCookie= */ nullptr));
   EXPECT_THAT(halClientManager->getClients(), SizeIs(1));
   EXPECT_EQ(halClientManager->getClients().front().callback, callbackB);
 }
@@ -313,9 +323,9 @@ TEST_F(HalClientManagerTest, ClientCreationWithReservedClientId) {
   EXPECT_EQ(halClientManager->getNextClientId(),
             ::chre::kHostClientIdUnspecified);
   // Verify that every reserved client id is not used:
-  for (HalClient client : halClientManager->getClients()) {
+  for (const HalClient &client : halClientManager->getClients()) {
     EXPECT_EQ(reservedClientIds.find(client.clientId), reservedClientIds.end());
-  };
+  }
 }
 
 TEST_F(HalClientManagerTest, TransactionRegistryAndOverridden) {
@@ -376,9 +386,9 @@ TEST_F(HalClientManagerTest, EndpointRegistry) {
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(kVendorUuid);
 
   halClientManager->registerCallback(kSystemServerPid, systemCallback,
-                                     /* cookie= */ nullptr);
+                                     /* deathRecipientCookie= */ nullptr);
   halClientManager->registerCallback(kVendorPid, vendorCallback,
-                                     /* cookie= */ nullptr);
+                                     /* deathRecipientCookie= */ nullptr);
 
   std::vector<HalClient> clients = halClientManager->getClients();
   EXPECT_THAT(clients, SizeIs(2));
@@ -479,7 +489,7 @@ TEST_F(HalClientManagerTest, handleDeathClient) {
       ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
           kSystemServerUuid);
   halClientManager->registerCallback(kSystemServerPid, callback,
-                                     /* cookie= */ nullptr);
+                                     /* deathRecipientCookie= */ nullptr);
   halClientManager->registerEndpointId(kSystemServerPid, /* endpointId= */ 10);
 
   halClientManager->handleClientDeath(kSystemServerPid);

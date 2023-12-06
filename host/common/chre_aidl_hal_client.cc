@@ -67,9 +67,9 @@ constexpr int32_t kUnloadTransactionId = 2;
 constexpr auto kTimeOutThresholdInSec = std::chrono::seconds(5);
 
 // 34a3a27e-9b83-4098-b564-e83b0c28d4bb
-std::array<uint8_t, 16> kUuid = {0x34, 0xa3, 0xa2, 0x7e, 0x9b, 0x83,
-                                 0x40, 0x98, 0xb5, 0x64, 0xe8, 0x3b,
-                                 0x0c, 0x28, 0xd4, 0xbb};
+constexpr std::array<uint8_t, 16> kUuid = {0x34, 0xa3, 0xa2, 0x7e, 0x9b, 0x83,
+                                           0x40, 0x98, 0xb5, 0x64, 0xe8, 0x3b,
+                                           0x0c, 0x28, 0xd4, 0xbb};
 
 // Locations should be searched in the sequence defined below:
 const char *kPredefinedNanoappPaths[] = {
@@ -78,6 +78,8 @@ const char *kPredefinedNanoappPaths[] = {
     "/vendor/dsp/sdsp/",
     "/vendor/lib/rfsa/adsp/",
 };
+
+const std::string kClientName{"ChreAidlHalClient"};
 
 inline void throwError(const std::string &message) {
   throw std::system_error{std::error_code(), message};
@@ -196,6 +198,11 @@ class ContextHubCallback : public BnContextHubCallback {
 
   ScopedAStatus getUuid(std::array<uint8_t, 16> *out_uuid) override {
     *out_uuid = kUuid;
+    return ScopedAStatus::ok();
+  }
+
+  ScopedAStatus getName(std::string *out_name) override {
+    *out_name = kClientName;
     return ScopedAStatus::ok();
   }
 
