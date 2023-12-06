@@ -99,7 +99,7 @@ FastPairAccountData FastPairAccountData::Parse(const ByteArray &service_data) {
   }
   // filter and salt are required.
   if (filter.length == 0 || salt.length == 0) {
-    LOGE(
+    LOGD(
         "Invalid Fast Pair service data with filter length %zu and salt length "
         "%zu.",
         filter.length, salt.length);
