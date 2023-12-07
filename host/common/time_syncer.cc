@@ -20,33 +20,33 @@
 
 namespace android::chre {
 // TODO(b/247124878): Can we add a static assert to make sure these functions
-//  are not called when mConnection->isTimeSyncNeeded() returns false?
-bool TimeSyncer::sendTimeSync() {
-  if (!mConnection->isTimeSyncNeeded()) {
+//  are not called when connection->isTimeSyncNeeded() returns false?
+bool TimeSyncer::sendTimeSync(ChreConnection *connection) {
+  if (!connection->isTimeSyncNeeded()) {
     LOGW("Platform doesn't require time sync. Ignore the request.");
     return true;
   }
   int64_t timeOffsetUs = 0;
-  if (!mConnection->getTimeOffset(&timeOffsetUs)) {
+  if (!connection->getTimeOffset(&timeOffsetUs)) {
     LOGE("Failed to get time offset.");
     return false;
   }
   flatbuffers::FlatBufferBuilder builder(64);
   // clientId doesn't matter for time sync request so the default id is used.
   HostProtocolHost::encodeTimeSyncMessage(builder, timeOffsetUs);
-  return mConnection->sendMessage(builder.GetBufferPointer(),
-                                  builder.GetSize());
+  return connection->sendMessage(builder.GetBufferPointer(), builder.GetSize());
 }
 
-bool TimeSyncer::sendTimeSyncWithRetry(size_t numOfRetries,
+bool TimeSyncer::sendTimeSyncWithRetry(ChreConnection *connection,
+                                       size_t numOfRetries,
                                        useconds_t retryDelayUs) {
-  if (!mConnection->isTimeSyncNeeded()) {
+  if (!connection->isTimeSyncNeeded()) {
     LOGW("Platform doesn't require time sync. Ignore the request.");
     return true;
   }
   bool success = false;
   while (!success && (numOfRetries-- > 0)) {
-    success = sendTimeSync();
+    success = sendTimeSync(connection);
     if (!success) {
       usleep(retryDelayUs);
     }
