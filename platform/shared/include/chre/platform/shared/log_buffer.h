@@ -22,6 +22,7 @@
 #include <cstring>
 
 #include "chre/platform/mutex.h"
+#include "chre/platform/shared/bt_snoop_log.h"
 
 namespace chre {
 
@@ -121,8 +122,30 @@ class LogBuffer {
   void handleLogVa(LogBufferLogLevel logLevel, uint32_t timestampMs,
                    const char *logFormat, va_list args);
 
+  /**
+   * Samilar as handleLog but with a log buffer and a log size argument instead
+   * of a ... parameter.
+   *
+   * @param logs Pointer to the buffer containing the encoded log message.
+   * @param logSize Size of the encoded logs.
+   */
   void handleEncodedLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
                         const uint8_t *log, size_t logSize);
+
+#ifdef CHRE_BLE_SUPPORT_ENABLED
+  /**
+   * Similar to handleLog but buffer a BT snoop log.
+   *
+   * @param direction Direction of the BT snoop log.
+   * @param timestampMs The timestamp that the log was collected as in
+   *                    milliseconds. Monotonically increasing and in
+   *                    milliseconds since boot.
+   * @param buffer Pointer to the buffer location containing the BT snoop log.
+   * @param size Size of the BT snoop log.
+   */
+  void handleBtLog(BtSnoopDirection direction, uint32_t timestampMs,
+                   const uint8_t *buffer, size_t size);
+#endif  // CHRE_BLE_SUPPORT_ENABLED
 
   // TODO(b/179786399): Remove the copyLogs method when the LogBufferManager is
   // refactored to no longer use it.

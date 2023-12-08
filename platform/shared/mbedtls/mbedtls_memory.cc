@@ -16,7 +16,7 @@
 
 #include "mbedtls_memory.h"
 
-#include <limits.h>
+#include <stdint.h>
 #include <string.h>
 #include "chre/platform/memory.h"
 

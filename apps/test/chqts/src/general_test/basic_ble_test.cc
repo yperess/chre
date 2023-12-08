@@ -166,6 +166,13 @@ void BasicBleTest::handleEvent(uint32_t /* senderInstanceId */,
       handleAdvertisementEvent(
           static_cast<const chreBleAdvertisementEvent *>(eventData));
       break;
+    case CHRE_EVENT_BLE_BATCH_COMPLETE:
+      // Ignore the event only if we support batching.
+      // Otherwise, it is an unexpected event.
+      if (!mSupportsBatching) {
+        unexpectedEvent(eventType);
+      }
+      break;
     case CHRE_EVENT_TIMER:
       handleTimerEvent();
       break;

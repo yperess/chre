@@ -510,6 +510,7 @@ TINYSYS_PLATFORM = mt6985
 # CHRE include paths
 TINYSYS_CFLAGS += -I$(CHRE_PREFIX)/platform/tinysys/include
 TINYSYS_CFLAGS += -I$(CHRE_PREFIX)/platform/shared/include
+TINYSYS_CFLAGS += -I$(CHRE_PREFIX)/platform/shared/aligned_alloc_unsupported/include
 TINYSYS_CFLAGS += -I$(CHRE_PREFIX)/platform/freertos/include
 TINYSYS_CFLAGS += -I$(CHRE_PREFIX)/platform/shared/include/chre/platform/shared/libc
 

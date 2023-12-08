@@ -293,6 +293,28 @@ table SettingChangeMessage {
   state:SettingState = DISABLED;
 }
 
+// An enum describing the level of a log.
+enum LogLevel : byte {
+  ERROR = 1,
+  WARNING = 2,
+  INFO = 3,
+  DEBUG = 4,
+  VERBOSE = 5,
+}
+
+// An enum describing the type of a log.
+enum LogType : byte {
+  STRING = 0,
+  TOKENIZED = 1,
+  BLUETOOTH = 2,
+}
+
+// An enum indicating the direction of a BT snoop log.
+enum BtSnoopDirection : byte {
+  INCOMING_FROM_BT_CONTROLLER = 0,
+  OUTGOING_TO_ARBITER = 1,
+}
+
 /// Represents V2 log messages from CHRE.
 table LogMessageV2 {
   /// A buffer containing formatted log data. A flat array is used here to avoid
@@ -300,8 +322,8 @@ table LogMessageV2 {
   ///
   /// uint8_t                 - Log metadata, encoded as follows:
   ///                           [EI(Upper nibble) | Level(Lower nibble)]
-  ///                            * EI: Encoding indicator (eg: via tokenization)
-  ///                              (0 = No encoding, 1 = Tokenized log)
+  ///                            * Log Type
+  ///                              (0 = No encoding, 1 = Tokenized log, 2 = BT snoop log)
   ///                            * LogBuffer log level (1 = error, 2 = warn,
   ///                                                   3 = info,  4 = debug,
   ///                                                   5 = verbose)
@@ -319,6 +341,13 @@ table LogMessageV2 {
   ///   be needed to encode this as: [Size(1B) | Data(24B)]. A decoder would
   ///   then have to decode this starting from a 1 byte offset from the
   ///   received buffer.
+  ///
+  /// * Bt Snoop logs: The first byte of the log buffer indicates the direction
+  ///   of the bt snoop log, depending on whether it is incoming for the BT
+  ///   controller or outgoing to the arbiter. The second byte indicates the size
+  ///   of the actual BT payload followed. For example, if a bt snoop log of
+  ///   size 24 bytes were to be represented, a buffer of size 26 bytes would
+  ///   be needed to encode this as: [Direction(1B) | Size(1B) | Data(24B)].
   ///
   /// This pattern repeats until the end of the buffer for multiple log
   /// messages. The last byte will always be a null-terminator. There are no

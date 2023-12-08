@@ -17,6 +17,7 @@
 #include "chre/pal/ble.h"
 
 #include "chre.h"
+#include "chre/platform/linux/pal_ble.h"
 #include "chre/platform/linux/task_util/task_manager.h"
 #include "chre/util/memory.h"
 #include "chre/util/unique_ptr.h"
@@ -35,28 +36,28 @@ const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalBleCallbacks *gCallbacks = nullptr;
 
 bool gBleEnabled = false;
+bool gDelayScanStart = false;
+std::chrono::milliseconds gScanInterval(1400);
 
-// Tasks for startScan and stopScan.
-std::optional<uint32_t> gBleStartScanTaskId;
-std::optional<uint32_t> gBleStopScanTaskId;
+// Tasks for startScan, sendAdReportEvents, and stopScan.
+std::optional<uint32_t> gBleAdReportEventTaskId;
 
-std::chrono::milliseconds scanModeToInterval(chreBleScanMode mode) {
-  std::chrono::milliseconds interval(1000);
+void updateScanInterval(chreBleScanMode mode) {
+  gScanInterval = std::chrono::milliseconds(1400);
   switch (mode) {
     case CHRE_BLE_SCAN_MODE_BACKGROUND:
-      interval = std::chrono::milliseconds(2000);
+      gScanInterval = std::chrono::milliseconds(1400);
       break;
     case CHRE_BLE_SCAN_MODE_FOREGROUND:
-      interval = std::chrono::milliseconds(1000);
+      gScanInterval = std::chrono::milliseconds(700);
       break;
     case CHRE_BLE_SCAN_MODE_AGGRESSIVE:
-      interval = std::chrono::milliseconds(500);
+      gScanInterval = std::chrono::milliseconds(100);
       break;
   }
-  return interval;
 }
 
-void startScan() {
+void sendAdReportEvents() {
   auto event = chre::MakeUniqueZeroFill<struct chreBleAdvertisementEvent>();
   auto report = chre::MakeUniqueZeroFill<struct chreBleAdvertisingReport>();
   uint8_t *data =
@@ -71,18 +72,19 @@ void startScan() {
   gCallbacks->advertisingEventCallback(event.release());
 }
 
-void stopScan() {
-  gCallbacks->scanStatusChangeCallback(false, CHRE_ERROR_NONE);
+void stopAllTasks() {
+  if (gBleAdReportEventTaskId.has_value()) {
+    TaskManagerSingleton::get()->cancelTask(gBleAdReportEventTaskId.value());
+  }
 }
 
-void stopAllTasks() {
-  if (gBleStartScanTaskId.has_value()) {
-    TaskManagerSingleton::get()->cancelTask(gBleStartScanTaskId.value());
-  }
-
-  if (gBleStopScanTaskId.has_value()) {
-    TaskManagerSingleton::get()->cancelTask(gBleStopScanTaskId.value());
-  }
+bool startScan() {
+  stopAllTasks();
+  gCallbacks->scanStatusChangeCallback(true, CHRE_ERROR_NONE);
+  gBleEnabled = true;
+  gBleAdReportEventTaskId =
+      TaskManagerSingleton::get()->addTask(sendAdReportEvents, gScanInterval);
+  return gBleAdReportEventTaskId.has_value();
 }
 
 uint32_t chrePalBleGetCapabilities() {
@@ -98,26 +100,16 @@ uint32_t chrePalBleGetFilterCapabilities() {
 
 bool chrePalBleStartScan(chreBleScanMode mode, uint32_t /* reportDelayMs */,
                          const struct chreBleScanFilter * /* filter */) {
-  stopAllTasks();
-
-  gCallbacks->scanStatusChangeCallback(true, CHRE_ERROR_NONE);
-  gBleStartScanTaskId =
-      TaskManagerSingleton::get()->addTask(startScan, scanModeToInterval(mode));
-  if (!gBleStartScanTaskId.has_value()) {
-    return false;
+  updateScanInterval(mode);
+  if (gDelayScanStart) {
+    return true;
   }
-
-  gBleEnabled = true;
-  return true;
+  return startScan();
 }
 
 bool chrePalBleStopScan() {
   stopAllTasks();
-  gBleStopScanTaskId = TaskManagerSingleton::get()->addTask(stopScan);
-  if (!gBleStopScanTaskId.has_value()) {
-    return false;
-  }
-
+  gCallbacks->scanStatusChangeCallback(false, CHRE_ERROR_NONE);
   gBleEnabled = false;
   return true;
 }
@@ -159,6 +151,14 @@ bool chrePalBleApiOpen(const struct chrePalSystemApi *systemApi,
 
 bool chrePalIsBleEnabled() {
   return gBleEnabled;
+}
+
+void delayBleScanStart(bool delay) {
+  gDelayScanStart = delay;
+}
+
+bool startBleScan() {
+  return startScan();
 }
 
 const struct chrePalBleApi *chrePalBleGetApi(uint32_t requestedApiVersion) {

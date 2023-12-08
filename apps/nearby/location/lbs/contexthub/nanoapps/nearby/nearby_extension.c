@@ -1,5 +1,7 @@
 #include "location/lbs/contexthub/nanoapps/nearby/nearby_extension.h"
 
+#include "stddef.h"
+
 #include "third_party/contexthub/chre/util/include/chre/util/nanoapp/log.h"
 
 #define LOG_TAG "[NEARBY][FILTER_EXTENSION]"
@@ -25,14 +27,50 @@ static const uint16_t EXT_FILTER_CONFIG_DATA_INDEX = 0;
 static const uint16_t EXT_FILTER_CONFIG_DATA_MASK_INDEX = 1;
 static uint8_t EXT_FILTER_DATA = 0;
 static uint8_t EXT_FILTER_DATA_MASK = 0;
+#define MAX_GENERIC_FILTER_COUNT 10
 
+struct hwBleScanFilter {
+  int8_t rssi_threshold;
+  uint8_t scan_filter_count;
+  struct chreBleGenericFilter scan_filters[MAX_GENERIC_FILTER_COUNT];
+};
+static struct hwBleScanFilter HW_SCAN_FILTER = {
+    .rssi_threshold = CHRE_BLE_RSSI_THRESHOLD_NONE,
+    .scan_filter_count = 0,
+};
 const char kHostPackageName[] = "com.google.android.nearby.offload.reference";
 
-// TODO(b/284151838): investigate to pass hardware filter.
 uint32_t chrexNearbySetExtendedFilterConfig(
-    const chreHostEndpointInfo *host_info,
+    const struct chreHostEndpointInfo *host_info,
+    const struct chreBleScanFilter *scan_filter,
     const struct chrexNearbyExtendedFilterConfig *config,
     uint32_t *vendorStatusCode) {
+  if (scan_filter == NULL ||
+      scan_filter->scanFilterCount > MAX_GENERIC_FILTER_COUNT) {
+    LOGE("Invalid scan_filter configuration");
+    return CHREX_NEARBY_RESULT_INTERNAL_ERROR;
+  }
+  // Performs a deep copy of the hardware scan filter structure
+  HW_SCAN_FILTER.rssi_threshold = scan_filter->rssiThreshold;
+  HW_SCAN_FILTER.scan_filter_count = scan_filter->scanFilterCount;
+  for (size_t i = 0; i < HW_SCAN_FILTER.scan_filter_count; ++i) {
+    if (scan_filter->scanFilters[i].len > CHRE_BLE_DATA_LEN_MAX) {
+      LOGE("Generic filter data length is too large %d",
+           scan_filter->scanFilters[i].len);
+      return CHREX_NEARBY_RESULT_INTERNAL_ERROR;
+    }
+    HW_SCAN_FILTER.scan_filters[i].type = scan_filter->scanFilters[i].type;
+    HW_SCAN_FILTER.scan_filters[i].len = scan_filter->scanFilters[i].len;
+    memcpy(HW_SCAN_FILTER.scan_filters[i].data,
+           scan_filter->scanFilters[i].data,
+           HW_SCAN_FILTER.scan_filters[i].len);
+    memcpy(HW_SCAN_FILTER.scan_filters[i].dataMask,
+           scan_filter->scanFilters[i].dataMask,
+           HW_SCAN_FILTER.scan_filters[i].len);
+    LOGD("hw scan filter[%zu]: ad type %d len %d", i,
+         HW_SCAN_FILTER.scan_filters[i].type,
+         HW_SCAN_FILTER.scan_filters[i].len);
+  }
   if (host_info->isNameValid &&
       strcmp(host_info->packageName, kHostPackageName) == 0) {
     EXT_FILTER_DATA = config->data[EXT_FILTER_CONFIG_DATA_INDEX];
@@ -45,7 +83,7 @@ uint32_t chrexNearbySetExtendedFilterConfig(
 }
 
 uint32_t chrexNearbyMatchExtendedFilter(
-    const chreHostEndpointInfo *host_info,
+    const struct chreHostEndpointInfo *host_info,
     const struct chreBleAdvertisingReport *report) {
   if (!host_info->isNameValid ||
       strcmp(host_info->packageName, kHostPackageName) != 0 ||
@@ -57,8 +95,7 @@ uint32_t chrexNearbyMatchExtendedFilter(
     return CHREX_NEARBY_FILTER_ACTION_IGNORE;
   }
   uint8_t extData = report->data[EXT_ADV_DATA_FILTER_INDEX];
-  int8_t deliveryMode =
-      static_cast<int8_t>(report->data[EXT_ADV_DELIVERY_MODE_INDEX]);
+  int8_t deliveryMode = (int8_t)(report->data[EXT_ADV_DELIVERY_MODE_INDEX]);
   if ((extData & EXT_FILTER_DATA_MASK) !=
       (EXT_FILTER_DATA & EXT_FILTER_DATA_MASK)) {
     return CHREX_NEARBY_FILTER_ACTION_IGNORE;
