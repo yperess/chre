@@ -53,6 +53,13 @@ std::string getUuid(const std::shared_ptr<IContextHubCallback> &callback) {
   }
   return oStringStream.str();
 }
+
+bool isCallbackV3Enabled(const std::shared_ptr<IContextHubCallback> &callback) {
+  int32_t callbackVersion;
+  callback->getInterfaceVersion(&callbackVersion);
+  return callbackVersion >= 3 && context_hub_callback_uuid_enabled();
+}
+
 }  // namespace
 
 HalClient *HalClientManager::getClientByField(
@@ -169,7 +176,7 @@ bool HalClientManager::registerCallback(
   }
 
   std::string uuid;
-  if (context_hub_callback_uuid_enabled()) {
+  if (isCallbackV3Enabled(callback)) {
     uuid = getUuid(callback);
   } else {
     uuid = getUuidLocked();
