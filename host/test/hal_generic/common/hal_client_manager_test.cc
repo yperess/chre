@@ -36,6 +36,7 @@ namespace {
 using aidl::android::hardware::contexthub::AsyncEventType;
 using aidl::android::hardware::contexthub::BnContextHubCallback;
 using aidl::android::hardware::contexthub::ContextHubMessage;
+using aidl::android::hardware::contexthub::MessageDeliveryStatus;
 using aidl::android::hardware::contexthub::NanoappInfo;
 using aidl::android::hardware::contexthub::NanSessionRequest;
 
@@ -95,6 +96,13 @@ class ContextHubCallbackForTest : public BnContextHubCallback {
       const NanSessionRequest & /* request */) override {
     return ScopedAStatus::ok();
   }
+
+  ScopedAStatus handleMessageDeliveryStatus(
+      char16_t /* hostEndPointId */,
+      const MessageDeliveryStatus & /* messageDeliveryStatus */) override {
+    return ScopedAStatus::ok();
+  }
+
   ScopedAStatus getUuid(std::array<uint8_t, 16> *out_uuid) override {
     *out_uuid = mUuid;
     return ScopedAStatus::ok();

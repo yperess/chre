@@ -78,6 +78,9 @@ class MultiClientContextHubBase
   ScopedAStatus onNanSessionStateChanged(
       const NanSessionStateUpdate &in_update) override;
   ScopedAStatus setTestMode(bool enable) override;
+  ScopedAStatus sendMessageDeliveryStatusToHub(
+      int32_t contextHubId,
+      const MessageDeliveryStatus &messageDeliveryStatus) override;
 
   // The callback function implementing ChreConnectionCallback
   void handleMessageFromChre(const unsigned char *messageBuffer,

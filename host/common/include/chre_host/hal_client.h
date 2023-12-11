@@ -45,6 +45,7 @@ using ::aidl::android::hardware::contexthub::HostEndpointInfo;
 using ::aidl::android::hardware::contexthub::IContextHub;
 using ::aidl::android::hardware::contexthub::IContextHubCallback;
 using ::aidl::android::hardware::contexthub::IContextHubDefault;
+using ::aidl::android::hardware::contexthub::MessageDeliveryStatus;
 using ::aidl::android::hardware::contexthub::NanoappBinary;
 using ::aidl::android::hardware::contexthub::NanoappInfo;
 using ::aidl::android::hardware::contexthub::NanSessionRequest;
@@ -131,6 +132,13 @@ class HalClient {
     ScopedAStatus handleNanSessionRequest(
         const NanSessionRequest &request) override {
       return mCallback->handleNanSessionRequest(request);
+    }
+
+    ScopedAStatus handleMessageDeliveryStatus(
+        char16_t hostEndPointId,
+        const MessageDeliveryStatus &messageDeliveryStatus) override {
+      return mCallback->handleMessageDeliveryStatus(hostEndPointId,
+                                                    messageDeliveryStatus);
     }
 
     ScopedAStatus getUuid(std::array<uint8_t, 16> *outUuid) override {

@@ -125,6 +125,9 @@ ScopedAStatus ContextHub::getContextHubs(
 
     hub.supportedPermissions = kSupportedPermissions;
 
+    // TODO(b/312417087): Implement reliable message support
+    hub.supportsReliableMessages = false;
+
     out_contextHubInfos->push_back(hub);
   }
 
@@ -295,6 +298,13 @@ ScopedAStatus ContextHub::sendMessageToHub(int32_t contextHubId,
 
 ScopedAStatus ContextHub::setTestMode(bool enable) {
   return enable ? enableTestMode() : disableTestMode();
+}
+
+ScopedAStatus ContextHub::sendMessageDeliveryStatusToHub(
+    int32_t /* contextHubId */,
+    const MessageDeliveryStatus & /* messageDeliveryStatus */) {
+  // TODO(b/312417087): Implement reliable message support
+  return ndk::ScopedAStatus::ok();
 }
 
 ScopedAStatus ContextHub::onHostEndpointConnected(

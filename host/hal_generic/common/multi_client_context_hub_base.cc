@@ -411,6 +411,13 @@ ScopedAStatus MultiClientContextHubBase::setTestMode(bool enable) {
   return fromResult(enable ? enableTestMode() : disableTestMode());
 }
 
+ScopedAStatus MultiClientContextHubBase::sendMessageDeliveryStatusToHub(
+    int32_t /* contextHubId */,
+    const MessageDeliveryStatus & /* messageDeliveryStatus */) {
+  // TODO(b/312417087): Implement reliable message support - transaction status
+  return ndk::ScopedAStatus::ok();
+}
+
 bool MultiClientContextHubBase::enableTestMode() {
   std::unique_lock<std::mutex> lock(mTestModeMutex);
   if (mIsTestModeEnabled) {
@@ -531,6 +538,9 @@ void MultiClientContextHubBase::handleHubInfoResponse(
   mContextHubInfo->chreApiMinorVersion = extractChreApiMinorVersion(version);
   mContextHubInfo->chrePatchVersion = extractChrePatchVersion(version);
   mContextHubInfo->supportedPermissions = kSupportedPermissions;
+
+  // TODO(b/312417087): Implement reliable message support
+  mContextHubInfo->supportsReliableMessages = false;
   mHubInfoCondition.notify_all();
 }
 

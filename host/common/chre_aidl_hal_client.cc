@@ -44,6 +44,7 @@ using ::aidl::android::hardware::contexthub::ContextHubInfo;
 using ::aidl::android::hardware::contexthub::ContextHubMessage;
 using ::aidl::android::hardware::contexthub::HostEndpointInfo;
 using ::aidl::android::hardware::contexthub::IContextHub;
+using ::aidl::android::hardware::contexthub::MessageDeliveryStatus;
 using ::aidl::android::hardware::contexthub::NanoappBinary;
 using ::aidl::android::hardware::contexthub::NanoappInfo;
 using ::aidl::android::hardware::contexthub::NanSessionRequest;
@@ -193,6 +194,13 @@ class ContextHubCallback : public BnContextHubCallback {
 
   ScopedAStatus handleNanSessionRequest(
       const NanSessionRequest & /* request */) override {
+    resetPromise();
+    return ScopedAStatus::ok();
+  }
+
+  ScopedAStatus handleMessageDeliveryStatus(
+      char16_t /* hostEndPointId */,
+      const MessageDeliveryStatus & /* messageDeliveryStatus */) override {
     resetPromise();
     return ScopedAStatus::ok();
   }

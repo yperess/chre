@@ -79,6 +79,9 @@ class ContextHub : public BnContextHub,
   ::ndk::ScopedAStatus sendMessageToHub(
       int32_t contextHubId, const ContextHubMessage &message) override;
   ::ndk::ScopedAStatus setTestMode(bool enable) override;
+  ::ndk::ScopedAStatus sendMessageDeliveryStatusToHub(
+      int32_t contextHubId,
+      const MessageDeliveryStatus &messageDeliveryStatus) override;
   ::ndk::ScopedAStatus onHostEndpointConnected(
       const HostEndpointInfo &in_info) override;
   ::ndk::ScopedAStatus onHostEndpointDisconnected(
