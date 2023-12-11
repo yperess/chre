@@ -89,15 +89,18 @@ class HalClientManager {
   struct HalClient {
     static constexpr pid_t PID_UNSET = 0;
 
-    explicit HalClient(const std::string &uuid, const HalClientId clientId)
-        : HalClient(uuid, clientId, /* pid= */ PID_UNSET,
+    explicit HalClient(const std::string &uuid, const std::string &name,
+                       const HalClientId clientId)
+        : HalClient(uuid, name, clientId, /* pid= */ PID_UNSET,
                     /* callback= */ nullptr,
                     /* deathRecipientCookie= */ nullptr) {}
 
-    explicit HalClient(std::string uuid, const HalClientId clientId, pid_t pid,
+    explicit HalClient(std::string uuid, std::string name,
+                       const HalClientId clientId, pid_t pid,
                        const std::shared_ptr<IContextHubCallback> &callback,
                        void *deathRecipientCookie)
         : uuid{std::move(uuid)},
+          name{std::move(name)},
           clientId{clientId},
           pid{pid},
           callback{callback},
@@ -114,6 +117,7 @@ class HalClientManager {
     }
 
     const std::string uuid;
+    std::string name;
     const HalClientId clientId;
     pid_t pid{};
     std::shared_ptr<IContextHubCallback> callback{};
@@ -313,6 +317,7 @@ class HalClientManager {
   static constexpr char kVendorClientUuid[] = "vendor-client";
   static constexpr char kJsonClientId[] = "ClientId";
   static constexpr char kJsonUuid[] = "uuid";
+  static constexpr char kJsonName[] = "name";
   static constexpr int64_t kTransactionTimeoutThresholdMs = 5000;  // 5 seconds
   static constexpr HostEndpointId kMaxVendorEndpointId =
       (1 << kNumOfBitsForEndpointId) - 1;
@@ -444,7 +449,7 @@ class HalClientManager {
 
   DeadClientUnlinker mDeadClientUnlinker{};
 
-  std::string mClientMappingFilePath{};
+  std::string mClientMappingFilePath;
 
   // next available client id
   HalClientId mNextClientId = ::chre::kHostClientIdUnspecified;
@@ -455,7 +460,7 @@ class HalClientManager {
   // The lock guarding the access to clients' states and pending transactions
   std::mutex mLock;
 
-  std::vector<HalClient> mClients{};
+  std::vector<HalClient> mClients;
 
   // States tracking pending transactions
   std::optional<PendingLoadTransaction> mPendingLoadTransaction = std::nullopt;

@@ -54,6 +54,12 @@ std::string getUuid(const std::shared_ptr<IContextHubCallback> &callback) {
   return oStringStream.str();
 }
 
+std::string getName(const std::shared_ptr<IContextHubCallback> &callback) {
+  std::string name;
+  callback->getName(&name);
+  return name;
+}
+
 bool isCallbackV3Enabled(const std::shared_ptr<IContextHubCallback> &callback) {
   int32_t callbackVersion;
   callback->getInterfaceVersion(&callbackVersion);
@@ -117,13 +123,18 @@ bool HalClientManager::createClientLocked(
          mClients.size());
     return false;
   }
-  mClients.emplace_back(uuid, mNextClientId, pid, callback,
+  std::string name{"undefined"};
+  if (isCallbackV3Enabled(callback)) {
+    name = getName(callback);
+  }
+  mClients.emplace_back(uuid, name, mNextClientId, pid, callback,
                         deathRecipientCookie);
   // Update the json list with the new mapping
   Json::Value mappings;
   for (const auto &client : mClients) {
     Json::Value mapping;
     mapping[kJsonUuid] = client.uuid;
+    mapping[kJsonName] = client.name;
     mapping[kJsonClientId] = client.clientId;
     mappings.append(mapping);
   }
@@ -474,13 +485,15 @@ HalClientManager::HalClientManager(
   } else {
     for (int i = 0; i < mappings.size(); i++) {
       Json::Value mapping = mappings[i];
-      if (!mapping.isMember(kJsonClientId) || !mapping.isMember(kJsonUuid)) {
+      if (!mapping.isMember(kJsonClientId) || !mapping.isMember(kJsonUuid) ||
+          !mapping.isMember(kJsonName)) {
         LOGE("Unable to find expected key name for the entry %d", i);
         continue;
       }
       std::string uuid = mapping[kJsonUuid].asString();
+      std::string name = mapping[kJsonName].asString();
       auto clientId = static_cast<HalClientId>(mapping[kJsonClientId].asUInt());
-      mClients.emplace_back(uuid, clientId);
+      mClients.emplace_back(uuid, name, clientId);
     }
   }
   updateNextClientIdLocked();

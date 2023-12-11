@@ -59,7 +59,7 @@ constexpr pid_t kVendorPid = 1001;
 const std::string kVendorUuid = "6e406b36cf4f4c0d8183db3708f45d8f";
 
 const std::string kClientIdMappingFilePath = "./chre_hal_clients.json";
-const std::string kClientName = "HalClientManagerUnitTest";
+const std::string kClientName = "HalClientManagerTest";
 
 class ContextHubCallbackForTest : public BnContextHubCallback {
  public:
@@ -114,6 +114,7 @@ class ContextHubCallbackForTest : public BnContextHubCallback {
   }
 
  private:
+  const std::string kClientName = "HalClientManagerUnitTest";
   std::array<uint8_t, 16> mUuid{};
 };
 
@@ -132,7 +133,10 @@ class HalClientManagerForTest : public HalClientManager {
 
   bool createClientForTest(const std::string &uuid, pid_t pid) {
     // No need to hold the lock during a unit test which is single-threaded
-    return createClientLocked(uuid, pid, /* callback= */ nullptr,
+    std::shared_ptr<ContextHubCallbackForTest> callback =
+        ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
+            kSystemServerUuid);
+    return createClientLocked(uuid, pid, callback,
                               /* deathRecipientCookie= */ nullptr);
   }
 
@@ -150,6 +154,10 @@ class HalClientManagerForTest : public HalClientManager {
 
   static const char *getUuidTag() {
     return kJsonUuid;
+  }
+
+  static const char *getNameTag() {
+    return kJsonName;
   }
 };
 
@@ -187,6 +195,7 @@ TEST_F(HalClientManagerTest, ClientIdMappingFile) {
     Json::Value mapping;
     mapping[HalClientManagerForTest::getClientIdTag()] = systemClientId;
     mapping[HalClientManagerForTest::getUuidTag()] = kSystemServerUuid;
+    mapping[HalClientManagerForTest::getNameTag()] = kClientName;
     mappings.append(mapping);
     Json::StreamWriterBuilder factory;
     std::unique_ptr<Json::StreamWriter> const writer(factory.newStreamWriter());
