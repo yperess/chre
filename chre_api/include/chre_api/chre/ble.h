@@ -30,6 +30,13 @@
  * ref:
  * https://developer.android.com/guide/topics/connectivity/bluetooth/ble-overview
  * ref: https://source.android.com/devices/bluetooth/hci_requirements
+ *
+ * All byte arrays in the CHRE BLE API follow the byte order used OTA unless
+ * specified otherwise, and multi-byte types, for example uint16_t, follow the
+ * processor's native byte order. One notable exception is addresses. Address
+ * fields in both scan filters and advertising reports must be in big endian
+ * byte order to match the Android Bluetooth API (ref:
+ * https://developer.android.com/reference/android/bluetooth/BluetoothAdapter#getRemoteDevice(byte[])).
  */
 
 #include <chre/common.h>
@@ -394,19 +401,25 @@ struct chreBleGenericFilter {
  * Advertising Packet Content Filter (APCF) HCI broadcaster address sub-command
  * 0x02 (ref:
  * https://source.android.com/docs/core/connect/bluetooth/hci_requirements#le_apcf_command-broadcast_address_sub_cmd).
+ * However, it differs from this HCI command in two major ways:
  *
- * The CHRE broadcaster address filter does not filter by address type at this
- * time. If a nanoapp wants to filter for a particular address type, it must
- * check the addressType field of the chreBleAdvertisingReport.
+ * 1) The CHRE broadcaster address filter does not filter by address type at
+ *    this time. If a nanoapp wants to filter for a particular address type, it
+ *    must check the addressType field of the chreBleAdvertisingReport.
  *
- * NOTE: The broadcasterAddress (6-byte) must be in OTA format.
+ * 2) The broadcasterAddress must be in big endian byte order to match the
+ *    format of the Android Bluetooth API (ref:
+ *    https://developer.android.com/reference/android/bluetooth/BluetoothAdapter#getRemoteDevice(byte[])).
+ *    This is intended to allow easier integration between nanoapp and Host
+ *    code.
  *
- * The filter is matched when an advertisement even meets the following criteria:
+ * The filter is matched when an advertisement even meets the following
+ * criteria:
  *   broadcasterAddress == chreBleAdvertisingReport.address.
  *
  * Example: To filter on the address (01:02:03:AB:CD:EF), the following
  * settings would be used:
- *   broadcasterAddress = {0xEF, 0xCD, 0xAB, 0x03, 0x02, 0x01}
+ *   broadcasterAddress = {0x01, 0x02, 0x03, 0xAB, 0xCD, 0xEF}
  *
  * @since v1.9
  */
@@ -547,6 +560,9 @@ enum chreBlePhyType {
  * 2) Reordering of the rssi and periodicAdvertisingInterval fields for memory
  *    alignment (prevent padding).
  * 3) Addition of four reserved bytes to reclaim padding.
+ * 4) The address fields are formatted in big endian byte order to match the
+ *    order specified for BluetoothDevices in the Android Bluetooth API (ref:
+ *    https://developer.android.com/reference/android/bluetooth/BluetoothAdapter#getRemoteDevice(byte[])).
  */
 struct chreBleAdvertisingReport {
   //! The base timestamp, in nanoseconds, in the same time base as chreGetTime()
@@ -558,7 +574,7 @@ struct chreBleAdvertisingReport {
   //! Advertising address type as defined in enum chreBleAddressType
   uint8_t addressType;
 
-  //! Advertising device address
+  //! Advertising device address. Formatted in big endian byte order.
   uint8_t address[CHRE_BLE_ADDRESS_LEN];
 
   //! Advertiser PHY on primary advertising physical channel, if supported, as
@@ -593,7 +609,7 @@ struct chreBleAdvertisingReport {
   uint8_t directAddressType;
 
   //! Direct address (i.e. only accept connection requests from a known peer
-  //! device).
+  //! device). Formatted in big endian byte order.
   uint8_t directAddress[CHRE_BLE_ADDRESS_LEN];
 
   //! Length of data field. Acceptable range is [0, 62] for legacy and
