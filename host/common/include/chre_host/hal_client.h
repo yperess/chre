@@ -65,10 +65,6 @@ using ::ndk::ScopedAStatus;
  * connected endpoints. In a rare case that CHRE also restarts at the same time,
  * a client should rely on IContextHubCallback.handleContextHubAsyncEvent() to
  * handle the RESTARTED event which is a signal that CHRE is up running.
- *
- * TODO(b/297912356): The name of this class is the same as an internal struct
- *   used by HalClientManager. Consider rename the latter one to avoid confusion
- *
  */
 class HalClient {
  public:

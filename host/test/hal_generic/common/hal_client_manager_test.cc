@@ -49,7 +49,7 @@ using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 
-using HalClient = HalClientManager::HalClient;
+using HalClient = HalClientManager::Client;
 
 constexpr pid_t kSystemServerPid = 1000;
 // The uuid assigned to ContextHubService
@@ -127,7 +127,7 @@ class HalClientManagerForTest : public HalClientManager {
       : HalClientManager(std::move(deadClientUnlinker), clientIdMappingFilePath,
                          reservedClientIds) {}
 
-  const std::vector<HalClient> getClients() {
+  const std::vector<Client> getClients() {
     return mClients;
   }
 

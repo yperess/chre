@@ -86,19 +86,19 @@ namespace android::hardware::contexthub::common::implementation {
  */
 class HalClientManager {
  public:
-  struct HalClient {
+  struct Client {
     static constexpr pid_t PID_UNSET = 0;
 
-    explicit HalClient(const std::string &uuid, const std::string &name,
-                       const HalClientId clientId)
-        : HalClient(uuid, name, clientId, /* pid= */ PID_UNSET,
-                    /* callback= */ nullptr,
-                    /* deathRecipientCookie= */ nullptr) {}
+    explicit Client(const std::string &uuid, const std::string &name,
+                    const HalClientId clientId)
+        : Client(uuid, name, clientId, /* pid= */ PID_UNSET,
+                 /* callback= */ nullptr,
+                 /* deathRecipientCookie= */ nullptr) {}
 
-    explicit HalClient(std::string uuid, std::string name,
-                       const HalClientId clientId, pid_t pid,
-                       const std::shared_ptr<IContextHubCallback> &callback,
-                       void *deathRecipientCookie)
+    explicit Client(std::string uuid, std::string name,
+                    const HalClientId clientId, pid_t pid,
+                    const std::shared_ptr<IContextHubCallback> &callback,
+                    void *deathRecipientCookie)
         : uuid{std::move(uuid)},
           name{std::move(name)},
           clientId{clientId},
@@ -421,7 +421,7 @@ class HalClientManager {
 
   /** Returns true if the endpoint id is within the accepted range. */
   [[nodiscard]] static inline bool isValidEndpointId(
-      const HalClient *client, const HostEndpointId &endpointId) {
+      const Client *client, const HostEndpointId &endpointId) {
     return client->uuid == kSystemServerUuid ||
            endpointId <= kMaxVendorEndpointId;
   }
@@ -430,7 +430,7 @@ class HalClientManager {
   //   temporary solutions to get a pseudo-uuid. Remove these two functions when
   //   flag context_hub_callback_uuid_enabled is ramped up.
   inline bool isSystemServerConnectedLocked() {
-    HalClient *client = getClientByUuidLocked(kSystemServerUuid);
+    Client *client = getClientByUuidLocked(kSystemServerUuid);
     return client != nullptr && client->pid != 0;
   }
   inline std::string getUuidLocked() {
@@ -438,14 +438,14 @@ class HalClientManager {
                                            : kSystemServerUuid;
   }
 
-  HalClient *getClientByField(
-      const std::function<bool(const HalClient &client)> &fieldMatcher);
+  Client *getClientByField(
+      const std::function<bool(const Client &client)> &fieldMatcher);
 
-  HalClient *getClientByClientIdLocked(HalClientId clientId);
+  Client *getClientByClientIdLocked(HalClientId clientId);
 
-  HalClient *getClientByUuidLocked(const std::string &uuid);
+  Client *getClientByUuidLocked(const std::string &uuid);
 
-  HalClient *getClientByProcessIdLocked(pid_t pid);
+  Client *getClientByProcessIdLocked(pid_t pid);
 
   DeadClientUnlinker mDeadClientUnlinker{};
 
@@ -460,7 +460,7 @@ class HalClientManager {
   // The lock guarding the access to clients' states and pending transactions
   std::mutex mLock;
 
-  std::vector<HalClient> mClients;
+  std::vector<Client> mClients;
 
   // States tracking pending transactions
   std::optional<PendingLoadTransaction> mPendingLoadTransaction = std::nullopt;
