@@ -881,6 +881,7 @@ cc_library_static {
         "platform/shared/chre_api_wifi.cc",
         "platform/shared/log_buffer.cc",
         "platform/shared/memory_manager.cc",
+        "platform/shared/nanoapp_abort.cc",
         "platform/shared/pal_system_api.cc",
         "platform/shared/platform_ble.cc",
         "platform/shared/platform_gnss.cc",

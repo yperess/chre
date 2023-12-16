@@ -31,6 +31,7 @@
 using chre::EventLoop;
 using chre::EventLoopManager;
 using chre::EventLoopManagerSingleton;
+using chre::handleNanoappAbort;
 using chre::Nanoapp;
 
 DLL_EXPORT void chreAbort(uint32_t /* abortCode */) {
@@ -42,7 +43,7 @@ DLL_EXPORT void chreAbort(uint32_t /* abortCode */) {
   if (nanoapp == nullptr) {
     FATAL_ERROR("chreAbort called in unknown context");
   } else {
-    FATAL_ERROR("chreAbort called by app 0x%016" PRIx64, nanoapp->getAppId());
+    handleNanoappAbort(*nanoapp);
   }
 }
 

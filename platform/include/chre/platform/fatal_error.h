@@ -50,4 +50,15 @@
  */
 #define FATAL_ERROR_OOM() FATAL_ERROR("Out of memory")
 
+namespace chre {
+
+class Nanoapp;
+
+/**
+ * Gracefully handle nanoapp abort sequence with platform-specific actions.
+ */
+[[noreturn]] void handleNanoappAbort(Nanoapp &nanoapp);
+
+}  // namespace chre
+
 #endif  // CHRE_PLATFORM_FATAL_ERROR_H_
