@@ -87,11 +87,12 @@ namespace android::hardware::contexthub::common::implementation {
 class HalClientManager {
  public:
   struct Client {
-    static constexpr pid_t PID_UNSET = 0;
+    static constexpr pid_t kPidUnset = 0;
+    static constexpr char kNameUnset[]{"undefined"};
 
     explicit Client(const std::string &uuid, const std::string &name,
                     const HalClientId clientId)
-        : Client(uuid, name, clientId, /* pid= */ PID_UNSET,
+        : Client(uuid, name, clientId, /* pid= */ kPidUnset,
                  /* callback= */ nullptr,
                  /* deathRecipientCookie= */ nullptr) {}
 
@@ -312,13 +313,19 @@ class HalClientManager {
   void handleChreRestart();
 
  protected:
+  /** Pseudo names used before uuid is enabled. */
   static constexpr char kSystemServerUuid[] =
       "9a17008d6bf1445a90116d21bd985b6c";
   static constexpr char kVendorClientUuid[] = "vendor-client";
+
+  /** Keys used in chre_hal_clients.json. */
   static constexpr char kJsonClientId[] = "ClientId";
   static constexpr char kJsonUuid[] = "uuid";
   static constexpr char kJsonName[] = "name";
+
+  /** Max time allowed for a load/unload transaction to take. */
   static constexpr int64_t kTransactionTimeoutThresholdMs = 5000;  // 5 seconds
+
   static constexpr HostEndpointId kMaxVendorEndpointId =
       (1 << kNumOfBitsForEndpointId) - 1;
 
@@ -426,17 +433,19 @@ class HalClientManager {
            endpointId <= kMaxVendorEndpointId;
   }
 
-  // TODO(b/290375569): isSystemServerConnectedLocked() and getUuidLocked() are
-  //   temporary solutions to get a pseudo-uuid. Remove these two functions when
-  //   flag context_hub_callback_uuid_enabled is ramped up.
+  /** Updates the mapping file. */
+  void updateClientIdMappingFileLocked();
+
+  // TODO(b/290375569): isSystemServerConnectedLocked() is a temporary solution
+  //  to get a pseudo-uuid. Remove it after flag
+  //  context_hub_callback_uuid_enabled is ramped up.
   inline bool isSystemServerConnectedLocked() {
     Client *client = getClientByUuidLocked(kSystemServerUuid);
-    return client != nullptr && client->pid != 0;
+    return client != nullptr && client->pid != Client::kPidUnset;
   }
-  inline std::string getUuidLocked() {
-    return isSystemServerConnectedLocked() ? kVendorClientUuid
-                                           : kSystemServerUuid;
-  }
+
+  std::string getUuidLocked(
+      const std::shared_ptr<IContextHubCallback> &callback);
 
   Client *getClientByField(
       const std::function<bool(const Client &client)> &fieldMatcher);

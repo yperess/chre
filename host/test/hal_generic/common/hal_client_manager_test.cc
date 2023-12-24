@@ -515,7 +515,7 @@ TEST_F(HalClientManagerTest, handleDeathClient) {
   EXPECT_THAT(clients, SizeIs(1));
   const HalClient &client = clients.front();
   EXPECT_EQ(client.callback, nullptr);
-  EXPECT_EQ(client.pid, HalClient::PID_UNSET);
+  EXPECT_EQ(client.pid, HalClient::kPidUnset);
   EXPECT_EQ(client.uuid, kSystemServerUuid);
   EXPECT_NE(client.clientId, ::chre::kHostClientIdUnspecified);
   EXPECT_THAT(client.endpointIds, IsEmpty());

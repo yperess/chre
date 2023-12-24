@@ -41,7 +41,28 @@ bool getClientMappingsFromFile(const std::string &filePath,
          Json::parseFromStream(builder, file, &mappings, /* errs= */ nullptr);
 }
 
-std::string getUuid(const std::shared_ptr<IContextHubCallback> &callback) {
+bool isCallbackV3Enabled(const std::shared_ptr<IContextHubCallback> &callback) {
+  int32_t callbackVersion;
+  callback->getInterfaceVersion(&callbackVersion);
+  return callbackVersion >= 3 && context_hub_callback_uuid_enabled();
+}
+
+std::string getName(const std::shared_ptr<IContextHubCallback> &callback) {
+  if (!isCallbackV3Enabled(callback)) {
+    return std::string{Client::kNameUnset};
+  }
+  std::string name;
+  callback->getName(&name);
+  return name;
+}
+}  // namespace
+
+std::string HalClientManager::getUuidLocked(
+    const std::shared_ptr<IContextHubCallback> &callback) {
+  if (!isCallbackV3Enabled(callback)) {
+    return isSystemServerConnectedLocked() ? kVendorClientUuid
+                                           : kSystemServerUuid;
+  }
   std::array<uint8_t, 16> uuidBytes{};
   callback->getUuid(&uuidBytes);
   std::ostringstream oStringStream;
@@ -52,20 +73,6 @@ std::string getUuid(const std::shared_ptr<IContextHubCallback> &callback) {
   }
   return oStringStream.str();
 }
-
-std::string getName(const std::shared_ptr<IContextHubCallback> &callback) {
-  std::string name;
-  callback->getName(&name);
-  return name;
-}
-
-bool isCallbackV3Enabled(const std::shared_ptr<IContextHubCallback> &callback) {
-  int32_t callbackVersion;
-  callback->getInterfaceVersion(&callbackVersion);
-  return callbackVersion >= 3 && context_hub_callback_uuid_enabled();
-}
-
-}  // namespace
 
 Client *HalClientManager::getClientByField(
     const std::function<bool(const Client &client)> &fieldMatcher) {
@@ -122,27 +129,9 @@ bool HalClientManager::createClientLocked(
          mClients.size());
     return false;
   }
-  std::string name{"undefined"};
-  if (isCallbackV3Enabled(callback)) {
-    name = getName(callback);
-  }
-  mClients.emplace_back(uuid, name, mNextClientId, pid, callback,
+  mClients.emplace_back(uuid, getName(callback), mNextClientId, pid, callback,
                         deathRecipientCookie);
-  // Update the json list with the new mapping
-  Json::Value mappings;
-  for (const auto &client : mClients) {
-    Json::Value mapping;
-    mapping[kJsonUuid] = client.uuid;
-    mapping[kJsonName] = client.name;
-    mapping[kJsonClientId] = client.clientId;
-    mappings.append(mapping);
-  }
-  // write to the file; Create the file if it doesn't exist
-  Json::StreamWriterBuilder factory;
-  std::unique_ptr<Json::StreamWriter> const writer(factory.newStreamWriter());
-  std::ofstream fileStream(mClientMappingFilePath);
-  writer->write(mappings, &fileStream);
-  fileStream << std::endl;
+  updateClientIdMappingFileLocked();
   updateNextClientIdLocked();
   return true;
 }
@@ -185,26 +174,29 @@ bool HalClientManager::registerCallback(
     return true;
   }
 
-  std::string uuid;
-  if (isCallbackV3Enabled(callback)) {
-    uuid = getUuid(callback);
-  } else {
-    uuid = getUuidLocked();
-  }
-
+  std::string uuid = getUuidLocked(callback);
   client = getClientByUuidLocked(uuid);
   if (client != nullptr) {
-    if (client->pid != Client::PID_UNSET) {
+    if (client->pid != Client::kPidUnset) {
       // A client is trying to connect to HAL from a different process. But the
       // previous connection is still active because otherwise the pid will be
       // cleared in handleClientDeath().
-      LOGE("Client (uuid=%s) already has a connection to HAL.", uuid.c_str());
+      LOGE("Client (uuid=%s, name=%s) already has a connection to HAL.",
+           uuid.c_str(), client->name.c_str());
       return false;
     }
+
     // For a known client the previous assigned clientId will be reused.
     client->reset(/* processId= */ pid,
                   /* contextHubCallback= */ callback,
                   /* cookie= */ deathRecipientCookie);
+
+    // Updates a client's name only if it is changed from Client::NAME_UNSET.
+    std::string name = getName(callback);
+    if (client->name == Client::kNameUnset && name != Client::kNameUnset) {
+      client->name = name;
+      updateClientIdMappingFileLocked();
+    }
     return true;
   }
   return createClientLocked(uuid, pid, callback, deathRecipientCookie);
@@ -221,7 +213,7 @@ void HalClientManager::handleClientDeath(pid_t pid) {
   if (!mDeadClientUnlinker(client->callback, client->deathRecipientCookie)) {
     LOGE("Unable to unlink the old callback for pid %d in death handler", pid);
   }
-  client->reset(/* processId= */ Client::PID_UNSET,
+  client->reset(/* processId= */ Client::kPidUnset,
                 /* contextHubCallback= */ nullptr, /* cookie= */ nullptr);
 
   if (mPendingLoadTransaction.has_value() &&
@@ -495,6 +487,7 @@ HalClientManager::HalClientManager(
       mClients.emplace_back(uuid, name, clientId);
     }
   }
+  std::lock_guard<std::mutex> lock{mLock};
   updateNextClientIdLocked();
 }
 
@@ -562,5 +555,22 @@ void HalClientManager::handleChreRestart() {
       client.callback->handleContextHubAsyncEvent(AsyncEventType::RESTARTED);
     }
   }
+}
+
+void HalClientManager::updateClientIdMappingFileLocked() {
+  Json::Value mappings;
+  for (const auto &client : mClients) {
+    Json::Value mapping;
+    mapping[kJsonUuid] = client.uuid;
+    mapping[kJsonName] = client.name;
+    mapping[kJsonClientId] = client.clientId;
+    mappings.append(mapping);
+  }
+  // write to the file; Create the file if it doesn't exist
+  Json::StreamWriterBuilder factory;
+  std::unique_ptr<Json::StreamWriter> const writer(factory.newStreamWriter());
+  std::ofstream fileStream(mClientMappingFilePath);
+  writer->write(mappings, &fileStream);
+  fileStream << std::endl;
 }
 }  // namespace android::hardware::contexthub::common::implementation
