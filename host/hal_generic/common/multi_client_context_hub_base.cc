@@ -516,6 +516,11 @@ void MultiClientContextHubBase::handleMessageFromChre(
       onDebugDumpComplete(*message.AsDebugDumpResponse());
       break;
     }
+    case fbs::ChreMessage::NanoappInstanceIdInfo: {
+      // TODO(b/242760291): Map nanoapp log detokenizers to instance IDs in the
+      //  log message parser.
+      break;
+    }
     default:
       LOGW("Got unexpected message type %" PRIu8,
            static_cast<uint8_t>(message.type));
