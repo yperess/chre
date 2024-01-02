@@ -43,6 +43,8 @@
 #                                  after the objects produced by this build.
 #     $13 - TARGET_PLATFORM_ID   - The ID of the platform that this nanoapp
 #                                  build targets.
+#     $14 - TARGET_ACONFIGFLAGS  - The list of aconfig flag value files specific
+#                                  to this build target
 #
 ################################################################################
 
@@ -126,11 +128,14 @@ $(1)_header: $$($(1)_HEADER)
 .PHONY: $(1)_token_map
 $(1)_token_map: $$($(1)_TOKEN_MAP)
 
+.PHONY: $(1)_flags
+$(1)_flags: $$((1)_FLAGS)
+
 .PHONY: $(1)
 ifeq ($(IS_ARCHIVE_ONLY_BUILD),true)
-$(1): $(1)_ar $(1)_token_map
+$(1): $(1)_flags $(1)_ar $(1)_token_map
 else
-$(1): $(1)_ar $(1)_so $(1)_bin $(1)_header $(1)_token_map
+$(1): $(1)_flags $(1)_ar $(1)_so $(1)_bin $(1)_header $(1)_token_map
 endif
 
 # If building the runtime, simply add the archive and shared object to the all
@@ -248,9 +253,28 @@ endif
 # Always invoke the cargo build, let cargo decide if updates are needed
 .PHONY: rust_archive_$(1)
 rust_archive_$(1):
-	@echo " [Rust Archive] $$@"
+	@echo " [RUST_ARCHIVE] $$@"
 	$(RUST_FLAGS) cargo +nightly build -Z build-std=core,alloc \
 	    --$(RUST_OPT_LEVEL) --target $(RUST_TARGET_DIR)/$(RUST_TARGET).json
+
+# Aconfig Flag Generation ######################################################
+
+# This must be handled in the final build_template to allow for layers of flag
+# overwriting ( common > device_specific > local ).
+
+ifeq ($(IS_BUILD_REQUIRING_FLAG_LIBRARY),)
+FLAG_DEPENDENCIES =
+else
+FLAG_DEPENDENCIES = flagging_library_$(1)
+endif
+
+$$((1)_FLAGS): $(FLAG_DEPENDENCIES)
+
+.PHONY: flagging_library_$(1)
+flagging_library_$(1):
+	@echo " [ACONFIG] $$@"
+	$(ACONFIG_FLAG_BUILD_SCRIPT) $(ACONFIG_BIN) $(ACONFIG_EMB_DIR) \
+	    $(COMMON_ACONFIG_FLAG_VALUES) $(TARGET_ACONFIGFLAGS)
 
 # Link #########################################################################
 
@@ -329,7 +353,8 @@ $(eval $(call BUILD_TEMPLATE,$(TARGET_NAME), \
                              $(TARGET_BIN_LDFLAGS), \
                              $(TARGET_SO_EARLY_LIBS), \
                              $(TARGET_SO_LATE_LIBS), \
-                             $(TARGET_PLATFORM_ID)))
+                             $(TARGET_PLATFORM_ID), \
+                             $(TARGET_ACONFIGFLAGS)))
 
 # Debug Template Invocation ####################################################
 
@@ -347,4 +372,5 @@ $(eval $(call BUILD_TEMPLATE,$(TARGET_NAME)_debug, \
                              $(TARGET_BIN_LDFLAGS), \
                              $(TARGET_SO_EARLY_LIBS), \
                              $(TARGET_SO_LATE_LIBS), \
-                             $(TARGET_PLATFORM_ID)))
+                             $(TARGET_PLATFORM_ID), \
+                             $(TARGET_ACONFIGFLAGS)))
