@@ -166,6 +166,26 @@ pw::Status ChreApiTestService::ChreAudioGetSource(
              : pw::Status::InvalidArgument();
 }
 
+pw::Status ChreApiTestService::ChreAudioConfigureSource(
+    const chre_rpc_ChreAudioConfigureSourceInput &request,
+    chre_rpc_Status &response) {
+  ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
+      CHRE_MESSAGE_PERMISSION_NONE);
+  return validateInputAndCallChreAudioConfigureSource(request, response)
+             ? pw::OkStatus()
+             : pw::Status::InvalidArgument();
+}
+
+pw::Status ChreApiTestService::ChreAudioGetStatus(
+    const chre_rpc_ChreHandleInput &request,
+    chre_rpc_ChreAudioGetStatusOutput &response) {
+  ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
+      CHRE_MESSAGE_PERMISSION_NONE);
+  return validateInputAndCallChreAudioGetStatus(request, response)
+             ? pw::OkStatus()
+             : pw::Status::InvalidArgument();
+}
+
 pw::Status ChreApiTestService::ChreConfigureHostEndpointNotifications(
     const chre_rpc_ChreConfigureHostEndpointNotificationsInput &request,
     chre_rpc_Status &response) {
@@ -459,6 +479,20 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
       message.status = true;
       message.which_data =
           chre_rpc_GeneralEventsMessage_chreBleAdvertisementEvent_tag;
+      break;
+    }
+    case CHRE_EVENT_AUDIO_SAMPLING_CHANGE: {
+      const auto *data =
+          static_cast<const struct chreAudioSourceStatusEvent *>(eventData);
+      message.data.chreAudioSourceStatusEvent.handle = data->handle;
+      message.data.chreAudioSourceStatusEvent.status.enabled =
+          data->status.enabled;
+      message.data.chreAudioSourceStatusEvent.status.suspended =
+          data->status.suspended;
+
+      message.status = true;
+      message.which_data =
+          chre_rpc_GeneralEventsMessage_chreAudioSourceStatusEvent_tag;
       break;
     }
     default: {

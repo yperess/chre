@@ -88,6 +88,19 @@ class ChreApiTestService final
                                 chre_rpc_ChreAudioGetSourceOutput &response);
 
   /**
+   * Configures delivery of audio data to the current nanoapp.
+   */
+  pw::Status ChreAudioConfigureSource(
+      const chre_rpc_ChreAudioConfigureSourceInput &request,
+      chre_rpc_Status &response);
+
+  /**
+   * Gets the current chreAudioSourceStatus struct for a given audio handle.
+   */
+  pw::Status ChreAudioGetStatus(const chre_rpc_ChreHandleInput &request,
+                                chre_rpc_ChreAudioGetStatusOutput &response);
+
+  /**
    * Configures host endpoint notification.
    */
   pw::Status ChreConfigureHostEndpointNotifications(
@@ -205,6 +218,14 @@ class ChreApiTestService final
   bool validateInputAndCallChreAudioGetSource(
       const chre_rpc_ChreHandleInput &request,
       chre_rpc_ChreAudioGetSourceOutput &response);
+
+  bool validateInputAndCallChreAudioConfigureSource(
+      const chre_rpc_ChreAudioConfigureSourceInput &request,
+      chre_rpc_Status &response);
+
+  bool validateInputAndCallChreAudioGetStatus(
+      const chre_rpc_ChreHandleInput &request,
+      chre_rpc_ChreAudioGetStatusOutput &response);
 
   bool validateInputAndCallChreConfigureHostEndpointNotifications(
       const chre_rpc_ChreConfigureHostEndpointNotificationsInput &request,
