@@ -487,6 +487,21 @@ bool chreSendMessageWithPermissions(void *message, size_t messageSize,
 }
 
 WEAK_SYMBOL
+bool chreSendReliableMessageAsync(void *message, size_t messageSize,
+                                  uint32_t messageType, uint16_t hostEndpoint,
+                                  uint32_t messagePermissions,
+                                  chreMessageFreeFunction *freeCallback,
+                                  const void *cookie) {
+  auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreSendReliableMessageAsync);
+  if (fptr != nullptr) {
+    return fptr(message, messageSize, messageType, hostEndpoint,
+                messagePermissions, freeCallback, cookie);
+  } else {
+    return false;
+  }
+}
+
+WEAK_SYMBOL
 int8_t chreUserSettingGetState(uint8_t setting) {
   int8_t settingState = CHRE_USER_SETTING_STATE_UNKNOWN;
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreUserSettingGetState);
@@ -542,6 +557,18 @@ bool chreGetNanoappInfoByInstanceId(uint32_t instanceId,
     populateChreNanoappInfoPre18(info);
   }
   return success;
+}
+
+WEAK_SYMBOL
+uint32_t chreGetCapabilities() {
+  auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreGetCapabilities);
+  return (fptr != nullptr) ? fptr() : CHRE_CAPABILITIES_NONE;
+}
+
+WEAK_SYMBOL
+uint32_t chreGetMessageToHostMaxSize() {
+  auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreGetMessageToHostMaxSize);
+  return (fptr != nullptr) ? fptr() : CHRE_MESSAGE_TO_HOST_MAX_SIZE;
 }
 
 #endif  // CHRE_NANOAPP_DISABLE_BACKCOMPAT

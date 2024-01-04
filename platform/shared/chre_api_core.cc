@@ -28,11 +28,11 @@
 #include "chre_api/chre/event.h"
 #include "chre_api/chre/re.h"
 
-using chre::EventLoop;
-using chre::EventLoopManager;
-using chre::EventLoopManagerSingleton;
-using chre::handleNanoappAbort;
-using chre::Nanoapp;
+using ::chre::EventLoop;
+using ::chre::EventLoopManager;
+using ::chre::EventLoopManagerSingleton;
+using ::chre::handleNanoappAbort;
+using ::chre::Nanoapp;
 
 DLL_EXPORT void chreAbort(uint32_t /* abortCode */) {
   Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
@@ -102,6 +102,14 @@ DLL_EXPORT bool chreSendMessageWithPermissions(
   }
 
   return success;
+}
+
+DLL_EXPORT bool chreSendReliableMessageAsync(
+    void * /* message */, size_t /* messageSize */, uint32_t /* messageType */,
+    uint16_t /* hostEndpoint */, uint32_t /* messagePermissions */,
+    chreMessageFreeFunction * /* freeCallback */, const void * /* cookie */) {
+  // TODO(b/312417087): Implement support for reliable messages
+  return false;
 }
 
 DLL_EXPORT bool chreSendMessageToHostEndpoint(
