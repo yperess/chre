@@ -167,9 +167,9 @@ class LogBuffer {
    * @param logs Pointer to the buffer containing the encoded log message.
    * @param logSize Size of the encoded logs.
    */
-  void handleNanoappEncodedLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
-                               uint16_t instanceId, const uint8_t *log,
-                               size_t logSize);
+  void handleNanoappTokenizedLog(LogBufferLogLevel logLevel,
+                                 uint32_t timestampMs, uint16_t instanceId,
+                                 const uint8_t *log, size_t logSize);
 
 #ifdef CHRE_BLE_SUPPORT_ENABLED
   /**

@@ -26,6 +26,7 @@
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/shared/debug_dump.h"
 #include "chre/platform/shared/memory.h"
+#include "chre/platform/shared/nanoapp/tokenized_log.h"
 #include "chre/target_platform/platform_cache_management.h"
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/macros.h"
@@ -260,6 +261,9 @@ const ExportedData kExportedData[] = {
     ADD_EXPORTED_C_SYMBOL(chreWwanGetCapabilities),
     ADD_EXPORTED_C_SYMBOL(chreWwanGetCellInfoAsync),
     ADD_EXPORTED_C_SYMBOL(platform_chreDebugDumpVaLog),
+#ifdef CHRE_NANOAPP_TOKENIZED_LOGGING_SUPPORT_ENABLED
+    ADD_EXPORTED_C_SYMBOL(platform_chrePwTokenizedLog),
+#endif // CHRE_NANOAPP_TOKENIZED_LOGGING_SUPPORT_ENABLED
     ADD_EXPORTED_C_SYMBOL(chreConfigureHostEndpointNotifications),
     ADD_EXPORTED_C_SYMBOL(chrePublishRpcServices),
     ADD_EXPORTED_C_SYMBOL(chreGetHostEndpointInfo),

@@ -219,6 +219,13 @@ uint32_t chreGetInstanceId(void);
  * Unless specifically noted as OPTIONAL or NOT_SUPPORTED, format
  * (sub-)specifiers listed below are required.
  *
+ * While all CHRE implementations must support chreLog(), some platform
+ * implementations may support enhanced logging functionality only possible
+ * through a macro. This improved functionality is supported through
+ * platform-specific customization of the log macros provided in
+ * chre/util/nanoapp/log.h. All nanoapps are recommended to use these log
+ * macros where possible, as they will fall back to chreLog() as needed.
+ *
  * OPTIONAL format sub-specifiers:
  * - '-' (left-justify within the given field width)
  * - '+' (precede the result with a '+' sign if it is positive)

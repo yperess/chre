@@ -286,9 +286,9 @@ TEST(LogBuffer, NanoappTokenizedLogOverwritten) {
   // through the buffer which is > than 1024.
   for (size_t i = 0; i < kNumInsertions; i++) {
     std::vector<uint8_t> testData(kLogPayloadSize, i);
-    logBuffer.handleNanoappEncodedLog(LogBufferLogLevel::INFO, 0,
-                                      chre::kSystemInstanceId, testData.data(),
-                                      testData.size());
+    logBuffer.handleNanoappTokenizedLog(LogBufferLogLevel::INFO, 0,
+                                        chre::kSystemInstanceId,
+                                        testData.data(), testData.size());
   }
   EXPECT_EQ(logBuffer.getBufferSize(),
             (kNumInsertions - kNumLogDropsExpected) * kBufferUsePerLog);
@@ -494,9 +494,9 @@ TEST(LogBuffer, GetLogDataLengthTest) {
   mCurrentLogStartingIndex += kBufferUseBtSnoopLog;
 
   std::vector<uint8_t> testLogNanoappTokenized(kLogPayloadSize, 0x77);
-  logBuffer.handleNanoappEncodedLog(LogBufferLogLevel::INFO, 0,
-                                    kSystemInstanceId, testLogBtSnoop.data(),
-                                    testLogBtSnoop.size());
+  logBuffer.handleNanoappTokenizedLog(LogBufferLogLevel::INFO, 0,
+                                      kSystemInstanceId, testLogBtSnoop.data(),
+                                      testLogBtSnoop.size());
   EXPECT_EQ(logBuffer.getLogDataLength(
                 mCurrentLogStartingIndex + LogBuffer::kLogDataOffset,
                 LogType::NANOAPP_TOKENIZED),

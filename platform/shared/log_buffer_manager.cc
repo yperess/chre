@@ -189,14 +189,13 @@ void LogBufferManager::logEncoded(chreLogLevel logLevel,
                                      encodedLogSize);
 }
 
-void LogBufferManager::logNanoappEncoded(chreLogLevel logLevel,
-                                         uint16_t instanceId,
-                                         const uint8_t *encodedLog,
-                                         size_t encodedLogSize) {
-  bufferOverflowGuard(encodedLogSize, LogType::NANOAPP_TOKENIZED);
-  mPrimaryLogBuffer.handleNanoappEncodedLog(chreToLogBufferLogLevel(logLevel),
-                                            getTimestampMs(), instanceId,
-                                            encodedLog, encodedLogSize);
+void LogBufferManager::logNanoappTokenized(chreLogLevel logLevel,
+                                           uint16_t instanceId,
+                                           const uint8_t *msg, size_t msgSize) {
+  bufferOverflowGuard(msgSize, LogType::NANOAPP_TOKENIZED);
+  mPrimaryLogBuffer.handleNanoappTokenizedLog(chreToLogBufferLogLevel(logLevel),
+                                              getTimestampMs(), instanceId, msg,
+                                              msgSize);
 }
 
 LogBufferLogLevel LogBufferManager::chreToLogBufferLogLevel(

@@ -79,13 +79,17 @@ class LogBufferManager : public LogBufferCallbackInterface {
                   size_t encodedLogSize);
 
   /**
-   * Similar as logEncoded but specifically used for nanoapps.
+   * Log via the pigweed tokenized logging format for nanoapps. The log message
+   * message is tokenized and will be decoded into printf style strings at the
+   * receiver.
    *
-   * @param instanceId The instance ID of the nanoapp which sends the log
-   * message.
+   * @param level Logging level.
+   * @param instanceId The instance ID of the nanoapp which sends the log.
+   * @param msg A byte buffer containing the tokenized log message.
+   * @param msgSize Size of the tokenized log message buffer.
    */
-  void logNanoappEncoded(chreLogLevel logLevel, uint16_t instanceID,
-                         const uint8_t *encodedLog, size_t encodedLogSize);
+  void logNanoappTokenized(chreLogLevel logLevel, uint16_t instanceID,
+                           const uint8_t *msg, size_t msgSize);
 
   /**
    * Logs message with printf-style arguments. No trailing newline is required

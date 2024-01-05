@@ -99,10 +99,10 @@ void LogBuffer::handleEncodedLog(LogBufferLogLevel logLevel,
   processLog(logLevel, timestampMs, log, logSize, LogType::TOKENIZED);
 }
 
-void LogBuffer::handleNanoappEncodedLog(LogBufferLogLevel logLevel,
-                                        uint32_t timestampMs,
-                                        uint16_t instanceId, const uint8_t *log,
-                                        size_t logSize) {
+void LogBuffer::handleNanoappTokenizedLog(LogBufferLogLevel logLevel,
+                                          uint32_t timestampMs,
+                                          uint16_t instanceId,
+                                          const uint8_t *log, size_t logSize) {
   processLog(logLevel, timestampMs, log, logSize, LogType::NANOAPP_TOKENIZED,
              instanceId);
 }
