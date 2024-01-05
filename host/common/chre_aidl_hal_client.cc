@@ -36,6 +36,7 @@
 #include "chre_api/chre/version.h"
 #include "chre_host/file_stream.h"
 #include "chre_host/hal_client.h"
+#include "chre_host/log.h"
 #include "chre_host/napp_header.h"
 
 using ::aidl::android::hardware::contexthub::AsyncEventType;

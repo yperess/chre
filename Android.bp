@@ -81,6 +81,7 @@ cc_library_static {
     export_header_lib_headers: ["chre_flatbuffers"],
     shared_libs: [
         "android.hardware.contexthub-V3-ndk",
+        "libbase",
         "libbinder_ndk",
         "libcutils",
         "liblog",
@@ -492,6 +493,7 @@ cc_test_host {
         "libgmock",
     ],
     shared_libs: [
+        "libbase",
         "libcutils",
         "libutils",
         "android.hardware.contexthub-V3-ndk",

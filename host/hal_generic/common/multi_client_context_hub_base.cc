@@ -22,8 +22,8 @@
 #include "chre/event.h"
 #include "chre_host/config_util.h"
 #include "chre_host/fragmented_load_transaction.h"
+#include "chre_host/hal_error.h"
 #include "chre_host/host_protocol_host.h"
-#include "hal_error.h"
 #include "permissions_util.h"
 
 namespace android::hardware::contexthub::common::implementation {

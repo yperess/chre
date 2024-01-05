@@ -32,8 +32,7 @@
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
 
-#include "chre_host/log.h"
-#include "host/hal_generic/common/hal_error.h"
+#include "hal_error.h"
 
 namespace android::chre {
 
@@ -53,12 +52,15 @@ using ::aidl::android::hardware::contexthub::Setting;
 using ::ndk::ScopedAStatus;
 
 /**
- * A class exposing CHRE HAL APIs to clients and taking care of binder
- * (re)connection.
+ * A class connecting to CHRE Multiclient HAL via binder and taking care of
+ * binder (re)connection.
  *
- * <p>This class also maintains a set of connected host endpoints, using which
- * it is enforced that a message can only be sent to/from an endpoint id that is
- * already connected to HAL.
+ * <p>HalClient will replace the SocketClient that does the similar
+ * communication with CHRE but through a socket connection.
+ *
+ * <p>HalClient also maintains a set of connected host endpoints, using which
+ * it will enforce in the future that a message can only be sent to/from an
+ * endpoint id that is already connected to HAL.
  *
  * <p>When the binder connection to HAL is disconnected HalClient will have a
  * death recipient re-establish the connection and reconnect the previously
@@ -82,15 +84,33 @@ class HalClient {
       const std::shared_ptr<IContextHubCallback> &callback,
       int32_t contextHubId = kDefaultContextHubId);
 
+  /**
+   * Returns true if the multiclient HAL is available.
+   *
+   * <p>Multicleint HAL may not be available on a device that has CHRE enabled.
+   * In this situation, clients are expected to still use SocketClient to
+   * communicate with CHRE.
+   */
+  static bool isServiceAvailable();
+
+  /** Returns true if this HalClient instance is connected to the HAL. */
+  bool isConnected() {
+    std::lock_guard<std::shared_mutex> lock(mConnectionLock);
+    return mContextHub != nullptr;
+  }
+
   ScopedAStatus queryNanoapps() {
     return callIfConnected(
         [&]() { return mContextHub->queryNanoapps(mContextHubId); });
   }
 
+  /** Sends a message to a Nanoapp. */
   ScopedAStatus sendMessage(const ContextHubMessage &message);
 
+  /** Connects a host endpoint to CHRE. */
   ScopedAStatus connectEndpoint(const HostEndpointInfo &hostEndpointInfo);
 
+  /** Disconnects a host endpoint from CHRE. */
   ScopedAStatus disconnectEndpoint(char16_t hostEndpointId);
 
  protected:
@@ -114,7 +134,6 @@ class HalClient {
 
     ScopedAStatus handleContextHubAsyncEvent(AsyncEventType event) override {
       if (event == AsyncEventType::RESTARTED) {
-        LOGW("CHRE has restarted. Reconnecting endpoints.");
         tryReconnectEndpoints(mHalClient);
       }
       return mCallback->handleContextHubAsyncEvent(event);
@@ -184,24 +203,19 @@ class HalClient {
   }
 
   bool isEndpointConnected(HostEndpointId hostEndpointId) {
-    std::shared_lock<std::shared_mutex> lock(mStateLock);
+    std::shared_lock<std::shared_mutex> lock(mConnectedEndpointsLock);
     return mConnectedEndpoints.find(hostEndpointId) !=
            mConnectedEndpoints.end();
   }
 
   void insertConnectedEndpoint(const HostEndpointInfo &hostEndpointInfo) {
-    std::lock_guard<std::shared_mutex> lock(mStateLock);
+    std::lock_guard<std::shared_mutex> lock(mConnectedEndpointsLock);
     mConnectedEndpoints[hostEndpointInfo.hostEndpointId] = hostEndpointInfo;
   }
 
   void removeConnectedEndpoint(HostEndpointId hostEndpointId) {
-    std::lock_guard<std::shared_mutex> lock(mStateLock);
+    std::lock_guard<std::shared_mutex> lock(mConnectedEndpointsLock);
     mConnectedEndpoints.erase(hostEndpointId);
-  }
-
-  void clearConnectedEndpoints() {
-    std::lock_guard<std::shared_mutex> lock(mStateLock);
-    mConnectedEndpoints.clear();
   }
 
   static ScopedAStatus fromHalError(HalError errorCode) {
@@ -215,7 +229,7 @@ class HalClient {
   int32_t mContextHubId;
 
   // The lock guarding mConnectedEndpoints.
-  std::shared_mutex mStateLock;
+  std::shared_mutex mConnectedEndpointsLock;
   std::unordered_map<HostEndpointId, HostEndpointInfo> mConnectedEndpoints{};
 
   // The lock guarding mContextHub.
