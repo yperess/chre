@@ -17,6 +17,7 @@
 #include "chre/platform/shared/log_buffer_manager.h"
 
 #include "chre/core/event_loop_manager.h"
+#include "chre/platform/assert.h"
 #include "chre/platform/shared/bt_snoop_log.h"
 #include "chre/platform/shared/generated/host_messages_generated.h"
 #include "chre/util/lock_guard.h"
@@ -128,13 +129,22 @@ uint32_t LogBufferManager::getTimestampMs() {
 }
 
 void LogBufferManager::bufferOverflowGuard(size_t logSize, LogType type) {
-  if (type == LogType::STRING) {
-    // Add one byte because of the null terminator added at the end.
-    logSize = logSize + LogBuffer::kStringLogOverhead;
-  } else if (type == LogType::TOKENIZED) {
-    logSize = logSize + LogBuffer::kTokenizedLogOffset;
-  } else if (type == LogType::BLUETOOTH) {
-    logSize = logSize + LogBuffer::kBtSnoopLogOffset;
+  switch (type) {
+    case LogType::STRING:
+      logSize += LogBuffer::kStringLogOverhead;
+      break;
+    case LogType::TOKENIZED:
+      logSize += LogBuffer::kTokenizedLogOffset;
+      break;
+    case LogType::BLUETOOTH:
+      logSize += LogBuffer::kBtSnoopLogOffset;
+      break;
+    case LogType::NANOAPP_TOKENIZED:
+      logSize += LogBuffer::kNanoappTokenizedLogOffset;
+      break;
+    default:
+      CHRE_ASSERT_LOG(false, "Received unexpected log message type");
+      break;
   }
   if (mPrimaryLogBuffer.logWouldCauseOverflow(logSize)) {
     LockGuard<Mutex> lockGuard(mFlushLogsMutex);
@@ -177,6 +187,16 @@ void LogBufferManager::logEncoded(chreLogLevel logLevel,
   mPrimaryLogBuffer.handleEncodedLog(chreToLogBufferLogLevel(logLevel),
                                      getTimestampMs(), encodedLog,
                                      encodedLogSize);
+}
+
+void LogBufferManager::logNanoappEncoded(chreLogLevel logLevel,
+                                         uint16_t instanceId,
+                                         const uint8_t *encodedLog,
+                                         size_t encodedLogSize) {
+  bufferOverflowGuard(encodedLogSize, LogType::NANOAPP_TOKENIZED);
+  mPrimaryLogBuffer.handleNanoappEncodedLog(chreToLogBufferLogLevel(logLevel),
+                                            getTimestampMs(), instanceId,
+                                            encodedLog, encodedLogSize);
 }
 
 LogBufferLogLevel LogBufferManager::chreToLogBufferLogLevel(

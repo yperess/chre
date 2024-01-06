@@ -68,8 +68,24 @@ class LogBufferManager : public LogBufferCallbackInterface {
    */
   void log(chreLogLevel logLevel, const char *formatStr, ...);
 
+  /**
+   * Similar as log() but with a log buffer and a log size argument instead
+   * of a printf-style arguments.
+   *
+   * @param logs Pointer to the buffer containing the encoded log message.
+   * @param logSize Size of the encoded logs.
+   */
   void logEncoded(chreLogLevel logLevel, const uint8_t *encodedLog,
                   size_t encodedLogSize);
+
+  /**
+   * Similar as logEncoded but specifically used for nanoapps.
+   *
+   * @param instanceId The instance ID of the nanoapp which sends the log
+   * message.
+   */
+  void logNanoappEncoded(chreLogLevel logLevel, uint16_t instanceID,
+                         const uint8_t *encodedLog, size_t encodedLogSize);
 
   /**
    * Logs message with printf-style arguments. No trailing newline is required

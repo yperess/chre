@@ -261,31 +261,34 @@ enum class LogType : int8_t {
   STRING = 0,
   TOKENIZED = 1,
   BLUETOOTH = 2,
+  NANOAPP_TOKENIZED = 3,
   MIN = STRING,
-  MAX = BLUETOOTH
+  MAX = NANOAPP_TOKENIZED
 };
 
-inline const LogType (&EnumValuesLogType())[3] {
+inline const LogType (&EnumValuesLogType())[4] {
   static const LogType values[] = {
     LogType::STRING,
     LogType::TOKENIZED,
-    LogType::BLUETOOTH
+    LogType::BLUETOOTH,
+    LogType::NANOAPP_TOKENIZED
   };
   return values;
 }
 
 inline const char * const *EnumNamesLogType() {
-  static const char * const names[4] = {
+  static const char * const names[5] = {
     "STRING",
     "TOKENIZED",
     "BLUETOOTH",
+    "NANOAPP_TOKENIZED",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameLogType(LogType e) {
-  if (flatbuffers::IsOutRange(e, LogType::STRING, LogType::BLUETOOTH)) return "";
+  if (flatbuffers::IsOutRange(e, LogType::STRING, LogType::NANOAPP_TOKENIZED)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesLogType()[index];
 }
@@ -2919,13 +2922,13 @@ struct LogMessageV2 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   ///   be needed to encode this as: [Direction(1B) | Size(1B) | Data(24B)].
   ///
   /// * Tokenized nanoapp logs: This log type is specifically for nanoapps with
-  ///   tokenized logs enabled. Similar to tokenized logs, the first byte is the
-  ///   size of the tokenized log data at the end. The next two bytes is the instance
-  ///   ID of the nanoapp which sends this tokenized log message. This instance ID
-  ///   will be used to map to the corresponding detokenizer in the log message parser.
-  ///   For example, if a nanoapp tokenized log of size 24 bytes were to be sent,
-  ///   a buffer of size 27 bytes would be needed to encode this as:
-  ///   [Size(1B) | InstanceId (2B) | Data(24B)].
+  ///   tokenized logs enabled. The first two bytes is the instance ID of the
+  ///   nanoapp which sends this tokenized log message. This instance ID will be
+  ///   used to map to the corresponding detokenizer in the log message parser.
+  ///   The rest is similar to tokenized logs with one byte of the size followed
+  ///   by the payload. For example, if a nanoapp tokenized log of size 24 bytes
+  ///   were to be sent, a buffer of size 27 bytes would be to encoded as:
+  ///   [InstanceId (2B) | Size(1B) | Data(24B)].
   ///
   /// This pattern repeats until the end of the buffer for multiple log
   /// messages. The last byte will always be a null-terminator. There are no

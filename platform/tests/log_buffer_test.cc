@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <string>
 
+#include "chre/core/event.h"
 #include "chre/platform/atomic.h"
 #include "chre/platform/condition_variable.h"
 #include "chre/platform/mutex.h"
@@ -266,6 +267,55 @@ TEST(LogBuffer, BtSnoopLogOverwritten) {
   }
 }
 
+TEST(LogBuffer, NanoappTokenizedLogOverwritten) {
+  char buffer[kDefaultBufferSize];
+  TestLogBufferCallback callback;
+  LogBuffer logBuffer(&callback, buffer, kDefaultBufferSize);
+
+  constexpr size_t kInstanceIdSize = 2;
+  constexpr size_t kLogPayloadSize = 100;
+  constexpr size_t kBufferUsePerLog = LogBuffer::kLogDataOffset +
+                                      LogBuffer::kNanoappTokenizedLogOffset +
+                                      kLogPayloadSize;
+  constexpr int kNumInsertions = 10;
+  constexpr int kNumLogDropsExpected =
+      kNumInsertions - kDefaultBufferSize / kBufferUsePerLog;
+  static_assert(kNumLogDropsExpected > 0);
+
+  // This for loop adds 1080 (kNumInsertions * kBufferUsePerLog) bytes of data
+  // through the buffer which is > than 1024.
+  for (size_t i = 0; i < kNumInsertions; i++) {
+    std::vector<uint8_t> testData(kLogPayloadSize, i);
+    logBuffer.handleNanoappEncodedLog(LogBufferLogLevel::INFO, 0,
+                                      chre::kSystemInstanceId, testData.data(),
+                                      testData.size());
+  }
+  EXPECT_EQ(logBuffer.getBufferSize(),
+            (kNumInsertions - kNumLogDropsExpected) * kBufferUsePerLog);
+  EXPECT_EQ(logBuffer.getNumLogsDropped(), kNumLogDropsExpected);
+
+  for (size_t i = logBuffer.getNumLogsDropped(); i < kNumInsertions; i++) {
+    // Should have read out the i-th from front test log data which is an
+    // integer i.
+    std::vector<uint8_t> outBuffer(kBufferUsePerLog, 0x77);
+    size_t numLogsDropped;
+    size_t bytesCopied =
+        logBuffer.copyLogs(outBuffer.data(), outBuffer.size(), &numLogsDropped);
+
+    // Validate that the log size in the nanoapp tokenized log header matches
+    // the expected log size.
+    EXPECT_EQ(outBuffer[LogBuffer::kLogDataOffset + kInstanceIdSize],
+              kLogPayloadSize);
+
+    outBuffer.erase(outBuffer.begin(),
+                    outBuffer.begin() + LogBuffer::kLogDataOffset +
+                        LogBuffer::kNanoappTokenizedLogOffset);
+    EXPECT_THAT(outBuffer,
+                ContainerEq(std::vector<uint8_t>(kLogPayloadSize, i)));
+    EXPECT_EQ(bytesCopied, kBufferUsePerLog);
+  }
+}
+
 TEST(LogBuffer, CopyIntoEmptyBuffer) {
   char buffer[kDefaultBufferSize];
   constexpr size_t kOutBufferSize = 0;
@@ -411,6 +461,10 @@ TEST(LogBuffer, GetLogDataLengthTest) {
   constexpr size_t kBufferUseTokenizedLog = LogBuffer::kLogDataOffset +
                                             LogBuffer::kTokenizedLogOffset +
                                             kLogPayloadSize;
+  constexpr size_t kBufferUseBtSnoopLog = LogBuffer::kLogDataOffset +
+                                          LogBuffer::kBtSnoopLogOffset +
+                                          kLogPayloadSize;
+
   uint8_t mCurrentLogStartingIndex = 0;
 
   std::string testLogStr(kLogPayloadSize, 'a');
@@ -437,6 +491,16 @@ TEST(LogBuffer, GetLogDataLengthTest) {
                 mCurrentLogStartingIndex + LogBuffer::kLogDataOffset,
                 LogType::BLUETOOTH),
             LogBuffer::kBtSnoopLogOffset + kLogPayloadSize);
+  mCurrentLogStartingIndex += kBufferUseBtSnoopLog;
+
+  std::vector<uint8_t> testLogNanoappTokenized(kLogPayloadSize, 0x77);
+  logBuffer.handleNanoappEncodedLog(LogBufferLogLevel::INFO, 0,
+                                    kSystemInstanceId, testLogBtSnoop.data(),
+                                    testLogBtSnoop.size());
+  EXPECT_EQ(logBuffer.getLogDataLength(
+                mCurrentLogStartingIndex + LogBuffer::kLogDataOffset,
+                LogType::NANOAPP_TOKENIZED),
+            LogBuffer::kNanoappTokenizedLogOffset + kLogPayloadSize);
 }
 
 // TODO(srok): Add multithreaded tests

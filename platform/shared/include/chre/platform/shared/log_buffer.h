@@ -21,6 +21,7 @@
 #include <cstdarg>
 #include <cstring>
 
+#include "chre/core/event.h"
 #include "chre/platform/mutex.h"
 #include "chre/platform/shared/bt_snoop_log.h"
 #include "chre/platform/shared/generated/host_messages_generated.h"
@@ -104,6 +105,12 @@ class LogBuffer {
   //! field.
   static constexpr size_t kBtSnoopLogOffset = 2;
 
+  //! The number of bytes in a nanoapp tokenized log entry of the buffer after
+  //! the 'header' and before the tokenized log data is encountered. The value
+  //! accounts for the size of the uint8_t logSize field and the uint16_t
+  //! instanceId field.
+  static constexpr size_t kNanoappTokenizedLogOffset = 3;
+
   /**
    * @param callback The callback object that will receive notifications about
    *                 the state of the log buffer or nullptr if it is not needed.
@@ -133,7 +140,8 @@ class LogBuffer {
                  const char *logFormat, ...);
 
   /**
-   * Same as handleLog but with a va_list argument instead of a ... parameter.
+   * Adds a string log to the buffer with a va_list argument and determines
+   * whether to send log buffer to host.
    *
    * @param args The arguments in a va_list type.
    */
@@ -141,14 +149,27 @@ class LogBuffer {
                    const char *logFormat, va_list args);
 
   /**
-   * Samilar as handleLog but with a log buffer and a log size argument instead
-   * of a ... parameter.
+   * Adds a tokenized log to the buffer and determines whether to send log
+   * buffer to host.
    *
    * @param logs Pointer to the buffer containing the encoded log message.
    * @param logSize Size of the encoded logs.
    */
   void handleEncodedLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
                         const uint8_t *log, size_t logSize);
+
+  /**
+   * Adds a nanoapp tokenized log to the buffer and determines whether to send
+   * log buffer to host.
+   *
+   * @param instanceId The instance ID of the nanoapp which sends the log
+   * message.
+   * @param logs Pointer to the buffer containing the encoded log message.
+   * @param logSize Size of the encoded logs.
+   */
+  void handleNanoappEncodedLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
+                               uint16_t instanceId, const uint8_t *log,
+                               size_t logSize);
 
 #ifdef CHRE_BLE_SUPPORT_ENABLED
   /**
@@ -255,10 +276,9 @@ class LogBuffer {
   /**
    * @param startingIndex The index to start from.
    * @param type. The type of the log. See host_message.fbs.
-   * @return The length of the data portion of a log along with the null
-   *         terminator. If a null terminator was not found at most
-   *         kLogMaxSize - kLogDataOffset bytes away from the startingIndex
-   *         then kLogMaxSize - kLogDataOffset + 1 is returned.
+   * @return The length of the data portion of a log. If the end of log was not
+   * found at most kLogMaxSize bytes away from the startingIndex then
+   * kLogMaxSize is returned.
    */
   size_t getLogDataLength(size_t startingIndex, LogType type);
 
@@ -320,16 +340,22 @@ class LogBuffer {
   /**
    * Encode the received log message (if tokenization or similar encoding
    * is used) and dispatch it.
+   *
+   * @param instanceId The instance ID of the nanoapp which sends the log
+   * message. Defaulted to kSystemInstanceId if the log is sent from the CHRE
+   * system or if the nanoapp which sends the message is not tokenized enabled.
    */
   void processLog(LogBufferLogLevel logLevel, uint32_t timestampMs,
-                  const void *log, size_t logSize, bool encoded = true);
+                  const void *log, size_t logSize, LogType type,
+                  uint16_t instanceId = kSystemInstanceId);
 
   /**
    * First ensure that there's enough space for the log by discarding older
    * logs, then encode and copy this log into the internal log buffer.
    */
   void copyLogToBuffer(LogBufferLogLevel level, uint32_t timestampMs,
-                       const void *logBuffer, uint8_t logLen, bool encoded);
+                       const void *logBuffer, uint8_t logLen, LogType type,
+                       uint16_t instanceId = kSystemInstanceId);
 
   /**
    * Invalidate memory allocated for log at head while the buffer is greater
@@ -344,7 +370,7 @@ class LogBuffer {
    */
   void encodeAndCopyLogLocked(LogBufferLogLevel level, uint32_t timestampMs,
                               const void *logBuffer, uint8_t logLen,
-                              bool encoded);
+                              LogType type, uint16_t instanceId);
 
   /**
    * Send ready to dispatch logs over, based on the current log notification
@@ -366,6 +392,13 @@ class LogBuffer {
    * @return The metadata of the log message.
    */
   uint8_t setLogMetadata(LogType type, LogBufferLogLevel logLevel);
+
+  /**
+   * @param type The log type of the log message.
+   * @param size The size of the current log message.
+   * @return True if the log exceeds max size allowed.
+   */
+  bool tokenizedLogExceedsMaxSize(LogType type, size_t size);
 
   /**
    * The buffer data is stored in the format

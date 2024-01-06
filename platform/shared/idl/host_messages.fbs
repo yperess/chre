@@ -312,6 +312,7 @@ enum LogType : byte {
   STRING = 0,
   TOKENIZED = 1,
   BLUETOOTH = 2,
+  NANOAPP_TOKENIZED = 3,
 }
 
 // An enum indicating the direction of a BT snoop log.
@@ -356,13 +357,13 @@ table LogMessageV2 {
   ///   be needed to encode this as: [Direction(1B) | Size(1B) | Data(24B)].
   ///
   /// * Tokenized nanoapp logs: This log type is specifically for nanoapps with
-  ///   tokenized logs enabled. Similar to tokenized logs, the first byte is the
-  ///   size of the tokenized log data at the end. The next two bytes is the instance
-  ///   ID of the nanoapp which sends this tokenized log message. This instance ID
-  ///   will be used to map to the corresponding detokenizer in the log message parser.
-  ///   For example, if a nanoapp tokenized log of size 24 bytes were to be sent,
-  ///   a buffer of size 27 bytes would be needed to encode this as:
-  ///   [Size(1B) | InstanceId (2B) | Data(24B)].
+  ///   tokenized logs enabled. The first two bytes is the instance ID of the
+  ///   nanoapp which sends this tokenized log message. This instance ID will be
+  ///   used to map to the corresponding detokenizer in the log message parser.
+  ///   The rest is similar to tokenized logs with one byte of the size followed
+  ///   by the payload. For example, if a nanoapp tokenized log of size 24 bytes
+  ///   were to be sent, a buffer of size 27 bytes would be to encoded as:
+  ///   [InstanceId (2B) | Size(1B) | Data(24B)].
   ///
   /// This pattern repeats until the end of the buffer for multiple log
   /// messages. The last byte will always be a null-terminator. There are no
