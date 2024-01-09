@@ -166,7 +166,8 @@ class ContextHubCallback : public BnContextHubCallback {
       const std::vector<std::string> & /*msgContentPerms*/) override {
     std::cout << "Received a message!" << std::endl
               << "   From: 0x" << std::hex << message.nanoappId << std::endl
-              << "     To: 0x" << message.hostEndPoint << std::endl
+              << "     To: 0x" << static_cast<int>(message.hostEndPoint)
+              << std::endl
               << "   Body: (type " << message.messageType << " size "
               << message.messageBody.size() << ") 0x";
     for (const uint8_t &data : message.messageBody) {
