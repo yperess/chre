@@ -15,6 +15,7 @@
  */
 
 #include <algorithm>
+#include <cstdint>
 
 #include "chre_api_test_manager.h"
 
@@ -30,6 +31,7 @@ constexpr uint64_t kSyncFunctionTimeout = 2 * chre::kOneSecondInNanoseconds;
  */
 constexpr uint32_t kThreeAxisDataReadingsMaxCount = 10;
 constexpr uint32_t kChreBleAdvertisementReportMaxCount = 10;
+constexpr uint32_t kChreAudioDataEventMaxSampleBufferSize = 200;
 
 /**
  * Closes the writer and invalidates the writer.
@@ -334,6 +336,108 @@ void ChreApiTestService::handleBleAsyncResult(const chreAsyncResult *result) {
   }
 }
 
+bool ChreApiTestService::handleChreAudioDataEvent(
+    const chreAudioDataEvent *data) {
+  // send the metadata
+  chre_rpc_GeneralEventsMessage metadataMessage;
+  metadataMessage.data.chreAudioDataMetadata.version = data->version;
+  metadataMessage.data.chreAudioDataMetadata.reserved =
+      0;  // Must be set to 0 always
+  metadataMessage.data.chreAudioDataMetadata.handle = data->handle;
+  metadataMessage.data.chreAudioDataMetadata.timestamp = data->timestamp;
+  metadataMessage.data.chreAudioDataMetadata.sampleRate = data->sampleRate;
+  metadataMessage.data.chreAudioDataMetadata.sampleCount = data->sampleCount;
+  metadataMessage.data.chreAudioDataMetadata.format = data->format;
+  metadataMessage.status = true;
+  metadataMessage.which_data =
+      chre_rpc_GeneralEventsMessage_chreAudioDataMetadata_tag;
+  sendPartialGeneralEventToHost(metadataMessage);
+
+  // send the samples
+  chre_rpc_GeneralEventsMessage samplesMessage;
+  samplesMessage.status = false;
+
+  uint32_t totalSamples = data->sampleCount;
+  uint32_t maxSamplesPerMessage =
+      data->format == CHRE_AUDIO_DATA_FORMAT_16_BIT_SIGNED_PCM
+          ? kChreAudioDataEventMaxSampleBufferSize / 2
+          : kChreAudioDataEventMaxSampleBufferSize;
+  uint32_t samplesRemainingAfterSend = totalSamples > maxSamplesPerMessage
+                                           ? totalSamples - maxSamplesPerMessage
+                                           : 0;
+
+  uint32_t numSamplesToSend = MIN(maxSamplesPerMessage, totalSamples);
+  uint32_t sampleIdx = 0;
+  for (int id = 0; numSamplesToSend > 0; id++) {
+    samplesMessage.data.chreAudioDataSamples.id = id;
+
+    // assign data
+    if (data->format == CHRE_AUDIO_DATA_FORMAT_8_BIT_U_LAW) {
+      samplesMessage.data.chreAudioDataSamples.samples.size = numSamplesToSend;
+      std::memcpy(samplesMessage.data.chreAudioDataSamples.samples.bytes,
+                  &data->samplesULaw8[sampleIdx], numSamplesToSend);
+
+      samplesMessage.status = true;
+      samplesMessage.which_data =
+          chre_rpc_GeneralEventsMessage_chreAudioDataSamples_tag;
+    } else if (data->format == CHRE_AUDIO_DATA_FORMAT_16_BIT_SIGNED_PCM) {
+      // send double the bytes since each sample is 2B
+      samplesMessage.data.chreAudioDataSamples.samples.size =
+          numSamplesToSend * 2;
+      std::memcpy(samplesMessage.data.chreAudioDataSamples.samples.bytes,
+                  &data->samplesS16[sampleIdx], numSamplesToSend * 2);
+
+      samplesMessage.status = true;
+      samplesMessage.which_data =
+          chre_rpc_GeneralEventsMessage_chreAudioDataSamples_tag;
+    } else {
+      LOGE("Chre audio data event: format %" PRIu8 " unknown", data->format);
+      return false;
+    }
+
+    sendPartialGeneralEventToHost(samplesMessage);
+
+    sampleIdx += numSamplesToSend;
+    if (samplesRemainingAfterSend > maxSamplesPerMessage) {
+      numSamplesToSend = maxSamplesPerMessage;
+      samplesRemainingAfterSend =
+          samplesRemainingAfterSend - maxSamplesPerMessage;
+    } else {
+      numSamplesToSend = samplesRemainingAfterSend;
+      samplesRemainingAfterSend = 0;
+    }
+  }
+  closePartialGeneralEventToHost();
+  return true;
+}
+
+bool ChreApiTestService::sendGeneralEventToHost(
+    const chre_rpc_GeneralEventsMessage &message) {
+  sendPartialGeneralEventToHost(message);
+  return closePartialGeneralEventToHost();
+}
+
+void ChreApiTestService::sendPartialGeneralEventToHost(
+    const chre_rpc_GeneralEventsMessage &message) {
+  ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
+      CHRE_MESSAGE_PERMISSION_NONE);
+  pw::Status status = mEventWriter->Write(message);
+  CHRE_ASSERT(status.ok());
+}
+
+bool ChreApiTestService::closePartialGeneralEventToHost() {
+  ++mEventSentCount;
+
+  if (mEventSentCount == mEventExpectedCount) {
+    chreTimerCancel(mEventTimerHandle);
+    mEventTimerHandle = CHRE_TIMER_INVALID;
+    finishAndCloseWriter(mEventWriter);
+    LOGD("GatherEvents: Finish");
+    return false;
+  }
+  return true;
+}
+
 void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
                                               const void *eventData) {
   if (!mEventWriter.has_value()) {
@@ -356,6 +460,7 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
 
   LOGD("Gather events Received matching event with type: %" PRIu16, eventType);
 
+  bool messageSent = false;
   chre_rpc_GeneralEventsMessage message;
   message.status = false;
   switch (eventType) {
@@ -495,9 +600,20 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
           chre_rpc_GeneralEventsMessage_chreAudioSourceStatusEvent_tag;
       break;
     }
+    case CHRE_EVENT_AUDIO_DATA: {
+      const auto *data =
+          static_cast<const struct chreAudioDataEvent *>(eventData);
+      messageSent = handleChreAudioDataEvent(data);
+      break;
+    }
     default: {
       LOGE("GatherEvents: event type: %" PRIu16 " not implemented", eventType);
     }
+  }
+
+  // If we already sent the message, we have nothing else to send.
+  if (messageSent) {
+    return;
   }
 
   if (!message.status) {
@@ -506,18 +622,7 @@ void ChreApiTestService::handleGatheringEvent(uint16_t eventType,
     return;
   }
 
-  ChreApiTestManagerSingleton::get()->setPermissionForNextMessage(
-      CHRE_MESSAGE_PERMISSION_NONE);
-  pw::Status status = mEventWriter->Write(message);
-  CHRE_ASSERT(status.ok());
-  ++mEventSentCount;
-
-  if (mEventSentCount == mEventExpectedCount) {
-    chreTimerCancel(mEventTimerHandle);
-    mEventTimerHandle = CHRE_TIMER_INVALID;
-    finishAndCloseWriter(mEventWriter);
-    LOGD("GatherEvents: Finish");
-  }
+  sendGeneralEventToHost(message);
 }
 
 void ChreApiTestService::handleTimerEvent(const void *cookie) {

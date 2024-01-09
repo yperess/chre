@@ -119,6 +119,8 @@ message GeneralEventsMessage {
     ChreHostEndpointNotification chreHostEndpointNotification = 4;
     ChreBleAdvertisementEvent chreBleAdvertisementEvent = 5;
     ChreAudioSourceStatusEvent chreAudioSourceStatusEvent = 6;
+    ChreAudioDataMetadata chreAudioDataMetadata = 7;
+    ChreAudioDataSamples chreAudioDataSamples = 8;
   }
 }
 
@@ -202,6 +204,36 @@ message ChreAudioSourceStatus {
   bool suspended = 2;
 }
 
+// Data provided from audio data event - only used as a framework to reconstruct
+// the message on host
+message ChreAudioDataEvent {
+  bool status = 1;
+  uint32 version = 2;
+  uint32 reserved = 3;
+  uint32 handle = 4;
+  uint64 timestamp = 5;
+  uint32 sampleRate = 6;
+  uint32 sampleCount = 7;
+  uint32 format = 8;
+  bytes samples = 9;
+}
+
+// Chre audio data metadata and samples events to send in the general event
+message ChreAudioDataMetadata {
+  uint32 version = 1;
+  uint32 reserved = 2;
+  uint32 handle = 3;
+  uint64 timestamp = 4;
+  uint32 sampleRate = 5;
+  uint32 sampleCount = 6;
+  uint32 format = 7;
+}
+
+message ChreAudioDataSamples {
+  uint32 id = 1;
+  bytes samples = 2;
+}
+
 // Function specific input/output messages
 
 // Input value for ChreSensorFindDefault
@@ -281,6 +313,13 @@ message ChreSensorConfigureInput {
 message ChreSensorConfigureModeOnlyInput {
   uint32 sensorHandle = 1;
   uint32 mode = 2;
+}
+
+// Enumeration for Audio Data Format
+// Must match the chreAudioDataFormat enum in audio.h
+enum ChreAudioDataFormat {
+  CHRE_AUDIO_DATA_FORMAT_8_BIT_U_LAW = 0;
+  CHRE_AUDIO_DATA_FORMAT_16_BIT_SIGNED_PCM = 1;
 }
 
 // Return value for ChreAudioGetStatus
