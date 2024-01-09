@@ -208,7 +208,7 @@ class SegmentedQueue : public NonCopyable {
    * @param freeFunction             Function to execute before the matched item
    *                                 is removed. If not supplied, the destructor
    *                                 of the element will be invoked.
-   * @param extraDataForFreeFunction  Additional data that freeFunction will
+   * @param extraDataForFreeFunction Additional data that freeFunction will
    *                                 need.
    *
    * @return                         The number of pointers that is passed
