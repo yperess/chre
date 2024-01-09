@@ -186,8 +186,8 @@ class ContextHubCallback : public BnContextHubCallback {
     std::cout << "Received a message with type " << message.messageType
               << " size " << message.messageBody.size() << " from nanoapp 0x"
               << std::hex << message.nanoappId
-              << " sent to the host endpoint 0x" << message.hostEndPoint
-              << std::endl;
+              << " sent to the host endpoint 0x"
+              << static_cast<int>(message.hostEndPoint) << std::endl;
     std::cout << "message: 0x";
     for (const uint8_t &data : message.messageBody) {
       std::cout << std::hex << static_cast<uint32_t>(data);
