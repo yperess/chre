@@ -15,6 +15,7 @@
  */
 #include "hal_client_manager.h"
 
+#include <cstdio>
 #include <fstream>
 
 #include <aidl/android/hardware/contexthub/AsyncEventType.h>
@@ -572,5 +573,47 @@ void HalClientManager::updateClientIdMappingFileLocked() {
   std::ofstream fileStream(mClientMappingFilePath);
   writer->write(mappings, &fileStream);
   fileStream << std::endl;
+}
+
+std::string HalClientManager::debugDump() {
+  std::ostringstream result;
+  result << "\n-- HAL Client Manager Debug Info --\n"
+         << "\nKnown clients, in the format of [isConnected] (uuid : name) : "
+            "Pid, ClientId, {Connected endpoint Ids}\n\n";
+
+  // Dump states of each client.
+
+  const std::lock_guard<std::mutex> lock(mLock);
+
+  std::string endpointIds;
+  for (const auto &client : mClients) {
+    endpointIds.clear();
+    for (const HostEndpointId &endpointId : client.endpointIds) {
+      endpointIds.append(std::to_string(endpointId)).append(", ");
+    }
+    bool isConnected = client.callback != nullptr;
+    result << (isConnected ? "[ x ]" : "[   ]") << " (" << std::setw(32)
+           << client.uuid << " : " << std::setw(17) << client.name
+           << ") : " << std::setw(5) << client.pid << ", " << std::setw(2)
+           << client.clientId << ", {" << endpointIds << "}\n";
+  }
+
+  // Dump active transactions, if any.
+  result << "\nActive pending transaction:\n\n";
+  if (mPendingLoadTransaction.has_value()) {
+    result << "Load transaction from client "
+           << mPendingLoadTransaction->clientId << ": Transaction "
+           << mPendingLoadTransaction->transactionId
+           << " with current fragment id "
+           << mPendingLoadTransaction->currentFragmentId << "\n";
+  }
+  if (mPendingUnloadTransaction.has_value()) {
+    result << "Unload transaction from client "
+           << mPendingUnloadTransaction->clientId << ": Transaction "
+           << mPendingUnloadTransaction->transactionId << "\n";
+  }
+
+  result << "\n-- End Of HAL Client Manager Debug Info --\n";
+  return result.str();
 }
 }  // namespace android::hardware::contexthub::common::implementation

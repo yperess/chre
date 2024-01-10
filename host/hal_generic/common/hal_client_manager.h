@@ -312,6 +312,9 @@ class HalClientManager {
   /** Handles CHRE restart event. */
   void handleChreRestart();
 
+  /** Dumps various states maintained for debugging purpose. */
+  std::string debugDump();
+
  protected:
   /** Pseudo names used before uuid is enabled. */
   static constexpr char kSystemServerUuid[] =
