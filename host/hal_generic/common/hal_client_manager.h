@@ -31,6 +31,7 @@
 #include <aidl/android/hardware/contexthub/ContextHubMessage.h>
 #include <aidl/android/hardware/contexthub/IContextHub.h>
 #include <aidl/android/hardware/contexthub/IContextHubCallback.h>
+#include <android-base/thread_annotations.h>
 
 using aidl::android::hardware::contexthub::ContextHubMessage;
 using aidl::android::hardware::contexthub::HostEndpointInfo;
@@ -202,8 +203,8 @@ class HalClientManager {
                                         uint32_t transactionId,
                                         uint32_t currentFragmentId) {
     const std::lock_guard<std::mutex> lock(mLock);
-    return isPendingLoadTransactionMatchedLocked(clientId, transactionId,
-                                                 currentFragmentId);
+    return isPendingLoadTransactionMatched(clientId, transactionId,
+                                           currentFragmentId);
   }
 
   /**
@@ -374,28 +375,23 @@ class HalClientManager {
    * A file is maintained on the device for the mappings between client names
    * and client ids so that if a client has connected to HAL before the same
    * client id is always assigned to it.
-   *
-   * mLock must be held when this function is called.
-   *
    */
-  bool createClientLocked(const std::string &uuid, pid_t pid,
-                          const std::shared_ptr<IContextHubCallback> &callback,
-                          void *deathRecipientCookie);
+  bool createClient(const std::string &uuid, pid_t pid,
+                    const std::shared_ptr<IContextHubCallback> &callback,
+                    void *deathRecipientCookie) REQUIRES(mLock);
 
   /**
    * Update @p mNextClientId to be the next available one.
    *
    * @return true if success, otherwise false.
    */
-  bool updateNextClientIdLocked();
+  bool updateNextClientId() REQUIRES(mLock);
 
   /**
    * Returns true if @p clientId and @p transactionId match the
    * corresponding values in @p transaction.
-   *
-   * mLock must be held when this function is called.
    */
-  static bool isPendingTransactionMatchedLocked(
+  static bool isPendingTransactionMatched(
       HalClientId clientId, uint32_t transactionId,
       const std::optional<PendingTransaction> &transaction) {
     return transaction.has_value() && transaction->clientId == clientId &&
@@ -404,12 +400,11 @@ class HalClientManager {
 
   /**
    * Returns true if the load transaction is expected.
-   *
-   * mLock must be held when this function is called.
    */
-  bool isPendingLoadTransactionMatchedLocked(HalClientId clientId,
-                                             uint32_t transactionId,
-                                             uint32_t currentFragmentId);
+  bool isPendingLoadTransactionMatched(HalClientId clientId,
+                                       uint32_t transactionId,
+                                       uint32_t currentFragmentId)
+      REQUIRES(mLock);
 
   /**
    * Checks if the transaction registration is allowed and clears out any stale
@@ -421,13 +416,11 @@ class HalClientManager {
    * However, every transaction is guaranteed to have up to
    * kTransactionTimeoutThresholdMs to finish.
    *
-   * mLock must be held when this function is called.
-   *
    * @param clientId id of the client trying to register the transaction
    *
    * @return true if registration is allowed, otherwise false.
    */
-  bool isNewTransactionAllowedLocked(HalClientId clientId);
+  bool isNewTransactionAllowed(HalClientId clientId) REQUIRES(mLock);
 
   /** Returns true if the endpoint id is within the accepted range. */
   [[nodiscard]] static inline bool isValidEndpointId(
@@ -437,27 +430,28 @@ class HalClientManager {
   }
 
   /** Updates the mapping file. */
-  void updateClientIdMappingFileLocked();
+  void updateClientIdMappingFile() REQUIRES(mLock);
 
-  // TODO(b/290375569): isSystemServerConnectedLocked() is a temporary solution
+  // TODO(b/290375569): isSystemServerConnected) is a temporary solution
   //  to get a pseudo-uuid. Remove it after flag
   //  context_hub_callback_uuid_enabled is ramped up.
-  inline bool isSystemServerConnectedLocked() {
-    Client *client = getClientByUuidLocked(kSystemServerUuid);
+  inline bool isSystemServerConnected() REQUIRES(mLock) {
+    Client *client = getClientByUuid(kSystemServerUuid);
     return client != nullptr && client->pid != Client::kPidUnset;
   }
 
-  std::string getUuidLocked(
-      const std::shared_ptr<IContextHubCallback> &callback);
+  std::string getUuid(const std::shared_ptr<IContextHubCallback> &callback)
+      REQUIRES(mLock);
 
   Client *getClientByField(
-      const std::function<bool(const Client &client)> &fieldMatcher);
+      const std::function<bool(const Client &client)> &fieldMatcher)
+      REQUIRES(mLock);
 
-  Client *getClientByClientIdLocked(HalClientId clientId);
+  Client *getClientByClientId(HalClientId clientId) REQUIRES(mLock);
 
-  Client *getClientByUuidLocked(const std::string &uuid);
+  Client *getClientByUuid(const std::string &uuid) REQUIRES(mLock);
 
-  Client *getClientByProcessIdLocked(pid_t pid);
+  Client *getClientByProcessId(pid_t pid) REQUIRES(mLock);
 
   DeadClientUnlinker mDeadClientUnlinker{};
 
@@ -472,11 +466,13 @@ class HalClientManager {
   // The lock guarding the access to clients' states and pending transactions
   std::mutex mLock;
 
-  std::vector<Client> mClients;
+  std::vector<Client> mClients GUARDED_BY(mLock);
 
   // States tracking pending transactions
-  std::optional<PendingLoadTransaction> mPendingLoadTransaction = std::nullopt;
-  std::optional<PendingTransaction> mPendingUnloadTransaction = std::nullopt;
+  std::optional<PendingLoadTransaction> mPendingLoadTransaction
+      GUARDED_BY(mLock) = std::nullopt;
+  std::optional<PendingTransaction> mPendingUnloadTransaction
+      GUARDED_BY(mLock) = std::nullopt;
 };
 }  // namespace android::hardware::contexthub::common::implementation
 

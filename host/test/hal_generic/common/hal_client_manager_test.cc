@@ -136,8 +136,8 @@ class HalClientManagerForTest : public HalClientManager {
     std::shared_ptr<ContextHubCallbackForTest> callback =
         ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
             kSystemServerUuid);
-    return createClientLocked(uuid, pid, callback,
-                              /* deathRecipientCookie= */ nullptr);
+    return createClient(uuid, pid, callback,
+                        /* deathRecipientCookie= */ nullptr);
   }
 
   HalClientId getNextClientId() {
