@@ -34,3 +34,10 @@ flag {
   description: "Call IContextHubCallback.getUuid() to retrieve the UUID when this flag is on"
   bug: "247124878"
 }
+
+flag {
+  name: "reliable_message"
+  namespace: "context_hub"
+  description: "Enable the reliable message APIs"
+  bug: "314081414"
+}
