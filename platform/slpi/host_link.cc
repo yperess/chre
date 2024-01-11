@@ -251,7 +251,7 @@ int generateMessageToHost(const MessageToHost *msgToHost, unsigned char *buffer,
                           size_t bufferSize, unsigned int *messageLen) {
   // TODO: ideally we'd construct our flatbuffer directly in the
   // host-supplied buffer
-  constexpr size_t kFixedSizePortion = 80;
+  constexpr size_t kFixedSizePortion = 88;
   ChreFlatBufferBuilder builder(msgToHost->message.size() + kFixedSizePortion);
   HostProtocolChre::encodeNanoappMessage(
       builder, msgToHost->appId, msgToHost->toHostData.messageType,

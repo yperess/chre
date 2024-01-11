@@ -182,7 +182,7 @@ DRAM_REGION_FUNCTION bool generateMessageToHost(const HostMessage *message) {
   LOGV("%s: message size %zu", __func__, message->message.size());
   // TODO(b/285219398): ideally we'd construct our flatbuffer directly in the
   // host-supplied buffer
-  constexpr size_t kFixedReserveSize = 80;
+  constexpr size_t kFixedReserveSize = 88;
   ChreFlatBufferBuilder builder(message->message.size() + kFixedReserveSize);
   HostProtocolChre::encodeNanoappMessage(
       builder, message->appId, message->toHostData.messageType,
