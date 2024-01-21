@@ -23,7 +23,6 @@
 #include <mutex>
 #include <optional>
 #include <string>
-#include <unordered_set>
 #include <utility>
 
 #include "chre_connection.h"
@@ -63,13 +62,14 @@ class PreloadedNanoappLoader {
    *
    * The napp_header and so files will both be used.
    *
-   * @param selectedNanoappIds only nanoapp ids in this set will be loaded if it
-   * is set. Otherwise the default value means every preloaded nanoapp will be
-   * loaded.
+   * @param selectedNanoappIds only nanoapp ids in this vector will be loaded if
+   * it is set. Otherwise the default value means every preloaded nanoapp will
+   * be loaded.
+   *
+   * @return the number of nanoapps loaded
    */
-  bool loadPreloadedNanoapps(
-      const std::optional<const std::unordered_set<uint64_t>>
-          &selectedNanoappIds = std::nullopt);
+  int loadPreloadedNanoapps(const std::optional<const std::vector<uint64_t>>
+                                &selectedNanoappIds = std::nullopt);
 
   /** Callback function to handle the response from CHRE. */
   bool onLoadNanoappResponse(const ::chre::fbs::LoadNanoappResponseT &response,

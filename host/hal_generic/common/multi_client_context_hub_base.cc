@@ -42,6 +42,9 @@ constexpr auto kHubInfoQueryTimeout = std::chrono::seconds(5);
 // timeout for enable/disable test mode, which is synchronous
 constexpr std::chrono::duration ktestModeTimeOut = std::chrono::seconds(5);
 
+// The transaction id for synchronously load/unload a nanoapp in test mode.
+constexpr int32_t kTestModeTransactionId{static_cast<int32_t>(0x80000000)};
+
 bool isValidContextHubId(uint32_t hubId) {
   if (hubId != kDefaultHubId) {
     LOGE("Invalid context hub ID %" PRId32, hubId);
@@ -424,6 +427,8 @@ bool MultiClientContextHubBase::enableTestMode() {
   if (mIsTestModeEnabled) {
     return true;
   }
+
+  // Pulling out a list of loaded nanoapps.
   mTestModeNanoapps.reset();
   if (!queryNanoapps(kDefaultHubId).isOk()) {
     LOGE("Failed to get a list of loaded nanoapps.");
@@ -432,24 +437,41 @@ bool MultiClientContextHubBase::enableTestMode() {
   }
   mEnableTestModeCv.wait_for(lock, ktestModeTimeOut,
                              [&]() { return mTestModeNanoapps.has_value(); });
-  for (const auto &appId : *mTestModeNanoapps) {
-    if (!unloadNanoapp(kDefaultHubId, appId, mTestModeTransactionId).isOk()) {
-      LOGE("Failed to unload nanoapp 0x%" PRIx64 " to enable the test mode.",
+
+  // Unload each nanoapp.
+  // mTestModeNanoapps tracks nanoapps that are actually unloaded. Removing an
+  // element from std::vector is O(n) but such a removal should rarely happen.
+  LOGI("Trying to unload %" PRIu64 " nanoapps to enable the test mode.",
+       mTestModeNanoapps->size());
+  for (auto iter = mTestModeNanoapps->begin();
+       iter != mTestModeNanoapps->end();) {
+    uint64_t appId = *iter;
+    if (!unloadNanoapp(kDefaultHubId, appId, kTestModeTransactionId).isOk()) {
+      LOGW("Failed to request to unload nanoapp 0x%" PRIx64
+           " to enable the test mode.",
            appId);
-      return false;
+      iter = mTestModeNanoapps->erase(iter);
+      continue;
     }
     mTestModeSyncUnloadResult.reset();
     mEnableTestModeCv.wait_for(lock, ktestModeTimeOut, [&]() {
       return mTestModeSyncUnloadResult.has_value();
     });
     if (!*mTestModeSyncUnloadResult) {
-      LOGE("Failed to unload nanoapp 0x%" PRIx64 " to enable the test mode.",
+      LOGW("Failed to unload nanoapp 0x%" PRIx64 " to enable the test mode.",
            appId);
-      return false;
+      iter = mTestModeNanoapps->erase(iter);
+      continue;
     }
+    iter++;
   }
-  mIsTestModeEnabled = true;
-  return true;
+  LOGI("%" PRIu64 " nanoapps are unloaded to enable the test mode.",
+       mTestModeNanoapps->size());
+
+  // When at least one nanoapp is unloaded, we treat the test mode as enabled
+  // so that disableTestMode() can reload them.
+  mIsTestModeEnabled = !mTestModeNanoapps->empty();
+  return mIsTestModeEnabled;
 }
 
 bool MultiClientContextHubBase::disableTestMode() {
@@ -457,16 +479,21 @@ bool MultiClientContextHubBase::disableTestMode() {
   if (!mIsTestModeEnabled) {
     return true;
   }
+
   if (mTestModeNanoapps.has_value() && !mTestModeNanoapps->empty()) {
-    if (!mPreloadedNanoappLoader->loadPreloadedNanoapps(*mTestModeNanoapps)) {
-      LOGE("Failed to reload the nanoapps to disable the test mode.");
-      return false;
+    int numOfNanoappsLoaded =
+        mPreloadedNanoappLoader->loadPreloadedNanoapps(*mTestModeNanoapps);
+    if (numOfNanoappsLoaded > 0) {
+      // As long as one nanoapp is reloaded, the test mode is treated as
+      // disabled.
+      mTestModeNanoapps.emplace();
+      mIsTestModeEnabled = false;
     }
+    LOGI("%d nanoapps are reloaded to recover from the test mode.",
+         numOfNanoappsLoaded);
   }
-  mTestModeNanoapps.emplace();
-  mTestModeTransactionId = static_cast<int32_t>(kDefaultTestModeTransactionId);
-  mIsTestModeEnabled = false;
-  return true;
+
+  return !mIsTestModeEnabled;
 }
 
 void MultiClientContextHubBase::handleMessageFromChre(
@@ -603,7 +630,7 @@ void MultiClientContextHubBase::onNanoappListResponse(
     if (!mTestModeNanoapps.has_value()) {
       mTestModeNanoapps.emplace();
       for (const auto &appInfo : appInfoList) {
-        mTestModeNanoapps->insert(appInfo.nanoappId);
+        mTestModeNanoapps->push_back(appInfo.nanoappId);
       }
       mEnableTestModeCv.notify_all();
     }
@@ -665,7 +692,7 @@ void MultiClientContextHubBase::onNanoappUnloadResponse(
           clientId, response.transaction_id)) {
     {
       std::unique_lock<std::mutex> lock(mTestModeMutex);
-      if (response.transaction_id == mTestModeTransactionId) {
+      if (response.transaction_id == kTestModeTransactionId) {
         mTestModeSyncUnloadResult.emplace(response.success);
         mEnableTestModeCv.notify_all();
         return;

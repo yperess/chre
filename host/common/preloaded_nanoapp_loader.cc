@@ -44,10 +44,10 @@ bool getNanoappHeaderFromFile(const char *headerFileName,
 }
 
 inline bool shouldSkipNanoapp(
-    std::optional<const std::unordered_set<uint64_t>> selectedNanoappIds,
-    uint64_t appId) {
-  return selectedNanoappIds.has_value() &&
-         selectedNanoappIds->find(appId) == selectedNanoappIds->end();
+    std::optional<const std::vector<uint64_t>> nanoappIds, uint64_t theAppId) {
+  return nanoappIds.has_value() &&
+         std::find(nanoappIds->begin(), nanoappIds->end(), theAppId) ==
+             nanoappIds->end();
 }
 }  // namespace
 
@@ -73,20 +73,20 @@ void PreloadedNanoappLoader::getPreloadedNanoappIds(
   }
 }
 
-bool PreloadedNanoappLoader::loadPreloadedNanoapps(
-    const std::optional<const std::unordered_set<uint64_t>>
-        &selectedNanoappIds) {
+int PreloadedNanoappLoader::loadPreloadedNanoapps(
+    const std::optional<const std::vector<uint64_t>> &selectedNanoappIds) {
   std::string directory;
   std::vector<std::string> nanoapps;
+  int numOfNanoappsLoaded = 0;
   if (!getPreloadedNanoappsFromConfigFile(mConfigPath, directory, nanoapps)) {
     LOGE("Failed to load any preloaded nanoapp");
-    return false;
+    return numOfNanoappsLoaded;
   }
   if (mIsPreloadingOngoing.exchange(true)) {
     LOGE("Preloading is ongoing. A new request shouldn't happen.");
-    return false;
+    return numOfNanoappsLoaded;
   }
-  bool success = true;
+
   for (uint32_t i = 0; i < nanoapps.size(); ++i) {
     std::string headerFilename = directory + "/" + nanoapps[i] + ".napp_header";
     std::string nanoappFilename = directory + "/" + nanoapps[i] + ".so";
@@ -95,7 +95,6 @@ bool PreloadedNanoappLoader::loadPreloadedNanoapps(
     if (!getNanoappHeaderFromFile(headerFilename.c_str(), headerBuffer)) {
       LOGE("Failed to parse the nanoapp header for %s",
            nanoappFilename.c_str());
-      success = false;
       continue;
     }
     const auto header =
@@ -106,12 +105,12 @@ bool PreloadedNanoappLoader::loadPreloadedNanoapps(
       continue;
     }
     // load the binary
-    if (!loadNanoapp(header, nanoappFilename, i)) {
-      success = false;
+    if (loadNanoapp(header, nanoappFilename, i)) {
+      numOfNanoappsLoaded++;
     }
   }
   mIsPreloadingOngoing.store(false);
-  return success;
+  return numOfNanoappsLoaded;
 }
 
 bool PreloadedNanoappLoader::loadNanoapp(const NanoAppBinaryHeader *appHeader,

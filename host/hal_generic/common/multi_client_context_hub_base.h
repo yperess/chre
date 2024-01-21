@@ -103,8 +103,6 @@ class MultiClientContextHubBase
     }
   };
 
-  static constexpr uint32_t kDefaultTestModeTransactionId = 0x80000000;
-
   void tryTimeSync(size_t numOfRetries, useconds_t retryDelayUs) {
     if (mConnection->isTimeSyncNeeded()) {
       TimeSyncer::sendTimeSyncWithRetry(mConnection.get(), numOfRetries,
@@ -172,10 +170,10 @@ class MultiClientContextHubBase
   std::condition_variable mEnableTestModeCv;
   bool mIsTestModeEnabled = false;
   std::optional<bool> mTestModeSyncUnloadResult = std::nullopt;
-  std::optional<std::unordered_set<uint64_t>> mTestModeNanoapps =
-      std::unordered_set<uint64_t>{};
-  int32_t mTestModeTransactionId =
-      static_cast<int32_t>(kDefaultTestModeTransactionId);
+  // mTestModeNanoapps is initialized to an empty vector to prevent it from
+  // unintended population in onNanoappListResponse().
+  std::optional<std::vector<uint64_t>> mTestModeNanoapps =
+      std::vector<uint64_t>{};
 
   EventLogger mEventLogger;
 };
