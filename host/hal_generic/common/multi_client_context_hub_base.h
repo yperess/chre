@@ -125,6 +125,8 @@ class MultiClientContextHubBase
       const ::chre::fbs::UnloadNanoappResponseT &response,
       HalClientId clientId);
   void onNanoappMessage(const ::chre::fbs::NanoappMessageT &message);
+  void onMessageDeliveryStatus(
+      const ::chre::fbs::MessageDeliveryStatusT &status);
   void onDebugDumpData(const ::chre::fbs::DebugDumpDataT &data);
   void onDebugDumpComplete(
       const ::chre::fbs::DebugDumpResponseT & /* response */);
@@ -201,6 +203,9 @@ class MultiClientContextHubBase
   LogMessageParser mLogger;
 
   MetricsReporter mMetricsReporter;
+
+  // Used to map message sequence number to host endpoint ID
+  std::unordered_map<int32_t, HostEndpointId> mReliableMessageMap;
 };
 }  // namespace android::hardware::contexthub::common::implementation
 #endif  // ANDROID_HARDWARE_CONTEXTHUB_COMMON_MULTICLIENTS_HAL_BASE_H_
