@@ -41,3 +41,10 @@ flag {
   description: "Enable the reliable message APIs"
   bug: "314081414"
 }
+
+flag {
+  name: "reliable_message_implementation"
+  namespace: "context_hub"
+  description: "Enable support for reliable messages in CHRE"
+  bug: "314081414"
+}
