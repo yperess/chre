@@ -47,9 +47,6 @@ endif
 include $(CHRE_PREFIX)/build/clean.mk
 include $(CHRE_PREFIX)/build/tools_config.mk
 
-# Flag config
-include $(CHRE_PREFIX)/build/embedded_flags.mk
-
 # NanoPB Source Generation
 include $(CHRE_PREFIX)/build/nanopb.mk
 
