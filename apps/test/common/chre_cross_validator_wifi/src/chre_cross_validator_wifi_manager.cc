@@ -151,8 +151,12 @@ void Manager::handleDataMessage(const chreMessageFromHostData *hostData) {
 
 void Manager::handleWifiScanResult(const chreWifiScanEvent *event) {
   for (uint8_t i = 0; i < event->resultCount; i++) {
-    mChreScanResults[mNextChreScanResultIndex++] =
-        WifiScanResult(event->results[i]);
+    if (mNextChreScanResultIndex < kMaxScanResults) {
+      // It is okay to ignore overflowed result since it won't be used to
+      // validate the test.
+      memcpy(&mChreScanResults[mNextChreScanResultIndex++], &event->results[i],
+             sizeof(chreWifiScanResult));
+    }
   }
   mNumResultsProcessed += event->resultCount;
   if (mNumResultsProcessed >= event->resultTotal) {
@@ -171,12 +175,14 @@ void Manager::compareAndSendResultToHost() {
   bool aboveMaxSizeCheck = (mApScanResultsSize > mMaxChreResultSize) &&
                            (mApScanResultsSize < mChreScanResultsSize);
 
+  verifyScanResults(&testResult);
+
   if (belowMaxSizeCheck || aboveMaxSizeCheck) {
     LOGE("AP and CHRE wifi scan result counts differ, AP = %" PRIu8
          ", CHRE = %" PRIu8 ", MAX = %" PRIu8,
          mApScanResultsSize, mChreScanResultsSize, mMaxChreResultSize);
     for (uint16_t i = 0; i < mChreScanResultsSize; i++) {
-      LOGE("CHRE[%u]: %s", i, mChreScanResults[i].getSsid());
+      LOGE("CHRE[%u]: %s", i, mChreScanResults[i].ssid);
     }
     for (uint16_t i = 0; i < mApScanResultsSize; i++) {
       LOGE("AP[%u]: %s", i, mApScanResults[i].getSsid());
@@ -190,7 +196,6 @@ void Manager::compareAndSendResultToHost() {
     return;
   }
 
-  verifyScanResults(&testResult);
   test_shared::sendMessageToHost(
       mCrossValidatorState.hostEndpoint, &testResult,
       chre_test_common_TestResult_fields,
@@ -200,7 +205,8 @@ void Manager::compareAndSendResultToHost() {
 void Manager::verifyScanResults(chre_test_common_TestResult *testResultOut) {
   bool allResultsValid = true;
   for (uint8_t i = 0; i < mChreScanResultsSize; i++) {
-    const WifiScanResult &chreScanResult = mChreScanResults[i];
+    const WifiScanResult chreScanResult = WifiScanResult(mChreScanResults[i]);
+    bool isValidResult = true;
     uint8_t apScanResultIndex;
     bool didFind = getMatchingScanResult(mApScanResults, mApScanResultsSize,
                                          chreScanResult, &apScanResultIndex);
@@ -217,8 +223,8 @@ void Manager::verifyScanResults(chre_test_common_TestResult *testResultOut) {
       if (apScanResult.getSeen()) {
         *testResultOut = makeTestResultProtoMessage(
             false, "Saw a CHRE scan result with a duplicate BSSID.");
-        allResultsValid = false;
-        LOGE("Chre Scan Result with bssid: %s has a dupplicate BSSID",
+        isValidResult = false;
+        LOGE("CHRE Scan Result with bssid: %s has a dupplicate BSSID",
              bssidStr);
       }
       if (!WifiScanResult::areEqual(chreScanResult, apScanResult)) {
@@ -226,9 +232,9 @@ void Manager::verifyScanResults(chre_test_common_TestResult *testResultOut) {
             makeTestResultProtoMessage(false,
                                        "Fields differ between an AP and "
                                        "CHRE scan result with same Bssid.");
-        allResultsValid = false;
+        isValidResult = false;
         LOGE(
-            "Chre Scan Result with bssid: %s found fields differ with "
+            "CHRE Scan Result with bssid: %s found fields differ with "
             "an AP scan result with same Bssid",
             bssidStr);
       }
@@ -239,11 +245,16 @@ void Manager::verifyScanResults(chre_test_common_TestResult *testResultOut) {
           false,
           "Could not find an AP scan result with the same Bssid as a CHRE "
           "result");
-      allResultsValid = false;
+      isValidResult = false;
       LOGE(
-          "Chre Scan Result with bssid: %s fail to find an AP scan "
+          "CHRE Scan Result with bssid: %s fail to find an AP scan "
           "with same Bssid",
           bssidStr);
+    }
+    if (!isValidResult) {
+      LOGE("False CHRE Scan Result with the following info:");
+      logChreWifiResult(mChreScanResults[i]);
+      allResultsValid = false;
     }
   }
   if (allResultsValid) {
