@@ -189,27 +189,29 @@ bool EventLoop::startNanoapp(UniquePtr<Nanoapp> &nanoapp) {
                                                     &existingInstanceId)) {
     LOGE("App with ID 0x%016" PRIx64 " already exists as instance ID %" PRIu16,
          nanoapp->getAppId(), existingInstanceId);
-  } else if (!mNanoapps.prepareForPush()) {
-    LOG_OOM();
   } else {
     Nanoapp *newNanoapp = nanoapp.get();
     {
       LockGuard<Mutex> lock(mNanoappsLock);
-      mNanoapps.push_back(std::move(nanoapp));
+      success = mNanoapps.push_back(std::move(nanoapp));
       // After this point, nanoapp is null as we've transferred ownership into
       // mNanoapps.back() - use newNanoapp to reference it
     }
-
-    mCurrentApp = newNanoapp;
-    success = newNanoapp->start();
-    mCurrentApp = nullptr;
     if (!success) {
-      LOGE("Nanoapp %" PRIu16 " failed to start", newNanoapp->getInstanceId());
-      unloadNanoapp(newNanoapp->getInstanceId(),
-                    /*allowSystemNanoappUnload=*/true,
-                    /*nanoappStarted=*/false);
+      LOG_OOM();
     } else {
-      notifyAppStatusChange(CHRE_EVENT_NANOAPP_STARTED, *newNanoapp);
+      mCurrentApp = newNanoapp;
+      success = newNanoapp->start();
+      mCurrentApp = nullptr;
+      if (!success) {
+        LOGE("Nanoapp %" PRIu16 " failed to start",
+             newNanoapp->getInstanceId());
+        unloadNanoapp(newNanoapp->getInstanceId(),
+                      /*allowSystemNanoappUnload=*/true,
+                      /*nanoappStarted=*/false);
+      } else {
+        notifyAppStatusChange(CHRE_EVENT_NANOAPP_STARTED, *newNanoapp);
+      }
     }
   }
 
