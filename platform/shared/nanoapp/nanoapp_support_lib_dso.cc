@@ -112,7 +112,10 @@ void nanoappHandleEventCompat(uint32_t senderInstanceId, uint16_t eventType,
 }
 #endif
 
-#if !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT) && defined(CHRE_NANOAPP_USES_BLE)
+#if !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT) && \
+    defined(CHRE_NANOAPP_USES_BLE) &&            \
+    defined(CHRE_FIRST_SUPPORTED_API_VERSION) && \
+    CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8
 void reverseServiceDataUuid(struct chreBleGenericFilter *filter) {
   if (filter->type != CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE ||
       filter->len == 0) {
@@ -141,7 +144,10 @@ bool serviceDataFilterEndianSwapRequired(
   }
   return false;
 }
-#endif
+#endif  // !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT) &&
+        // defined(CHRE_NANOAPP_USES_BLE) &&
+        // defined(CHRE_FIRST_SUPPORTED_API_VERSION) &&
+        // CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8
 
 }  // anonymous namespace
 
@@ -198,17 +204,23 @@ const struct chreNslNanoappInfo *getChreNslDsoNanoappInfo() {
 // be avoided at the expense of a nanoapp not being able to load at all on prior
 // implementations.
 
-#ifndef CHRE_NANOAPP_DISABLE_BACKCOMPAT
+#if !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT) && \
+    defined(CHRE_FIRST_SUPPORTED_API_VERSION) && \
+    CHRE_FIRST_SUPPORTED_API_VERSION >= CHRE_API_VERSION_1_1
 
 #include <dlfcn.h>
 
 namespace {
+
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8
 // Populate chreNanoappInfo for CHRE API pre v1.8.
 void populateChreNanoappInfoPre18(struct chreNanoappInfo *info) {
   info->rpcServiceCount = 0;
   info->rpcServices = nullptr;
   memset(&info->reserved, 0, sizeof(info->reserved));
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8 */
+
 }  // namespace
 
 /**
@@ -230,12 +242,15 @@ void populateChreNanoappInfoPre18(struct chreNanoappInfo *info) {
 
 #ifdef CHRE_NANOAPP_USES_AUDIO
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2
 WEAK_SYMBOL
 bool chreAudioGetSource(uint32_t handle, struct chreAudioSource *audioSource) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreAudioGetSource);
   return (fptr != nullptr) ? fptr(handle, audioSource) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2
 WEAK_SYMBOL
 bool chreAudioConfigureSource(uint32_t handle, bool enable,
                               uint64_t bufferDuration,
@@ -245,35 +260,47 @@ bool chreAudioConfigureSource(uint32_t handle, bool enable,
              ? fptr(handle, enable, bufferDuration, deliveryInterval)
              : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2
 WEAK_SYMBOL
 bool chreAudioGetStatus(uint32_t handle, struct chreAudioSourceStatus *status) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreAudioGetStatus);
   return (fptr != nullptr) ? fptr(handle, status) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2 */
 
 #endif /* CHRE_NANOAPP_USES_AUDIO */
 
 #ifdef CHRE_NANOAPP_USES_BLE
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 uint32_t chreBleGetCapabilities() {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleGetCapabilities);
   return (fptr != nullptr) ? fptr() : CHRE_BLE_CAPABILITIES_NONE;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 uint32_t chreBleGetFilterCapabilities() {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleGetFilterCapabilities);
   return (fptr != nullptr) ? fptr() : CHRE_BLE_FILTER_CAPABILITIES_NONE;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_7
 WEAK_SYMBOL
 bool chreBleFlushAsync(const void *cookie) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleFlushAsync);
   return (fptr != nullptr) ? fptr(cookie) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_7 */
 
+// NOTE: The backward compatibility provided by this stub is only needed below
+// CHRE v1.8 so we check the first API version for the platform against v1.8.
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8
 WEAK_SYMBOL
 bool chreBleStartScanAsync(chreBleScanMode mode, uint32_t reportDelayMs,
                            const struct chreBleScanFilter *filter) {
@@ -302,7 +329,9 @@ bool chreBleStartScanAsync(chreBleScanMode mode, uint32_t reportDelayMs,
   chreHeapFree(const_cast<chreBleGenericFilter *>(convertedFilter.scanFilters));
   return success;
 }
+#endif /* CRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_9
 WEAK_SYMBOL
 bool chreBleStartScanAsyncV1_9(chreBleScanMode mode, uint32_t reportDelayMs,
                                const struct chreBleScanFilterV1_9 *filter,
@@ -316,13 +345,17 @@ bool chreBleStartScanAsyncV1_9(chreBleScanMode mode, uint32_t reportDelayMs,
   }
   return fptr(mode, reportDelayMs, filter, cookie);
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_9 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 bool chreBleStopScanAsync() {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleStopScanAsync);
   return (fptr != nullptr) ? fptr() : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_9
 WEAK_SYMBOL
 bool chreBleStopScanAsyncV1_9(const void *cookie) {
   if (chreGetApiVersion() < CHRE_API_VERSION_1_9) {
@@ -334,21 +367,27 @@ bool chreBleStopScanAsyncV1_9(const void *cookie) {
   }
   return fptr(cookie);
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_9 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8
 WEAK_SYMBOL
 bool chreBleReadRssiAsync(uint16_t connectionHandle, const void *cookie) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleReadRssiAsync);
   return (fptr != nullptr) ? fptr(connectionHandle, cookie) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8
 WEAK_SYMBOL
 bool chreBleGetScanStatus(struct chreBleScanStatus *status) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleGetScanStatus);
   return (fptr != nullptr) ? fptr(status) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8 */
 
 #endif /* CHRE_NANOAPP_USES_BLE */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2
 WEAK_SYMBOL
 void chreConfigureHostSleepStateEvents(bool enable) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreConfigureHostSleepStateEvents);
@@ -356,25 +395,33 @@ void chreConfigureHostSleepStateEvents(bool enable) {
     fptr(enable);
   }
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2
 WEAK_SYMBOL
 bool chreIsHostAwake(void) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreIsHostAwake);
   return (fptr != nullptr) ? fptr() : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2 */
 
 #ifdef CHRE_NANOAPP_USES_GNSS
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2
 WEAK_SYMBOL
 bool chreGnssConfigurePassiveLocationListener(bool enable) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreGnssConfigurePassiveLocationListener);
   return (fptr != nullptr) ? fptr(enable) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2 */
 
 #endif /* CHRE_NANOAPP_USES_GNSS */
 
 #ifdef CHRE_NANOAPP_USES_WIFI
 
+// NOTE: The backward compatibility provided by this stub is only needed below
+// CHRE v1.5 so we check the first API version for the platform against v1.5.
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5
 WEAK_SYMBOL
 bool chreWifiRequestScanAsync(const struct chreWifiScanParams *params,
                               const void *cookie) {
@@ -391,36 +438,46 @@ bool chreWifiRequestScanAsync(const struct chreWifiScanParams *params,
     return fptr(params, cookie);
   }
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2
 WEAK_SYMBOL
 bool chreWifiRequestRangingAsync(const struct chreWifiRangingParams *params,
                                  const void *cookie) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreWifiRequestRangingAsync);
   return (fptr != nullptr) ? fptr(params, cookie) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_2 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 bool chreWifiNanRequestRangingAsync(
     const struct chreWifiNanRangingParams *params, const void *cookie) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreWifiNanRequestRangingAsync);
   return (fptr != nullptr) ? fptr(params, cookie) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 bool chreWifiNanSubscribe(struct chreWifiNanSubscribeConfig *config,
                           const void *cookie) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreWifiNanSubscribe);
   return (fptr != nullptr) ? fptr(config, cookie) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 bool chreWifiNanSubscribeCancel(uint32_t subscriptionID) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreWifiNanSubscribeCancel);
   return (fptr != nullptr) ? fptr(subscriptionID) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
 #endif /* CHRE_NANOAPP_USES_WIFI */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5
 WEAK_SYMBOL
 bool chreSensorFind(uint8_t sensorType, uint8_t sensorIndex, uint32_t *handle) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreSensorFind);
@@ -432,26 +489,34 @@ bool chreSensorFind(uint8_t sensorType, uint8_t sensorIndex, uint32_t *handle) {
     return false;
   }
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_3
 WEAK_SYMBOL
 bool chreSensorConfigureBiasEvents(uint32_t sensorHandle, bool enable) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreSensorConfigureBiasEvents);
   return (fptr != nullptr) ? fptr(sensorHandle, enable) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_3 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_3
 WEAK_SYMBOL
 bool chreSensorGetThreeAxisBias(uint32_t sensorHandle,
                                 struct chreSensorThreeAxisData *bias) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreSensorGetThreeAxisBias);
   return (fptr != nullptr) ? fptr(sensorHandle, bias) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_3 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_3
 WEAK_SYMBOL
 bool chreSensorFlushAsync(uint32_t sensorHandle, const void *cookie) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreSensorFlushAsync);
   return (fptr != nullptr) ? fptr(sensorHandle, cookie) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_3 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_4
 WEAK_SYMBOL
 void chreConfigureDebugDumpEvent(bool enable) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreConfigureDebugDumpEvent);
@@ -459,7 +524,9 @@ void chreConfigureDebugDumpEvent(bool enable) {
     fptr(enable);
   }
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_4 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_4
 WEAK_SYMBOL
 void chreDebugDumpLog(const char *formatStr, ...) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(platform_chreDebugDumpVaLog);
@@ -470,7 +537,9 @@ void chreDebugDumpLog(const char *formatStr, ...) {
     va_end(args);
   }
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_4 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5
 WEAK_SYMBOL
 bool chreSendMessageWithPermissions(void *message, size_t messageSize,
                                     uint32_t messageType, uint16_t hostEndpoint,
@@ -485,7 +554,9 @@ bool chreSendMessageWithPermissions(void *message, size_t messageSize,
                                          hostEndpoint, freeCallback);
   }
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_10
 WEAK_SYMBOL
 bool chreSendReliableMessageAsync(void *message, size_t messageSize,
                                   uint32_t messageType, uint16_t hostEndpoint,
@@ -500,7 +571,9 @@ bool chreSendReliableMessageAsync(void *message, size_t messageSize,
     return false;
   }
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_10 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5
 WEAK_SYMBOL
 int8_t chreUserSettingGetState(uint8_t setting) {
   int8_t settingState = CHRE_USER_SETTING_STATE_UNKNOWN;
@@ -510,7 +583,9 @@ int8_t chreUserSettingGetState(uint8_t setting) {
   }
   return settingState;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5
 WEAK_SYMBOL
 void chreUserSettingConfigureEvents(uint8_t setting, bool enable) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreUserSettingConfigureEvents);
@@ -518,28 +593,38 @@ void chreUserSettingConfigureEvents(uint8_t setting, bool enable) {
     fptr(setting, enable);
   }
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_5 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 bool chreConfigureHostEndpointNotifications(uint16_t hostEndpointId,
                                             bool enable) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreConfigureHostEndpointNotifications);
   return (fptr != nullptr) ? fptr(hostEndpointId, enable) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 bool chrePublishRpcServices(struct chreNanoappRpcService *services,
                             size_t numServices) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chrePublishRpcServices);
   return (fptr != nullptr) ? fptr(services, numServices) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6
 WEAK_SYMBOL
 bool chreGetHostEndpointInfo(uint16_t hostEndpointId,
                              struct chreHostEndpointInfo *info) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreGetHostEndpointInfo);
   return (fptr != nullptr) ? fptr(hostEndpointId, info) : false;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_6 */
 
+// NOTE: The backward compatibility provided by this stub is only needed below
+// CHRE v1.8 so we check the first API version for the platform against v1.8.
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8
 bool chreGetNanoappInfoByAppId(uint64_t appId, struct chreNanoappInfo *info) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreGetNanoappInfoByAppId);
   bool success = (fptr != nullptr) ? fptr(appId, info) : false;
@@ -548,7 +633,11 @@ bool chreGetNanoappInfoByAppId(uint64_t appId, struct chreNanoappInfo *info) {
   }
   return success;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8 */
 
+// NOTE: The backward compatibility provided by this stub is only needed below
+// CHRE v1.8 so we check the first API version for the platform against v1.8.
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8
 bool chreGetNanoappInfoByInstanceId(uint32_t instanceId,
                                     struct chreNanoappInfo *info) {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreGetNanoappInfoByInstanceId);
@@ -558,17 +647,24 @@ bool chreGetNanoappInfoByInstanceId(uint32_t instanceId,
   }
   return success;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_8 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_10
 WEAK_SYMBOL
 uint32_t chreGetCapabilities() {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreGetCapabilities);
   return (fptr != nullptr) ? fptr() : CHRE_CAPABILITIES_NONE;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_10 */
 
+#if CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_10
 WEAK_SYMBOL
 uint32_t chreGetMessageToHostMaxSize() {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreGetMessageToHostMaxSize);
   return (fptr != nullptr) ? fptr() : CHRE_MESSAGE_TO_HOST_MAX_SIZE;
 }
+#endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_10 */
 
-#endif  // CHRE_NANOAPP_DISABLE_BACKCOMPAT
+#endif  // !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT) &&
+        // defined(CHRE_FIRST_SUPPORTED_API_VERSION) &&
+        // CHRE_FIRST_SUPPORTED_API_VERSION >= CHRE_API_VERSION_1_1
