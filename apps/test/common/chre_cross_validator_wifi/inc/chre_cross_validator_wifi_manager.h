@@ -61,14 +61,14 @@ class Manager {
   //! Struct that holds some information about the state of the cross validator
   CrossValidatorState mCrossValidatorState;
 
-  // TODO: Find a better max scan results val
+  // TODO(b/322407686): Find a better max scan results val
   static constexpr uint8_t kMaxScanResults = UINT8_MAX;
   WifiScanResult mApScanResults[kMaxScanResults];
   WifiScanResult mChreScanResults[kMaxScanResults];
 
   //! The current index that cross validator should assign to when a new scan
   //! result comes in.
-  uint8_t mChreScanResultsI = 0;
+  uint8_t mNextChreScanResultIndex = 0;
 
   // The max chre scan results to be validated
   uint8_t mMaxChreResultSize = 100;

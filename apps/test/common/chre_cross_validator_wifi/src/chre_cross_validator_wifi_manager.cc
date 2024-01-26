@@ -151,11 +151,12 @@ void Manager::handleDataMessage(const chreMessageFromHostData *hostData) {
 
 void Manager::handleWifiScanResult(const chreWifiScanEvent *event) {
   for (uint8_t i = 0; i < event->resultCount; i++) {
-    mChreScanResults[mChreScanResultsI++] = WifiScanResult(event->results[i]);
+    mChreScanResults[mNextChreScanResultIndex++] =
+        WifiScanResult(event->results[i]);
   }
   mNumResultsProcessed += event->resultCount;
   if (mNumResultsProcessed >= event->resultTotal) {
-    mChreScanResultsSize = mChreScanResultsI;
+    mChreScanResultsSize = mNextChreScanResultIndex;
     mChreDataCollectionDone = true;
     if (mApDataCollectionDone) {
       compareAndSendResultToHost();
