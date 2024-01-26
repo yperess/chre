@@ -21,8 +21,10 @@
 #include "chre/util/unique_ptr.h"
 
 using chre::MakeUnique;
+using chre::MakeUniqueArray;
 using chre::MakeUniqueZeroFill;
 using chre::UniquePtr;
+using chre::util::internal::is_unbounded_array_v;
 
 struct Value {
   Value(int value) : value(value) {
@@ -69,12 +71,43 @@ TEST(UniquePtr, Construct) {
   EXPECT_EQ(myInt.get()->value, 0xcafe);
   EXPECT_EQ(myInt->value, 0xcafe);
   EXPECT_EQ((*myInt).value, 0xcafe);
-  EXPECT_EQ(myInt[0].value, 0xcafe);
+
+  int *realInt = chre::memoryAlloc<int>();
+  ASSERT_NE(realInt, nullptr);
+  UniquePtr<int> wrapped(realInt);
+  ASSERT_TRUE(realInt);
 }
 
 struct BigArray {
   int x[2048];
 };
+
+// Check the is_unbounded_array_v backport used in memoryAllocArray to help
+// constrain usage of MakeUniqueArray to only the proper type category
+static_assert(is_unbounded_array_v<int> == false &&
+                  is_unbounded_array_v<char[2]> == false &&
+                  is_unbounded_array_v<char[]> == true,
+              "is_unbounded_array_v implemented incorrectly");
+
+TEST(UniquePtr, MakeUniqueArray) {
+  // For these tests, we are just allocating and writing to the array - the main
+  // thing we are looking for is that the allocation is of an appropriate size,
+  // which should be checked when running this test with sanitizers enabled
+  {
+    constexpr size_t kSize = 32;
+    UniquePtr<char[]> ptr = MakeUniqueArray<char[]>(kSize);
+    ASSERT_FALSE(ptr.isNull());
+    std::memset(ptr.get(), 0x98, kSize);
+    ptr[0] = 0x11;
+    EXPECT_EQ(*ptr.get(), 0x11);
+  }
+  {
+    constexpr size_t kSize = 4;
+    auto ptr = MakeUniqueArray<BigArray[]>(kSize);
+    ASSERT_FALSE(ptr.isNull());
+    std::memset(ptr.get(), 0x37, sizeof(BigArray) * kSize);
+  }
+}
 
 TEST(UniquePtr, MakeUniqueZeroFill) {
   BigArray baseline = {};

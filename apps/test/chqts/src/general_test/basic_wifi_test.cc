@@ -139,12 +139,10 @@ void testRequestRangingAsync(const struct chreWifiScanResult *aps,
   uint8_t targetLength =
       std::min(length, static_cast<uint8_t>(CHRE_WIFI_RANGING_LIST_MAX_LEN));
 
-  void *array = chreHeapAlloc(sizeof(chreWifiRangingTarget) * targetLength);
-  ASSERT_NE(array, nullptr,
+  auto targetList =
+      chre::MakeUniqueArray<struct chreWifiRangingTarget[]>(targetLength);
+  ASSERT_NE(targetList, nullptr,
             "Failed to allocate array for issuing a ranging request");
-
-  chre::UniquePtr<struct chreWifiRangingTarget> targetList(
-      static_cast<struct chreWifiRangingTarget *>(array));
 
   // Save the last spot for any available RTT APs in case they didn't make it
   // in the array earlier. This first loop allows non-RTT compatible APs as a

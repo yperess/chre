@@ -18,6 +18,7 @@
 #define CHRE_UTIL_UNIQUE_PTR_H_
 
 #include <cstddef>
+#include <type_traits>
 
 #include "chre/util/non_copyable.h"
 
@@ -28,12 +29,22 @@ namespace chre {
  * memory. The goal is to be similar to std::unique_ptr, but we do not support
  * custom deleters - deletion is always done via memoryFree().
  */
-template <typename ObjectType>
+template <typename ObjectOrArrayType>
 class UniquePtr : public NonCopyable {
+  // For array types (e.g. char[]) we need to drop the [] to get to the actual
+  // type used with pointers. If ObjectOrArrayType is not an array, then the
+  // type is the same.
+  using ObjectType = typename std::remove_extent<ObjectOrArrayType>::type;
+
+  // This limitation is due to CHRE not supporting operator delete[], which
+  // requires querying the allocation size from the heap allocator to know how
+  // many times to invoke the destructor.
+  static_assert(!std::is_array_v<ObjectOrArrayType> ||
+                    std::is_trivially_destructible_v<ObjectType>,
+                "UniquePtr is only supported for arrays with trivially "
+                "destructible elements");
+
  public:
-  /**
-   * Pointer type of ObjectType.
-   */
   typedef ObjectType *pointer;
 
   /**
@@ -57,7 +68,7 @@ class UniquePtr : public NonCopyable {
    *
    * @param other UniquePtr instance to move into this object
    */
-  UniquePtr(UniquePtr<ObjectType> &&other);
+  UniquePtr(UniquePtr<ObjectOrArrayType> &&other);
 
   /**
    * Constructs a new UniquePtr via moving the Object from another UniquePtr.
@@ -66,8 +77,8 @@ class UniquePtr : public NonCopyable {
    *
    * @param other UniquePtr instance to move and convert into this object.
    */
-  template <typename OtherObjectType>
-  UniquePtr(UniquePtr<OtherObjectType> &&other);
+  template <typename OtherObjectOrArrayType>
+  UniquePtr(UniquePtr<OtherObjectOrArrayType> &&other);
 
   /**
    * Deconstructs the object (if necessary) and releases associated memory.
@@ -124,8 +135,7 @@ class UniquePtr : public NonCopyable {
   ObjectType &operator*() const;
 
   /**
-   * @param index The index of an object in the underlying array object.
-   * @return A reference to the underlying object at an index.
+   * Indexing operator. Only supported if the type we are wrapping is an array.
    */
   ObjectType &operator[](size_t index) const;
 
@@ -136,7 +146,7 @@ class UniquePtr : public NonCopyable {
    * @param other The other object being moved.
    * @return A reference to the newly moved object.
    */
-  UniquePtr<ObjectType> &operator=(UniquePtr<ObjectType> &&other);
+  UniquePtr<ObjectOrArrayType> &operator=(UniquePtr<ObjectOrArrayType> &&other);
 
   /**
    * Two unique_ptr compare equal (==) if their stored pointers compare equal,
@@ -146,7 +156,7 @@ class UniquePtr : public NonCopyable {
    * @return true if the other's pointer is same as the underlying pointer,
    * otherwise false.
    */
-  bool operator==(const UniquePtr<ObjectType> &other) const;
+  bool operator==(const UniquePtr<ObjectOrArrayType> &other) const;
 
   /**
    * Two unique_ptr compare equal (==) if their stored pointers compare equal,
@@ -156,7 +166,7 @@ class UniquePtr : public NonCopyable {
    * @return true if the other's pointer is different than the underlying
    * pointer, otherwise false.
    */
-  bool operator!=(const UniquePtr<ObjectType> &other) const;
+  bool operator!=(const UniquePtr<ObjectOrArrayType> &other) const;
 
   //! @defgroup Alternative approaches for null testing
   //! @{
@@ -174,12 +184,17 @@ class UniquePtr : public NonCopyable {
  private:
   // Befriend this class to itself to allow the templated conversion constructor
   // permission to access mObject below.
-  template <typename OtherObjectType>
+  template <typename OtherObjectOrArrayType>
   friend class UniquePtr;
 
-  //! A pointer to the underlying storage for this object.
   ObjectType *mObject;
 };
+
+// Help the compiler out with a deduction guide – now that the template
+// parameter may differ from the constructor parameter (e.g. char[] vs. char*),
+// it isn't always able to make the connection that they are usually the same.
+template <typename ObjectType>
+UniquePtr(ObjectType *) -> UniquePtr<ObjectType>;
 
 /**
  * Allocates and constructs a new object of type ObjectType on the heap, and
@@ -190,6 +205,21 @@ class UniquePtr : public NonCopyable {
  */
 template <typename ObjectType, typename... Args>
 UniquePtr<ObjectType> MakeUnique(Args &&... args);
+
+/**
+ * Allocates an array of objects of type ObjectType on the heap, and returns a
+ * UniquePtr that owns the object. ObjectType must be an array type with unknown
+ * bound, for example char[]. Objects are default-initialized (i.e. may hold an
+ * indeterminate/uninitialized value). This function is similar to
+ * std::make_unique_for_overwrite(std::size_t).
+ *
+ * Example usage:
+ *   auto buf = MakeUniqueArray<uint8_t[]>(size);
+ *
+ * @param count The size of the array
+ */
+template <typename ObjectArrayType>
+UniquePtr<ObjectArrayType> MakeUniqueArray(size_t count);
 
 /**
  * Just like MakeUnique(), except it zeros out any allocated memory. Intended to
