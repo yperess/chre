@@ -117,7 +117,7 @@ void Manager::handleStepStartMessage(
       } else {
         LOGD("chreWifiConfigureScanMonitorAsync() succeeded");
         if (stepStartCommand.has_chreScanCapacity) {
-          mMaxChreResultSize = stepStartCommand.chreScanCapacity;
+          mExpectedMaxChreResultCanHandle = stepStartCommand.chreScanCapacity;
         }
       }
       break;
@@ -135,11 +135,12 @@ void Manager::handleDataMessage(const chreMessageFromHostData *hostData) {
                              hostData->messageSize);
   WifiScanResult scanResult(&stream);
   uint8_t scanResultIndex = scanResult.getResultIndex();
-  mApScanResultsSize = scanResult.getTotalNumResults();
-  if (scanResultIndex > mApScanResultsSize) {
+  if (scanResultIndex > scanResult.getTotalNumResults()) {
     LOGE("AP scan result index is greater than scan results size");
   } else {
-    mApScanResults[scanResultIndex] = scanResult;
+    if (!mApScanResults.push_back(scanResult)) {
+      LOG_OOM();
+    }
     if (scanResult.isLastMessage()) {
       mApDataCollectionDone = true;
       if (mChreDataCollectionDone) {
@@ -151,16 +152,9 @@ void Manager::handleDataMessage(const chreMessageFromHostData *hostData) {
 
 void Manager::handleWifiScanResult(const chreWifiScanEvent *event) {
   for (uint8_t i = 0; i < event->resultCount; i++) {
-    if (mNextChreScanResultIndex < kMaxScanResults) {
-      // It is okay to ignore overflowed result since it won't be used to
-      // validate the test.
-      memcpy(&mChreScanResults[mNextChreScanResultIndex++], &event->results[i],
-             sizeof(chreWifiScanResult));
-    }
+    mChreScanResults.push_back(event->results[i]);
   }
-  mNumResultsProcessed += event->resultCount;
-  if (mNumResultsProcessed >= event->resultTotal) {
-    mChreScanResultsSize = mNextChreScanResultIndex;
+  if (mChreScanResults.size() >= event->resultTotal) {
     mChreDataCollectionDone = true;
     if (mApDataCollectionDone) {
       compareAndSendResultToHost();
@@ -170,23 +164,21 @@ void Manager::handleWifiScanResult(const chreWifiScanEvent *event) {
 
 void Manager::compareAndSendResultToHost() {
   chre_test_common_TestResult testResult;
-  bool belowMaxSizeCheck = (mApScanResultsSize <= mMaxChreResultSize) &&
-                           (mApScanResultsSize != mChreScanResultsSize);
-  bool aboveMaxSizeCheck = (mApScanResultsSize > mMaxChreResultSize) &&
-                           (mApScanResultsSize < mChreScanResultsSize);
+  bool belowMaxSizeCheck =
+      mApScanResults.size() <= mExpectedMaxChreResultCanHandle &&
+      mApScanResults.size() != mChreScanResults.size();
+  bool aboveMaxSizeCheck =
+      mApScanResults.size() > mExpectedMaxChreResultCanHandle &&
+      mApScanResults.size() < mChreScanResults.size();
 
   verifyScanResults(&testResult);
 
   if (belowMaxSizeCheck || aboveMaxSizeCheck) {
-    LOGE("AP and CHRE wifi scan result counts differ, AP = %" PRIu8
-         ", CHRE = %" PRIu8 ", MAX = %" PRIu8,
-         mApScanResultsSize, mChreScanResultsSize, mMaxChreResultSize);
-    for (uint16_t i = 0; i < mChreScanResultsSize; i++) {
-      LOGE("CHRE[%u]: %s", i, mChreScanResults[i].ssid);
-    }
-    for (uint16_t i = 0; i < mApScanResultsSize; i++) {
-      LOGE("AP[%u]: %s", i, mApScanResults[i].getSsid());
-    }
+    LOGE(
+        "AP and CHRE wifi scan result counts differ, AP = %zu, CHRE = %zu, MAX "
+        "= %" PRIu8,
+        mApScanResults.size(), mChreScanResults.size(),
+        mExpectedMaxChreResultCanHandle);
     test_shared::sendTestResultWithMsgToHost(
         mCrossValidatorState.hostEndpoint,
         chre_cross_validation_wifi_MessageType_STEP_RESULT, false /*success*/,
@@ -204,12 +196,10 @@ void Manager::compareAndSendResultToHost() {
 
 void Manager::verifyScanResults(chre_test_common_TestResult *testResultOut) {
   bool allResultsValid = true;
-  for (uint8_t i = 0; i < mChreScanResultsSize; i++) {
+  for (uint8_t i = 0; i < mChreScanResults.size(); i++) {
     const WifiScanResult chreScanResult = WifiScanResult(mChreScanResults[i]);
     bool isValidResult = true;
-    uint8_t apScanResultIndex;
-    bool didFind = getMatchingScanResult(mApScanResults, mApScanResultsSize,
-                                         chreScanResult, &apScanResultIndex);
+    size_t index = getMatchingScanResultIndex(mApScanResults, chreScanResult);
 
     const char *bssidStr = "<non-printable>";
     char bssidBuffer[chre::kBssidStrLen];
@@ -218,8 +208,8 @@ void Manager::verifyScanResults(chre_test_common_TestResult *testResultOut) {
       bssidStr = bssidBuffer;
     }
 
-    if (didFind) {
-      WifiScanResult &apScanResult = mApScanResults[apScanResultIndex];
+    if (index != SIZE_MAX) {
+      WifiScanResult &apScanResult = mApScanResults[index];
       if (apScanResult.getSeen()) {
         *testResultOut = makeTestResultProtoMessage(
             false, "Saw a CHRE scan result with a duplicate BSSID.");
@@ -238,6 +228,8 @@ void Manager::verifyScanResults(chre_test_common_TestResult *testResultOut) {
             "an AP scan result with same Bssid",
             bssidStr);
       }
+      // Mark this scan result as already seen so that the next time it is used
+      // as a match the test will fail because of duplicate scan results.
       apScanResult.didSee();
     } else {
       // Error CHRE BSSID does not match any AP
@@ -257,24 +249,35 @@ void Manager::verifyScanResults(chre_test_common_TestResult *testResultOut) {
       allResultsValid = false;
     }
   }
+
+  for (auto &scanResult : mApScanResults) {
+    if (!scanResult.getSeen()) {
+      LOGW("AP %s is not seen in CHRE", scanResult.getSsid());
+      // Since CHRE is more constrained in memory, it is expected that if we
+      // receive over a cretin amount of AP, we will drop some of them.
+      if (mApScanResults.size() <= mExpectedMaxChreResultCanHandle) {
+        *testResultOut = makeTestResultProtoMessage(
+            false /*success*/,
+            "Extra AP information shown in host "
+            "when small number of AP results presenting");
+        allResultsValid = false;
+      }
+    }
+  }
   if (allResultsValid) {
     *testResultOut = makeTestResultProtoMessage(true);
   }
 }
 
-bool Manager::getMatchingScanResult(WifiScanResult *results,
-                                    uint8_t resultsSize,
-                                    const WifiScanResult &queryResult,
-                                    uint8_t *resultIndexOut) {
-  for (uint8_t i = 0; i < resultsSize; i++) {
+size_t Manager::getMatchingScanResultIndex(
+    const DynamicVector<WifiScanResult> &results,
+    const WifiScanResult &queryResult) {
+  for (size_t i = 0; i < results.size(); i++) {
     if (WifiScanResult::bssidsAreEqual(results[i], queryResult)) {
-      // Mark this scan result as already seen so that the next time it is used
-      // as a match the test will fail because of duplicate scan results.
-      *resultIndexOut = i;
-      return true;
+      return i;
     }
   }
-  return false;
+  return SIZE_MAX;
 }
 
 bool Manager::encodeErrorMessage(pb_ostream_t *stream,

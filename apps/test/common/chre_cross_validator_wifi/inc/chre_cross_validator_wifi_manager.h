@@ -24,6 +24,7 @@
 #include <cinttypes>
 #include <cstdint>
 
+#include "chre/util/dynamic_vector.h"
 #include "chre/util/singleton.h"
 #include "chre_api/chre.h"
 #include "chre_api/chre/wifi.h"
@@ -60,23 +61,13 @@ class Manager {
   //! Struct that holds some information about the state of the cross validator
   CrossValidatorState mCrossValidatorState;
 
-  // TODO(b/322407686): Find a better max scan results val
-  static constexpr uint8_t kMaxScanResults = UINT8_MAX;
-  WifiScanResult mApScanResults[kMaxScanResults];
-  chreWifiScanResult mChreScanResults[kMaxScanResults];
+  DynamicVector<WifiScanResult> mApScanResults;
+  DynamicVector<chreWifiScanResult> mChreScanResults;
 
-  //! The current index that cross validator should assign to when a new scan
-  //! result comes in.
-  uint8_t mNextChreScanResultIndex = 0;
-
-  // The max chre scan results to be validated
-  uint8_t mMaxChreResultSize = 100;
-
-  uint8_t mChreScanResultsSize = 0;
-  uint8_t mApScanResultsSize = 0;
-
-  //! The number of wifi scan results processed from CHRE apis
-  uint8_t mNumResultsProcessed = 0;
+  // The expected max chre scan results to be validated. This number is an
+  // arbritray number we assume that CHRE can handle. It is perfectly fine for
+  // CHRE to receive more result.
+  uint8_t mExpectedMaxChreResultCanHandle = 100;
 
   //! Bools indicating that data collection is complete for each side
   bool mApDataCollectionDone = false;
@@ -147,17 +138,15 @@ class Manager {
   /**
    * Get the scan result that has the same bssid as the scan result passed.
    *
-   * @param results        The array of scan results to search through.
-   * @param resultsSize    The number of valid scan result objects in the array
-   *                       passed.
+   * @param results        The list of scan results to search through.
    * @param queryResult    The result to search with.
-   * @param resultIndexOut The pointer where the scan result index will be
-   *                       copied to if the result was found.
-   * @return true if the scan result was found.
+   *
+   * @return               The index of the matched scan result in the list if
+   *                       found, otherwise SIZE_MAX.
    */
-  bool getMatchingScanResult(WifiScanResult *results, uint8_t resultsSize,
-                             const WifiScanResult &queryResult,
-                             uint8_t *resultIndexOut);
+  size_t getMatchingScanResultIndex(
+      const DynamicVector<WifiScanResult> &results,
+      const WifiScanResult &queryResult);
 
   /**
    * Setup WiFi scan monitoring from CHRE apis.
