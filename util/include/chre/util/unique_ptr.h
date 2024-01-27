@@ -40,6 +40,7 @@ class UniquePtr : public NonCopyable {
    * Construct a UniquePtr instance that does not own any object.
    */
   UniquePtr();
+  UniquePtr(std::nullptr_t) : UniquePtr() {}
 
   /**
    * Constructs a UniquePtr instance that owns the given object, and will free
@@ -49,7 +50,7 @@ class UniquePtr : public NonCopyable {
    *        valid for this object's memory to come from any other source,
    *        including the stack, or static allocation on the heap.
    */
-  UniquePtr(ObjectType *object);
+  explicit UniquePtr(ObjectType *object);
 
   /**
    * Constructs a new UniquePtr via moving the Object from another UniquePtr.
@@ -156,6 +157,19 @@ class UniquePtr : public NonCopyable {
    * pointer, otherwise false.
    */
   bool operator!=(const UniquePtr<ObjectType> &other) const;
+
+  //! @defgroup Alternative approaches for null testing
+  //! @{
+  bool operator!=(std::nullptr_t) const {
+    return !isNull();
+  }
+  bool operator==(std::nullptr_t) const {
+    return isNull();
+  }
+  operator bool() const {
+    return !isNull();
+  }
+  //! @}
 
  private:
   // Befriend this class to itself to allow the templated conversion constructor

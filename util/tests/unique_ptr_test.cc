@@ -44,9 +44,28 @@ struct Value {
 
 int Value::constructionCounter = 0;
 
+TEST(UniquePtr, NullInit) {
+  // Put something on the stack to help catch uninitialized memory errors
+  {
+    UniquePtr<int> p1 = MakeUnique<int>();
+    // Verify that the typical null checks are implemented correctly
+    ASSERT_FALSE(p1.isNull());
+    EXPECT_TRUE(p1);
+    EXPECT_NE(p1, nullptr);
+  }
+  {
+    UniquePtr<int> p1;
+    EXPECT_FALSE(p1);
+    EXPECT_TRUE(p1.isNull());
+    EXPECT_EQ(p1, nullptr);
+  }
+  UniquePtr<int> p2(nullptr);
+  EXPECT_TRUE(p2.isNull());
+}
+
 TEST(UniquePtr, Construct) {
   UniquePtr<Value> myInt = MakeUnique<Value>(0xcafe);
-  ASSERT_FALSE(myInt.isNull());
+  ASSERT_TRUE(myInt);
   EXPECT_EQ(myInt.get()->value, 0xcafe);
   EXPECT_EQ(myInt->value, 0xcafe);
   EXPECT_EQ((*myInt).value, 0xcafe);
