@@ -122,3 +122,15 @@ java_library {
     },
     sdk_version: "system_current",
 }
+
+java_library {
+    name: "chre_reliable_message_test_java_proto",
+    host_supported: true,
+    srcs: [
+        "./chre_reliable_message_test.proto",
+    ],
+    proto: {
+        type: "lite",
+    },
+    sdk_version: "system_current",
+}
