@@ -62,14 +62,13 @@ class PreloadedNanoappLoader {
    *
    * The napp_header and so files will both be used.
    *
-   * @param selectedNanoappIds only nanoapp ids in this vector will be loaded if
-   * it is set. Otherwise the default value means every preloaded nanoapp will
-   * be loaded.
+   * @param skippedNanoappIds nanoapp ids identifying which nanoapps will NOT be
+   * loaded.
    *
    * @return the number of nanoapps loaded
    */
   int loadPreloadedNanoapps(const std::optional<const std::vector<uint64_t>>
-                                &selectedNanoappIds = std::nullopt);
+                                &skippedNanoappIds = std::nullopt);
 
   /** Callback function to handle the response from CHRE. */
   bool onLoadNanoappResponse(const ::chre::fbs::LoadNanoappResponseT &response,

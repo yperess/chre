@@ -46,7 +46,7 @@ bool getNanoappHeaderFromFile(const char *headerFileName,
 inline bool shouldSkipNanoapp(
     std::optional<const std::vector<uint64_t>> nanoappIds, uint64_t theAppId) {
   return nanoappIds.has_value() &&
-         std::find(nanoappIds->begin(), nanoappIds->end(), theAppId) ==
+         std::find(nanoappIds->begin(), nanoappIds->end(), theAppId) !=
              nanoappIds->end();
 }
 }  // namespace
@@ -74,7 +74,7 @@ void PreloadedNanoappLoader::getPreloadedNanoappIds(
 }
 
 int PreloadedNanoappLoader::loadPreloadedNanoapps(
-    const std::optional<const std::vector<uint64_t>> &selectedNanoappIds) {
+    const std::optional<const std::vector<uint64_t>> &skippedNanoappIds) {
   std::string directory;
   std::vector<std::string> nanoapps;
   int numOfNanoappsLoaded = 0;
@@ -100,7 +100,7 @@ int PreloadedNanoappLoader::loadPreloadedNanoapps(
     const auto header =
         reinterpret_cast<const NanoAppBinaryHeader *>(headerBuffer.data());
     // check if the app should be skipped
-    if (shouldSkipNanoapp(selectedNanoappIds, header->appId)) {
+    if (shouldSkipNanoapp(skippedNanoappIds, header->appId)) {
       LOGI("Loading of %s is skipped.", headerFilename.c_str());
       continue;
     }

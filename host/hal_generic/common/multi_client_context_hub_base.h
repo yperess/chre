@@ -128,7 +128,23 @@ class MultiClientContextHubBase
       const ::chre::fbs::DebugDumpResponseT & /* response */);
   void handleClientDeath(pid_t pid);
 
+  /**
+   * Enables test mode by unloading all the nanoapps except the system nanoapps.
+   *
+   * @return true if at least one nanoapp is successfully unloaded.
+   */
   bool enableTestMode();
+
+  /**
+   * Disables test mode by reloading all the <b>preloaded</b> nanoapps except
+   * system nanoapps.
+   *
+   * <p>Note that dynamically loaded nanoapps that are unloaded during
+   * enableTestMode() are not reloaded back because HAL doesn't track the
+   * location of their binaries, which can be anywhere.
+   *
+   * @return true if at least one nanoapp is successfully reloaded.
+   */
   bool disableTestMode();
 
   inline bool isSettingEnabled(Setting setting) {
@@ -170,11 +186,13 @@ class MultiClientContextHubBase
   std::condition_variable mEnableTestModeCv;
   bool mIsTestModeEnabled = false;
   std::optional<bool> mTestModeSyncUnloadResult = std::nullopt;
-  // mTestModeNanoapps is initialized to an empty vector to prevent it from
+  // mTestModeNanoapps records the nanoapps that will be unloaded in
+  // enableTestMode(). it is initialized to an empty vector to prevent it from
   // unintended population in onNanoappListResponse().
-  std::optional<std::vector<uint64_t>> mTestModeNanoapps =
-      std::vector<uint64_t>{};
-
+  std::optional<std::vector<uint64_t>> mTestModeNanoapps{{}};
+  // mTestModeSystemNanoapps records system nanoapps that won't be reloaded in
+  // disableTestMode().
+  std::optional<std::vector<uint64_t>> mTestModeSystemNanoapps;
   EventLogger mEventLogger;
 };
 }  // namespace android::hardware::contexthub::common::implementation
