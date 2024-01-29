@@ -22,7 +22,6 @@ MBEDTLS_SRCS += $(MBEDTLS_EXT_DIR)/mbedtls_memory.cc
 
 MBEDTLS_SRCS += $(MBEDTLS_DIR)/library/asn1write.c
 MBEDTLS_SRCS += $(MBEDTLS_DIR)/library/oid.c
-MBEDTLS_SRCS += $(MBEDTLS_DIR)/library/hash_info.c
 MBEDTLS_SRCS += $(MBEDTLS_DIR)/library/ecp_curves.c
 MBEDTLS_SRCS += $(MBEDTLS_DIR)/library/ecp.c
 MBEDTLS_SRCS += $(MBEDTLS_DIR)/library/ecdsa.c
