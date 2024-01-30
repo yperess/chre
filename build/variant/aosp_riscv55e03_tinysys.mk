@@ -34,11 +34,10 @@ TARGET_CFLAGS += -DCHRE_32_BIT_WORD_SIZE
 
 # chre platform
 TARGET_CFLAGS += -DCHRE_FIRST_SUPPORTED_API_VERSION=CHRE_API_VERSION_1_7
-# TODO(b/254121302): Needs to confirm with MTK about the max message size below
 TARGET_CFLAGS += -DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4096
 TARGET_CFLAGS += -DCHRE_USE_BUFFERED_LOGGING
-# TODO(b/256870101): create mutex on heap for now
-TARGET_CFLAGS += -DCHRE_CREATE_MUTEX_ON_HEAP
+# enable static allocation in freertos
+TINYSYS_CFLAGS += -DCFG_STATIC_ALLOCATE
 
 # Compiling flags ##############################################################
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,25 @@
  * limitations under the License.
  */
 
-#include "chre/platform/tracing.h"
-#include "chre/util/macros.h"
+#ifndef CHPP_CLIENTS_TEST_H_
+#define CHPP_CLIENTS_TEST_H_
 
-namespace chre {
+#include "chpp/app.h"
+#include "chpp/transport.h"
 
-void traceRegisterNanoapp(uint16_t instanceId, const char *name) {
-  UNUSED_VAR(instanceId);
-  UNUSED_VAR(name);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/************************************************
+ *  Functions necessary for unit testing
+ ***********************************************/
+
+struct ChppAppHeader *chppTransportGetRequestTimeoutResponse(
+    struct ChppTransportState *context, enum ChppEndpointType type);
+
+#ifdef __cplusplus
 }
+#endif
 
-void traceNanoappHandleEventStart(uint16_t instanceId, uint16_t eventType) {
-  UNUSED_VAR(instanceId);
-  UNUSED_VAR(eventType);
-}
-
-void traceNanoappHandleEventEnd(uint16_t instanceId) {
-  UNUSED_VAR(instanceId);
-}
-
-}  // namespace chre
+#endif  // CHPP_CLIENTS_TEST_H_

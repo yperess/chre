@@ -103,7 +103,7 @@ bool RpcWorldManager::start() {
     mAddCall.Write(addRequest);
     mAddCall.Write(addRequest);
     mAddCall.Write(addRequest);
-    mAddCall.CloseClientStream();
+    mAddCall.RequestCompletion();
   } else {
     LOGE("Error while retrieving the client");
   }
@@ -146,6 +146,8 @@ void RpcWorldManager::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
 }
 
 void RpcWorldManager::end() {
+  mServer.close();
+  mClient.close();
   if (mTimerId != CHRE_TIMER_INVALID) {
     chreTimerCancel(mTimerId);
   }
@@ -168,7 +170,7 @@ void RpcWorldManager::addStart(
   reader.set_on_next([](const chre_rpc_NumberMessage &request) {
     RpcWorldManagerSingleton::get()->mSum += request.number;
   });
-  reader.set_on_client_stream_end([]() {
+  reader.set_on_completion_requested([]() {
     chre_rpc_NumberMessage response;
     response.number = RpcWorldManagerSingleton::get()->mSum;
     RpcWorldManagerSingleton::get()->setPermissionForNextMessage(

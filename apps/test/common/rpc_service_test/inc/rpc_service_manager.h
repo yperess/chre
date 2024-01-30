@@ -60,6 +60,11 @@ class RpcServiceManager {
                    const void *eventData);
 
   /**
+   * Cleanup on nanoapp end.
+   */
+  void end();
+
+  /**
    * Sets the permission for the next server message.
    *
    * @params permission Bitmasked CHRE_MESSAGE_PERMISSION_.

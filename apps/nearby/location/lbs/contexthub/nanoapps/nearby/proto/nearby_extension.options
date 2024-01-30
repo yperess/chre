@@ -11,11 +11,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-nearby_extension.FilterConfig.oem_filter max_size:512
-nearby_extension.FilterConfig.oem_filter type:FT_INLINE
+nearby_extension.ExtConfigRequest.FilterConfig.oem_filter max_size:800
+nearby_extension.ExtConfigRequest.FilterConfig.oem_filter type:FT_INLINE
 
-nearby_extension.FilterConfig.hardware_filter max_count:10
-nearby_extension.FilterConfig.hardware_filter type:FT_STATIC
+nearby_extension.ExtConfigRequest.FilterConfig.hardware_filter max_count:10
+nearby_extension.ExtConfigRequest.FilterConfig.hardware_filter type:FT_STATIC
+
+nearby_extension.ExtConfigRequest.ServiceConfig.data max_size:800
+nearby_extension.ExtConfigRequest.ServiceConfig.data type:FT_INLINE
 
 nearby_extension.ChreBleGenericFilter.data max_size:29
 nearby_extension.ChreBleGenericFilter.data type:FT_INLINE
@@ -23,13 +26,13 @@ nearby_extension.ChreBleGenericFilter.data type:FT_INLINE
 nearby_extension.ChreBleGenericFilter.data_mask max_size:29
 nearby_extension.ChreBleGenericFilter.data_mask type:FT_INLINE
 
-nearby_extension.FilterResult.report max_count:20
+nearby_extension.FilterResult.report max_count:1
 nearby_extension.FilterResult.report type:FT_STATIC
 
 nearby_extension.ChreBleAdvertisingReport.address max_size:6
 nearby_extension.ChreBleAdvertisingReport.address type:FT_INLINE
 
-nearby_extension.ChreBleAdvertisingReport.data max_size:29
+nearby_extension.ChreBleAdvertisingReport.data max_size:255
 nearby_extension.ChreBleAdvertisingReport.data type:FT_INLINE
 
 

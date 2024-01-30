@@ -138,6 +138,11 @@ void BasicBleTest::handleTimerEvent() {
     }
     mFlushWasCalled = true;
   } else {
+    if (chreBleFlushAsync(&gFlushCookie)) {
+      sendFatalFailureToHost(
+          "chreBleFlushAsync should return false if batching is not supported");
+    }
+
     if (!chreBleStopScanAsync()) {
       sendFatalFailureToHost("Failed to stop a BLE scan session");
     }

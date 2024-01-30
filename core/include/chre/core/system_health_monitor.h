@@ -17,6 +17,8 @@
 #ifndef CHRE_CORE_SYSTEM_HEALTH_MONITOR_H_
 #define CHRE_CORE_SYSTEM_HEALTH_MONITOR_H_
 
+#include <cstdint>
+
 #include "chre/platform/assert.h"
 #include "chre/platform/log.h"
 #include "chre/util/enum.h"

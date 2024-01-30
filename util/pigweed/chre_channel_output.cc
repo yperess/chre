@@ -50,7 +50,6 @@ pw::Status sendToNanoapp(uint32_t targetInstanceId, uint16_t eventType,
     }
 
     data->msgSize = buffer.size();
-    data->msg = &data[1];
     memcpy(data->msg, buffer.data(), buffer.size());
 
     if (!chreSendEvent(eventType, data, nappMessageFreeCb, targetInstanceId)) {
@@ -63,12 +62,6 @@ pw::Status sendToNanoapp(uint32_t targetInstanceId, uint16_t eventType,
 
 }  // namespace
 
-ChreChannelOutputBase::ChreChannelOutputBase() : ChannelOutput("CHRE") {}
-
-size_t ChreChannelOutputBase::MaximumTransmissionUnit() {
-  return CHRE_MESSAGE_TO_HOST_MAX_SIZE - sizeof(ChrePigweedNanoappMessage);
-}
-
 void ChreServerNanoappChannelOutput::setClient(uint32_t nanoappInstanceId) {
   CHRE_ASSERT(nanoappInstanceId <= kRpcNanoappMaxId);
   if (nanoappInstanceId <= kRpcNanoappMaxId) {
@@ -78,14 +71,17 @@ void ChreServerNanoappChannelOutput::setClient(uint32_t nanoappInstanceId) {
   }
 }
 
+size_t ChreServerNanoappChannelOutput::MaximumTransmissionUnit() {
+  return CHRE_MESSAGE_TO_HOST_MAX_SIZE - sizeof(ChrePigweedNanoappMessage);
+}
+
 pw::Status ChreServerNanoappChannelOutput::Send(
     pw::span<const std::byte> buffer) {
   // The permission is not enforced across nanoapps but we still need to
   // reset the value as it is only applicable to the next message.
   mPermission.getAndReset();
 
-  return sendToNanoapp(mClientInstanceId, PW_RPC_CHRE_NAPP_RESPONSE_EVENT_TYPE,
-                       buffer);
+  return sendToNanoapp(mClientInstanceId, CHRE_EVENT_RPC_RESPONSE, buffer);
 }
 
 void ChreClientNanoappChannelOutput::setServer(uint32_t instanceId) {
@@ -97,14 +93,21 @@ void ChreClientNanoappChannelOutput::setServer(uint32_t instanceId) {
   }
 }
 
+size_t ChreClientNanoappChannelOutput::MaximumTransmissionUnit() {
+  return CHRE_MESSAGE_TO_HOST_MAX_SIZE - sizeof(ChrePigweedNanoappMessage);
+}
+
 pw::Status ChreClientNanoappChannelOutput::Send(
     pw::span<const std::byte> buffer) {
-  return sendToNanoapp(mServerInstanceId, PW_RPC_CHRE_NAPP_REQUEST_EVENT_TYPE,
-                       buffer);
+  return sendToNanoapp(mServerInstanceId, CHRE_EVENT_RPC_REQUEST, buffer);
 }
 
 void ChreServerHostChannelOutput::setHostEndpoint(uint16_t hostEndpoint) {
   mEndpointId = hostEndpoint;
+}
+
+size_t ChreServerHostChannelOutput::MaximumTransmissionUnit() {
+  return CHRE_MESSAGE_TO_HOST_MAX_SIZE - sizeof(ChrePigweedNanoappMessage);
 }
 
 pw::Status ChreServerHostChannelOutput::Send(pw::span<const std::byte> buffer) {
@@ -119,7 +122,7 @@ pw::Status ChreServerHostChannelOutput::Send(pw::span<const std::byte> buffer) {
     } else {
       memcpy(data, buffer.data(), buffer.size());
       if (!chreSendMessageWithPermissions(
-              data, buffer.size(), PW_RPC_CHRE_HOST_MESSAGE_TYPE, mEndpointId,
+              data, buffer.size(), CHRE_MESSAGE_TYPE_RPC, mEndpointId,
               permission, heapFreeMessageCallback)) {
         returnCode = PW_STATUS_INVALID_ARGUMENT;
       }

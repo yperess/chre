@@ -61,73 +61,77 @@ TEST_F(TestBase, GnssSubscriptionWithSettingChange) {
     uint32_t cookie;
   };
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_GNSS;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_GNSS}) {}
 
-    decltype(nanoappStart) *start = []() {
+    bool start() override {
       chreUserSettingConfigureEvents(CHRE_USER_SETTING_LOCATION,
                                      true /*enabled*/);
       return true;
-    };
+    }
 
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          static uint32_t cookie;
-          switch (eventType) {
-            case CHRE_EVENT_GNSS_ASYNC_RESULT: {
-              auto *event = static_cast<const chreAsyncResult *>(eventData);
-              if (event->success) {
-                TestEventQueueSingleton::get()->pushEvent(
-                    CHRE_EVENT_GNSS_ASYNC_RESULT,
-                    *(static_cast<const uint32_t *>(event->cookie)));
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_GNSS_ASYNC_RESULT: {
+          auto *event = static_cast<const chreAsyncResult *>(eventData);
+          if (event->success) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_GNSS_ASYNC_RESULT,
+                *(static_cast<const uint32_t *>(event->cookie)));
+          }
+          break;
+        }
+
+        case CHRE_EVENT_SETTING_CHANGED_LOCATION: {
+          TestEventQueueSingleton::get()->pushEvent(
+              CHRE_EVENT_SETTING_CHANGED_LOCATION);
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case LOCATION_REQUEST: {
+              auto request = static_cast<const LocationRequest *>(event->data);
+              bool success;
+              mCookie = request->cookie;
+              if (request->enable) {
+                success = chreGnssLocationSessionStartAsync(
+                    1000 /*minIntervalMs*/, 1000 /*minTimeToNextFixMs*/,
+                    &mCookie);
+              } else {
+                success = chreGnssLocationSessionStopAsync(&mCookie);
               }
+              TestEventQueueSingleton::get()->pushEvent(LOCATION_REQUEST,
+                                                        success);
               break;
-            }
-
-            case CHRE_EVENT_SETTING_CHANGED_LOCATION: {
-              TestEventQueueSingleton::get()->pushEvent(
-                  CHRE_EVENT_SETTING_CHANGED_LOCATION);
-              break;
-            }
-
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case LOCATION_REQUEST: {
-                  auto request =
-                      static_cast<const LocationRequest *>(event->data);
-                  bool success;
-                  if (request->enable) {
-                    cookie = request->cookie;
-                    success = chreGnssLocationSessionStartAsync(
-                        1000 /*minIntervalMs*/, 1000 /*minTimeToNextFixMs*/,
-                        &cookie);
-                  } else {
-                    cookie = request->cookie;
-                    success = chreGnssLocationSessionStopAsync(&cookie);
-                  }
-                  TestEventQueueSingleton::get()->pushEvent(LOCATION_REQUEST,
-                                                            success);
-                  break;
-                }
-              }
             }
           }
-        };
+        }
+      }
+    }
 
-    decltype(nanoappEnd) *end = []() {
+    void end() override {
       chreUserSettingConfigureEvents(CHRE_USER_SETTING_LOCATION,
                                      false /*enabled*/);
-    };
+    }
+
+   protected:
+    uint32_t mCookie;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   bool success;
   EXPECT_FALSE(chrePalGnssIsLocationEnabled());
   chrePalGnssDelaySendingLocationEvents(true);
 
   LocationRequest request{.enable = true, .cookie = 0x123};
-  sendEventToNanoapp(app, LOCATION_REQUEST, request);
+  sendEventToNanoapp(appId, LOCATION_REQUEST, request);
   waitForEvent(LOCATION_REQUEST, &success);
   EXPECT_TRUE(success);
   chrePalGnssStartSendingLocationEvents();
@@ -155,7 +159,7 @@ TEST_F(TestBase, GnssSubscriptionWithSettingChange) {
                                std::chrono::milliseconds(1000)));
 
   request.enable = false;
-  sendEventToNanoapp(app, LOCATION_REQUEST, request);
+  sendEventToNanoapp(appId, LOCATION_REQUEST, request);
   waitForEvent(LOCATION_REQUEST, &success);
   EXPECT_TRUE(success);
   chrePalGnssStartSendingLocationEvents();
@@ -173,12 +177,14 @@ TEST_F(TestBase, GnssCanSubscribeAndUnsubscribeToLocation) {
     uint32_t cookie;
   };
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_GNSS;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_GNSS}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
-      static uint32_t cookie;
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
       switch (eventType) {
         case CHRE_EVENT_GNSS_ASYNC_RESULT: {
           auto *event = static_cast<const chreAsyncResult *>(eventData);
@@ -196,14 +202,13 @@ TEST_F(TestBase, GnssCanSubscribeAndUnsubscribeToLocation) {
             case LOCATION_REQUEST: {
               auto request = static_cast<const LocationRequest *>(event->data);
               bool success;
+              mCookie = request->cookie;
               if (request->enable) {
-                cookie = request->cookie;
                 success = chreGnssLocationSessionStartAsync(
                     1000 /*minIntervalMs*/, 1000 /*minTimeToNextFixMs*/,
-                    &cookie);
+                    &mCookie);
               } else {
-                cookie = request->cookie;
-                success = chreGnssLocationSessionStopAsync(&cookie);
+                success = chreGnssLocationSessionStopAsync(&mCookie);
               }
               TestEventQueueSingleton::get()->pushEvent(LOCATION_REQUEST,
                                                         success);
@@ -212,15 +217,19 @@ TEST_F(TestBase, GnssCanSubscribeAndUnsubscribeToLocation) {
           }
         }
       }
-    };
+    }
+
+   protected:
+    uint32_t mCookie;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   bool success;
   EXPECT_FALSE(chrePalGnssIsLocationEnabled());
 
   LocationRequest request{.enable = true, .cookie = 0x123};
-  sendEventToNanoapp(app, LOCATION_REQUEST, request);
+  sendEventToNanoapp(appId, LOCATION_REQUEST, request);
   waitForEvent(LOCATION_REQUEST, &success);
   EXPECT_TRUE(success);
   uint32_t cookie;
@@ -229,7 +238,7 @@ TEST_F(TestBase, GnssCanSubscribeAndUnsubscribeToLocation) {
   EXPECT_TRUE(chrePalGnssIsLocationEnabled());
 
   request.enable = false;
-  sendEventToNanoapp(app, LOCATION_REQUEST, request);
+  sendEventToNanoapp(appId, LOCATION_REQUEST, request);
   waitForEvent(LOCATION_REQUEST, &success);
   EXPECT_TRUE(success);
   waitForEvent(CHRE_EVENT_GNSS_ASYNC_RESULT, &cookie);
@@ -245,12 +254,14 @@ TEST_F(TestBase, GnssUnsubscribeToLocationOnUnload) {
     uint32_t cookie;
   };
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_GNSS;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_GNSS}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
-      static uint32_t cookie;
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
       switch (eventType) {
         case CHRE_EVENT_GNSS_ASYNC_RESULT: {
           auto *event = static_cast<const chreAsyncResult *>(eventData);
@@ -268,10 +279,10 @@ TEST_F(TestBase, GnssUnsubscribeToLocationOnUnload) {
             case LOCATION_REQUEST: {
               auto request = static_cast<const LocationRequest *>(event->data);
               if (request->enable) {
-                cookie = request->cookie;
+                mCookie = request->cookie;
                 const bool success = chreGnssLocationSessionStartAsync(
                     1000 /*minIntervalMs*/, 1000 /*minTimeToNextFixMs*/,
-                    &cookie);
+                    &mCookie);
                 TestEventQueueSingleton::get()->pushEvent(LOCATION_REQUEST,
                                                           success);
               }
@@ -280,14 +291,18 @@ TEST_F(TestBase, GnssUnsubscribeToLocationOnUnload) {
           }
         }
       }
-    };
+    }
+
+   protected:
+    uint32_t mCookie;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   EXPECT_FALSE(chrePalGnssIsLocationEnabled());
 
   LocationRequest request{.enable = true, .cookie = 0x123};
-  sendEventToNanoapp(app, LOCATION_REQUEST, request);
+  sendEventToNanoapp(appId, LOCATION_REQUEST, request);
   bool success;
   waitForEvent(LOCATION_REQUEST, &success);
   EXPECT_TRUE(success);
@@ -296,7 +311,7 @@ TEST_F(TestBase, GnssUnsubscribeToLocationOnUnload) {
   EXPECT_EQ(cookie, request.cookie);
   EXPECT_TRUE(chrePalGnssIsLocationEnabled());
 
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_FALSE(chrePalGnssIsLocationEnabled());
 }
 
@@ -308,54 +323,61 @@ TEST_F(TestBase, GnssCanSubscribeAndUnsubscribeToMeasurement) {
     uint32_t cookie;
   };
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_GNSS;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_GNSS}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          static uint32_t cookie;
-          switch (eventType) {
-            case CHRE_EVENT_GNSS_ASYNC_RESULT: {
-              auto *event = static_cast<const chreAsyncResult *>(eventData);
-              if (event->success) {
-                TestEventQueueSingleton::get()->pushEvent(
-                    CHRE_EVENT_GNSS_ASYNC_RESULT,
-                    *(static_cast<const uint32_t *>(event->cookie)));
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      static uint32_t cookie;
+      switch (eventType) {
+        case CHRE_EVENT_GNSS_ASYNC_RESULT: {
+          auto *event = static_cast<const chreAsyncResult *>(eventData);
+          if (event->success) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_GNSS_ASYNC_RESULT,
+                *(static_cast<const uint32_t *>(event->cookie)));
+          }
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case MEASUREMENT_REQUEST: {
+              auto request =
+                  static_cast<const MeasurementRequest *>(event->data);
+              bool success;
+              mCookie = request->cookie;
+              if (request->enable) {
+                success = chreGnssMeasurementSessionStartAsync(
+                    1000 /*minIntervalMs*/, &mCookie);
+              } else {
+                cookie = request->cookie;
+                success = chreGnssMeasurementSessionStopAsync(&mCookie);
               }
+              TestEventQueueSingleton::get()->pushEvent(MEASUREMENT_REQUEST,
+                                                        success);
               break;
             }
-
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case MEASUREMENT_REQUEST: {
-                  auto request =
-                      static_cast<const MeasurementRequest *>(event->data);
-                  bool success;
-                  if (request->enable) {
-                    cookie = request->cookie;
-                    success = chreGnssMeasurementSessionStartAsync(
-                        1000 /*minIntervalMs*/, &cookie);
-                  } else {
-                    cookie = request->cookie;
-                    success = chreGnssMeasurementSessionStopAsync(&cookie);
-                  }
-                  TestEventQueueSingleton::get()->pushEvent(MEASUREMENT_REQUEST,
-                                                            success);
-                  break;
-                }
-              }
-            }
           }
-        };
+        }
+      }
+    }
+
+   protected:
+    uint32_t mCookie;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   bool success;
   EXPECT_FALSE(chrePalGnssIsLocationEnabled());
 
   MeasurementRequest request{.enable = true, .cookie = 0x123};
-  sendEventToNanoapp(app, MEASUREMENT_REQUEST, request);
+  sendEventToNanoapp(appId, MEASUREMENT_REQUEST, request);
   waitForEvent(MEASUREMENT_REQUEST, &success);
   EXPECT_TRUE(success);
   uint32_t cookie;
@@ -364,7 +386,7 @@ TEST_F(TestBase, GnssCanSubscribeAndUnsubscribeToMeasurement) {
   EXPECT_TRUE(chrePalGnssIsMeasurementEnabled());
 
   request.enable = false;
-  sendEventToNanoapp(app, MEASUREMENT_REQUEST, request);
+  sendEventToNanoapp(appId, MEASUREMENT_REQUEST, request);
   waitForEvent(MEASUREMENT_REQUEST, &success);
   EXPECT_TRUE(success);
   waitForEvent(CHRE_EVENT_GNSS_ASYNC_RESULT, &cookie);
@@ -380,49 +402,55 @@ TEST_F(TestBase, GnssUnsubscribeToMeasurementOnUnload) {
     uint32_t cookie;
   };
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_GNSS;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_GNSS}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          static uint32_t cookie;
-          switch (eventType) {
-            case CHRE_EVENT_GNSS_ASYNC_RESULT: {
-              auto *event = static_cast<const chreAsyncResult *>(eventData);
-              if (event->success) {
-                TestEventQueueSingleton::get()->pushEvent(
-                    CHRE_EVENT_GNSS_ASYNC_RESULT,
-                    *(static_cast<const uint32_t *>(event->cookie)));
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_GNSS_ASYNC_RESULT: {
+          auto *event = static_cast<const chreAsyncResult *>(eventData);
+          if (event->success) {
+            TestEventQueueSingleton::get()->pushEvent(
+                CHRE_EVENT_GNSS_ASYNC_RESULT,
+                *(static_cast<const uint32_t *>(event->cookie)));
+          }
+          break;
+        }
+
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case MEASUREMENT_REQUEST: {
+              auto request =
+                  static_cast<const MeasurementRequest *>(event->data);
+              if (request->enable) {
+                mCookie = request->cookie;
+                const bool success = chreGnssMeasurementSessionStartAsync(
+                    1000 /*minIntervalMs*/, &mCookie);
+                TestEventQueueSingleton::get()->pushEvent(MEASUREMENT_REQUEST,
+                                                          success);
               }
               break;
             }
+          }
+        }
+      }
+    }
 
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case MEASUREMENT_REQUEST: {
-                  auto request =
-                      static_cast<const MeasurementRequest *>(event->data);
-                  if (request->enable) {
-                    cookie = request->cookie;
-                    const bool success = chreGnssMeasurementSessionStartAsync(
-                        1000 /*minIntervalMs*/, &cookie);
-                    TestEventQueueSingleton::get()->pushEvent(
-                        MEASUREMENT_REQUEST, success);
-                  }
-                  break;
-                }
-              }
-            }
-          };
-        };
+   protected:
+    uint32_t mCookie;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   EXPECT_FALSE(chrePalGnssIsLocationEnabled());
 
   MeasurementRequest request{.enable = true, .cookie = 0x123};
-  sendEventToNanoapp(app, MEASUREMENT_REQUEST, request);
+  sendEventToNanoapp(appId, MEASUREMENT_REQUEST, request);
   bool success;
   waitForEvent(MEASUREMENT_REQUEST, &success);
   EXPECT_TRUE(success);
@@ -431,46 +459,50 @@ TEST_F(TestBase, GnssUnsubscribeToMeasurementOnUnload) {
   EXPECT_EQ(cookie, request.cookie);
   EXPECT_TRUE(chrePalGnssIsMeasurementEnabled());
 
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_FALSE(chrePalGnssIsMeasurementEnabled());
 }
 
 TEST_F(TestBase, GnssCanSubscribeAndUnsubscribeToPassiveListener) {
   CREATE_CHRE_TEST_EVENT(LISTENER_REQUEST, 0);
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_GNSS;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_GNSS}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          switch (eventType) {
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case LISTENER_REQUEST: {
-                  auto enable = *(static_cast<const bool *>(event->data));
-                  const bool success =
-                      chreGnssConfigurePassiveLocationListener(enable);
-                  TestEventQueueSingleton::get()->pushEvent(LISTENER_REQUEST,
-                                                            success);
-                  break;
-                }
-              }
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case LISTENER_REQUEST: {
+              auto enable = *(static_cast<const bool *>(event->data));
+              const bool success =
+                  chreGnssConfigurePassiveLocationListener(enable);
+              TestEventQueueSingleton::get()->pushEvent(LISTENER_REQUEST,
+                                                        success);
+              break;
             }
           }
-        };
+        }
+      }
+    }
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   bool success;
   EXPECT_FALSE(chrePalGnssIsPassiveLocationListenerEnabled());
 
-  sendEventToNanoapp(app, LISTENER_REQUEST, true);
+  sendEventToNanoapp(appId, LISTENER_REQUEST, true);
   waitForEvent(LISTENER_REQUEST, &success);
   EXPECT_TRUE(success);
   EXPECT_TRUE(chrePalGnssIsPassiveLocationListenerEnabled());
 
-  sendEventToNanoapp(app, LISTENER_REQUEST, false);
+  sendEventToNanoapp(appId, LISTENER_REQUEST, false);
   waitForEvent(LISTENER_REQUEST, &success);
   EXPECT_TRUE(success);
   EXPECT_FALSE(chrePalGnssIsPassiveLocationListenerEnabled());
@@ -479,38 +511,42 @@ TEST_F(TestBase, GnssCanSubscribeAndUnsubscribeToPassiveListener) {
 TEST_F(TestBase, GnssUnsubscribeToPassiveListenerOnUnload) {
   CREATE_CHRE_TEST_EVENT(LISTENER_REQUEST, 0);
 
-  struct App : public TestNanoapp {
-    uint32_t perms = NanoappPermissions::CHRE_PERMS_GNSS;
+  class App : public TestNanoapp {
+   public:
+    App()
+        : TestNanoapp(
+              TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_GNSS}) {}
 
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          switch (eventType) {
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case LISTENER_REQUEST: {
-                  auto enable = *(static_cast<const bool *>(event->data));
-                  const bool success =
-                      chreGnssConfigurePassiveLocationListener(enable);
-                  TestEventQueueSingleton::get()->pushEvent(LISTENER_REQUEST,
-                                                            success);
-                }
-              }
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case LISTENER_REQUEST: {
+              auto enable = *(static_cast<const bool *>(event->data));
+              const bool success =
+                  chreGnssConfigurePassiveLocationListener(enable);
+              TestEventQueueSingleton::get()->pushEvent(LISTENER_REQUEST,
+                                                        success);
             }
           }
-        };
+        }
+      }
+    }
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   EXPECT_FALSE(chrePalGnssIsPassiveLocationListenerEnabled());
 
-  sendEventToNanoapp(app, LISTENER_REQUEST, true);
+  sendEventToNanoapp(appId, LISTENER_REQUEST, true);
   bool success;
   waitForEvent(LISTENER_REQUEST, &success);
   EXPECT_TRUE(success);
   EXPECT_TRUE(chrePalGnssIsPassiveLocationListenerEnabled());
 
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_FALSE(chrePalGnssIsPassiveLocationListenerEnabled());
 }
 

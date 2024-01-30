@@ -39,7 +39,7 @@
 static void chppTimesyncGetTime(struct ChppAppState *context,
                                 const struct ChppAppHeader *requestHeader) {
   struct ChppTimesyncResponse *response =
-      chppAllocServiceResponseFixed(requestHeader, struct ChppTimesyncResponse);
+      chppAllocResponseFixed(requestHeader, struct ChppTimesyncResponse);
   size_t responseLen = sizeof(*response);
 
   if (response == NULL) {

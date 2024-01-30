@@ -51,6 +51,9 @@ define BUILD_TEMPLATE
 
 # Target Objects ###############################################################
 
+# Remove duplicates
+COMMON_SRCS := $(sort $(COMMON_SRCS))
+
 # Source files.
 $(1)_CC_SRCS = $$(filter %.cc, $(COMMON_SRCS) $(8))
 $(1)_CPP_SRCS = $$(filter %.cpp, $(COMMON_SRCS) $(8))
@@ -229,18 +232,33 @@ $$($(1)_AR): $$($(1)_CC_OBJS) $$($(1)_CPP_OBJS) $$($(1)_C_OBJS) \
 # Token Mapping ################################################################
 
 $$($(1)_TOKEN_MAP): $$($(1)_AR)
-	@echo " [TOKEN_MAP_GEN] $<"
-	$(V)mkdir -p $(OUT)/$(1)
-	$(V)$(TOKEN_MAP_GEN_CMD) $$($(1)_TOKEN_MAP) $$($(1)_AR)
-	$(V)$(TOKEN_MAP_CSV_GEN_CMD) $$($(1)_TOKEN_MAP_CSV) $$($(1)_AR)
+	@echo " [TOKEN_MAP_GEN] $$@"
+	$(V)mkdir -p $$(@D)
+	$(V)$(TOKEN_MAP_GEN_CMD) $$($(1)_TOKEN_MAP) $$($(1)_AR) 2>&1
+	$(V)$(TOKEN_MAP_CSV_GEN_CMD) $$($(1)_TOKEN_MAP_CSV) $$($(1)_AR) 2>&1
+
+# Rust #########################################################################
+
+ifeq ($(IS_BUILD_REQUIRING_RUST),)
+RUST_DEPENDENCIES =
+else
+RUST_DEPENDENCIES = rust_archive_$(1)
+endif
+
+# Always invoke the cargo build, let cargo decide if updates are needed
+.PHONY: rust_archive_$(1)
+rust_archive_$(1):
+	@echo " [Rust Archive] $$@"
+	$(RUST_FLAGS) cargo +nightly build -Z build-std=core,alloc \
+	    --$(RUST_OPT_LEVEL) --target $(RUST_TARGET_DIR)/$(RUST_TARGET).json
 
 # Link #########################################################################
 
 $$($(1)_SO): $$($(1)_CC_DEPS) \
               $$($(1)_CPP_DEPS) $$($(1)_C_DEPS) $$($(1)_S_DEPS) \
               $$($(1)_CC_OBJS) $$($(1)_CPP_OBJS) $$($(1)_C_OBJS) \
-              $$($(1)_S_OBJS) | $$(OUT)/$(1) $$($(1)_DIRS)
-	$(V)$(5) $(4) -o $$@ $(11) $$(filter %.o, $$^) $(12)
+              $$($(1)_S_OBJS) $(RUST_DEPENDENCIES) | $$(OUT)/$(1) $$($(1)_DIRS)
+	$(5) $(4) -o $$@ $(11) $$(filter %.o, $$^) $(12)
 
 $$($(1)_BIN): $$($(1)_CC_DEPS) \
                $$($(1)_CPP_DEPS) $$($(1)_C_DEPS) $$($(1)_S_DEPS) \

@@ -413,11 +413,11 @@ class GnssManager : public NonCopyable {
 
   GnssSession &getLocationSession() {
     return mLocationSession;
-  };
+  }
 
   GnssSession &getMeasurementSession() {
     return mMeasurementSession;
-  };
+  }
 
   /**
    * Invoked when the host notifies CHRE of a settings change.

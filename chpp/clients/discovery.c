@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "chpp/app.h"
+#include "chpp/clients.h"
 #include "chpp/common/discovery.h"
 #include "chpp/log.h"
 #include "chpp/macros.h"
@@ -160,7 +161,7 @@ static void chppProcessDiscoverAllResponse(
 
     // Initialize client
     if (!client->initFunctionPtr(
-            appState->registeredClientContexts[clientIndex],
+            appState->registeredClientStates[clientIndex]->context,
             CHPP_SERVICE_HANDLE_OF_INDEX(i), service->version)) {
       CHPP_LOGE("Client v=%" PRIu8 ".%" PRIu8 ".%" PRIu16
                 " rejected init. Service v=%" PRIu8 ".%" PRIu8 ".%" PRIu16,
@@ -199,7 +200,8 @@ static void chppProcessDiscoverAllResponse(
                 (matchNotifierFunction != NULL));
 
       if (matchNotifierFunction != NULL) {
-        matchNotifierFunction(appState->registeredClientContexts[clientIndex]);
+        matchNotifierFunction(
+            appState->registeredClientStates[clientIndex]->context);
       }
     }
   }

@@ -33,25 +33,14 @@
 namespace chre {
 namespace {
 
-Nanoapp *getNanoappByAppId(uint64_t id) {
-  uint16_t instanceId;
-  EXPECT_TRUE(EventLoopManagerSingleton::get()
-                  ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(id, &instanceId));
-  Nanoapp *nanoapp =
-      EventLoopManagerSingleton::get()->getEventLoop().findNanoappByInstanceId(
-          instanceId);
-  EXPECT_NE(nanoapp, nullptr);
-  return nanoapp;
-}
-
 TEST_F(TestBase, MemoryAllocateAndFree) {
   CREATE_CHRE_TEST_EVENT(ALLOCATE, 0);
   CREATE_CHRE_TEST_EVENT(FREE, 1);
 
-  struct App : public TestNanoapp {
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
+  class App : public TestNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
       switch (eventType) {
         case CHRE_EVENT_TEST_EVENT: {
           auto event = static_cast<const TestEvent *>(eventData);
@@ -71,21 +60,22 @@ TEST_F(TestBase, MemoryAllocateAndFree) {
           }
         }
       }
-    };
+    }
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
 
   MemoryManager &memManager =
       EventLoopManagerSingleton::get()->getMemoryManager();
-  Nanoapp *nanoapp = getNanoappByAppId(app.id);
+  Nanoapp *nanoapp = getNanoappByAppId(appId);
+  ASSERT_NE(nanoapp, nullptr);
 
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getAllocationCount(), 0);
 
   void *ptr1;
-  sendEventToNanoapp(app, ALLOCATE, 100);
+  sendEventToNanoapp(appId, ALLOCATE, 100);
   waitForEvent(ALLOCATE, &ptr1);
   EXPECT_NE(ptr1, nullptr);
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 100);
@@ -93,20 +83,20 @@ TEST_F(TestBase, MemoryAllocateAndFree) {
   EXPECT_EQ(memManager.getAllocationCount(), 1);
 
   void *ptr2;
-  sendEventToNanoapp(app, ALLOCATE, 200);
+  sendEventToNanoapp(appId, ALLOCATE, 200);
   waitForEvent(ALLOCATE, &ptr2);
   EXPECT_NE(ptr2, nullptr);
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 100 + 200);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 100 + 200);
   EXPECT_EQ(memManager.getAllocationCount(), 2);
 
-  sendEventToNanoapp(app, FREE, ptr1);
+  sendEventToNanoapp(appId, FREE, ptr1);
   waitForEvent(FREE);
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 200);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 200);
   EXPECT_EQ(memManager.getAllocationCount(), 1);
 
-  sendEventToNanoapp(app, FREE, ptr2);
+  sendEventToNanoapp(appId, FREE, ptr2);
   waitForEvent(FREE);
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
@@ -116,9 +106,10 @@ TEST_F(TestBase, MemoryAllocateAndFree) {
 TEST_F(TestBase, MemoryFreeOnNanoappUnload) {
   CREATE_CHRE_TEST_EVENT(ALLOCATE, 0);
 
-  struct App : public TestNanoapp {
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
+  class App : public TestNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
       switch (eventType) {
         case CHRE_EVENT_TEST_EVENT: {
           auto event = static_cast<const TestEvent *>(eventData);
@@ -132,21 +123,22 @@ TEST_F(TestBase, MemoryFreeOnNanoappUnload) {
           }
         }
       }
-    };
+    }
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
 
   MemoryManager &memManager =
       EventLoopManagerSingleton::get()->getMemoryManager();
-  Nanoapp *nanoapp = getNanoappByAppId(app.id);
+  Nanoapp *nanoapp = getNanoappByAppId(appId);
+  ASSERT_NE(nanoapp, nullptr);
 
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getAllocationCount(), 0);
 
   void *ptr1;
-  sendEventToNanoapp(app, ALLOCATE, 100);
+  sendEventToNanoapp(appId, ALLOCATE, 100);
   waitForEvent(ALLOCATE, &ptr1);
   EXPECT_NE(ptr1, nullptr);
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 100);
@@ -154,14 +146,14 @@ TEST_F(TestBase, MemoryFreeOnNanoappUnload) {
   EXPECT_EQ(memManager.getAllocationCount(), 1);
 
   void *ptr2;
-  sendEventToNanoapp(app, ALLOCATE, 200);
+  sendEventToNanoapp(appId, ALLOCATE, 200);
   waitForEvent(ALLOCATE, &ptr2);
   EXPECT_NE(ptr2, nullptr);
   EXPECT_EQ(nanoapp->getTotalAllocatedBytes(), 100 + 200);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 100 + 200);
   EXPECT_EQ(memManager.getAllocationCount(), 2);
 
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getAllocationCount(), 0);
 }
@@ -170,9 +162,10 @@ TEST_F(TestBase, MemoryStressTestShouldNotTriggerErrors) {
   CREATE_CHRE_TEST_EVENT(ALLOCATE, 0);
   CREATE_CHRE_TEST_EVENT(FREE, 1);
 
-  struct App : public TestNanoapp {
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
+  class App : public TestNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
       switch (eventType) {
         case CHRE_EVENT_TEST_EVENT: {
           auto event = static_cast<const TestEvent *>(eventData);
@@ -192,13 +185,13 @@ TEST_F(TestBase, MemoryStressTestShouldNotTriggerErrors) {
           }
         }
       }
-    };
+    }
   };
 
   MemoryManager &memManager =
       EventLoopManagerSingleton::get()->getMemoryManager();
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
 
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getAllocationCount(), 0);
@@ -207,55 +200,55 @@ TEST_F(TestBase, MemoryStressTestShouldNotTriggerErrors) {
   void *ptr2;
   void *ptr3;
 
-  sendEventToNanoapp(app, ALLOCATE, 100);
+  sendEventToNanoapp(appId, ALLOCATE, 100);
   waitForEvent(ALLOCATE, &ptr1);
-  sendEventToNanoapp(app, ALLOCATE, 200);
+  sendEventToNanoapp(appId, ALLOCATE, 200);
   waitForEvent(ALLOCATE, &ptr2);
-  sendEventToNanoapp(app, ALLOCATE, 300);
+  sendEventToNanoapp(appId, ALLOCATE, 300);
   waitForEvent(ALLOCATE, &ptr3);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 100 + 200 + 300);
   EXPECT_EQ(memManager.getAllocationCount(), 3);
 
   // Free middle, last, and first blocks.
-  sendEventToNanoapp(app, FREE, ptr2);
+  sendEventToNanoapp(appId, FREE, ptr2);
   waitForEvent(FREE);
-  sendEventToNanoapp(app, FREE, ptr3);
+  sendEventToNanoapp(appId, FREE, ptr3);
   waitForEvent(FREE);
-  sendEventToNanoapp(app, FREE, ptr1);
+  sendEventToNanoapp(appId, FREE, ptr1);
   waitForEvent(FREE);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getAllocationCount(), 0);
 
-  sendEventToNanoapp(app, ALLOCATE, 100);
+  sendEventToNanoapp(appId, ALLOCATE, 100);
   waitForEvent(ALLOCATE, &ptr1);
-  sendEventToNanoapp(app, ALLOCATE, 200);
+  sendEventToNanoapp(appId, ALLOCATE, 200);
   waitForEvent(ALLOCATE, &ptr2);
-  sendEventToNanoapp(app, ALLOCATE, 300);
+  sendEventToNanoapp(appId, ALLOCATE, 300);
   waitForEvent(ALLOCATE, &ptr3);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 100 + 200 + 300);
   EXPECT_EQ(memManager.getAllocationCount(), 3);
 
   // Free last, last and last blocks.
-  sendEventToNanoapp(app, FREE, ptr3);
+  sendEventToNanoapp(appId, FREE, ptr3);
   waitForEvent(FREE);
-  sendEventToNanoapp(app, FREE, ptr2);
+  sendEventToNanoapp(appId, FREE, ptr2);
   waitForEvent(FREE);
-  sendEventToNanoapp(app, FREE, ptr1);
+  sendEventToNanoapp(appId, FREE, ptr1);
   waitForEvent(FREE);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getAllocationCount(), 0);
 
-  sendEventToNanoapp(app, ALLOCATE, 100);
+  sendEventToNanoapp(appId, ALLOCATE, 100);
   waitForEvent(ALLOCATE, &ptr1);
-  sendEventToNanoapp(app, ALLOCATE, 200);
+  sendEventToNanoapp(appId, ALLOCATE, 200);
   waitForEvent(ALLOCATE, &ptr2);
-  sendEventToNanoapp(app, ALLOCATE, 300);
+  sendEventToNanoapp(appId, ALLOCATE, 300);
   waitForEvent(ALLOCATE, &ptr3);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 100 + 200 + 300);
   EXPECT_EQ(memManager.getAllocationCount(), 3);
 
   // Automatic cleanup.
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_EQ(memManager.getTotalAllocatedBytes(), 0);
   EXPECT_EQ(memManager.getAllocationCount(), 0);
 }

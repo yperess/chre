@@ -57,6 +57,10 @@ void RpcServiceManager::handleEvent(uint32_t senderInstanceId,
   }
 }
 
+void RpcServiceManager::end() {
+  mServer.close();
+}
+
 void RpcServiceManager::setPermissionForNextMessage(uint32_t permission) {
   mServer.setPermissionForNextMessage(permission);
 }

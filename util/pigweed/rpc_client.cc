@@ -33,7 +33,7 @@ namespace chre {
 bool RpcClient::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
                             const void *eventData) {
   switch (eventType) {
-    case chre::ChreChannelOutputBase::PW_RPC_CHRE_NAPP_RESPONSE_EVENT_TYPE:
+    case CHRE_EVENT_RPC_RESPONSE:
       return handleMessageFromServer(senderInstanceId, eventData);
     case CHRE_EVENT_NANOAPP_STOPPED:
       handleNanoappStopped(eventData);
@@ -58,10 +58,15 @@ bool RpcClient::hasService(uint64_t id, uint32_t version) {
   return false;
 }
 
+void RpcClient::close() {
+  chreConfigureNanoappInfoEvents(false);
+}
+
 bool RpcClient::handleMessageFromServer(uint32_t senderInstanceId,
                                         const void *eventData) {
   auto data = static_cast<const chre::ChrePigweedNanoappMessage *>(eventData);
-  pw::span packet(static_cast<const std::byte *>(data->msg), data->msgSize);
+  pw::span packet(reinterpret_cast<const std::byte *>(data->msg),
+                  data->msgSize);
   struct chreNanoappInfo info;
 
   if (!chreGetNanoappInfoByAppId(mServerNanoappId, &info) ||

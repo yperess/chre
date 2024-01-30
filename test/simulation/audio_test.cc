@@ -36,31 +36,33 @@
 namespace chre {
 namespace {
 
-struct AudioNanoapp : public TestNanoapp {
-  uint32_t perms = NanoappPermissions::CHRE_PERMS_AUDIO;
+class AudioNanoapp : public TestNanoapp {
+ public:
+  AudioNanoapp()
+      : TestNanoapp(
+            TestNanoappInfo{.perms = NanoappPermissions::CHRE_PERMS_AUDIO}) {}
 
-  decltype(nanoappStart) *start = []() {
+  bool start() override {
     chreUserSettingConfigureEvents(CHRE_USER_SETTING_MICROPHONE,
                                    true /* enable */);
     return true;
-  };
+  }
 };
 
 TEST_F(TestBase, AudioCanSubscribeAndUnsubscribeToDataEvents) {
   CREATE_CHRE_TEST_EVENT(CONFIGURE, 0);
 
-  struct App : public AudioNanoapp {
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
-      static int count = 0;
-
+  class App : public AudioNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
       switch (eventType) {
         case CHRE_EVENT_AUDIO_DATA: {
           auto event =
               static_cast<const struct chreAudioDataEvent *>(eventData);
           if (event->handle == 0) {
-            count++;
-            if (count == 3) {
+            mCount++;
+            if (mCount == 3) {
               TestEventQueueSingleton::get()->pushEvent(CHRE_EVENT_AUDIO_DATA);
             }
           }
@@ -91,15 +93,18 @@ TEST_F(TestBase, AudioCanSubscribeAndUnsubscribeToDataEvents) {
           }
         }
       }
-    };
+    }
+
+   protected:
+    int mCount = 0;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
   EXPECT_FALSE(chrePalAudioIsHandle0Enabled());
 
   bool enable = true;
   bool success;
-  sendEventToNanoapp(app, CONFIGURE, enable);
+  sendEventToNanoapp(appId, CONFIGURE, enable);
   waitForEvent(CONFIGURE, &success);
   EXPECT_TRUE(success);
   waitForEvent(CHRE_EVENT_AUDIO_SAMPLING_CHANGE);
@@ -108,7 +113,7 @@ TEST_F(TestBase, AudioCanSubscribeAndUnsubscribeToDataEvents) {
   waitForEvent(CHRE_EVENT_AUDIO_DATA);
 
   enable = false;
-  sendEventToNanoapp(app, CONFIGURE, enable);
+  sendEventToNanoapp(appId, CONFIGURE, enable);
   waitForEvent(CONFIGURE, &success);
   EXPECT_TRUE(success);
   EXPECT_FALSE(chrePalAudioIsHandle0Enabled());
@@ -117,9 +122,9 @@ TEST_F(TestBase, AudioCanSubscribeAndUnsubscribeToDataEvents) {
 TEST_F(TestBase, AudioUnsubscribeToDataEventsOnUnload) {
   CREATE_CHRE_TEST_EVENT(CONFIGURE, 0);
 
-  struct App : public AudioNanoapp {
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
+  class App : public AudioNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType, const void *eventData) {
       switch (eventType) {
         case CHRE_EVENT_AUDIO_SAMPLING_CHANGE: {
           auto event =
@@ -145,21 +150,21 @@ TEST_F(TestBase, AudioUnsubscribeToDataEventsOnUnload) {
           }
         }
       }
-    };
+    }
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
   EXPECT_FALSE(chrePalAudioIsHandle0Enabled());
 
   bool enable = true;
   bool success;
-  sendEventToNanoapp(app, CONFIGURE, enable);
+  sendEventToNanoapp(appId, CONFIGURE, enable);
   waitForEvent(CONFIGURE, &success);
   EXPECT_TRUE(success);
   waitForEvent(CHRE_EVENT_AUDIO_SAMPLING_CHANGE);
   EXPECT_TRUE(chrePalAudioIsHandle0Enabled());
 
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_FALSE(chrePalAudioIsHandle0Enabled());
 }
 

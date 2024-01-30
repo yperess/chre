@@ -34,7 +34,7 @@ bool nanoappStart(void) {
   // Initialize the AppManager singleton.
   // Must be done before invoking AppManagerSingleton::get().
   ::nearby::AppManagerSingleton::init();
-  return true;
+  return ::nearby::AppManagerSingleton::get()->IsInitialized();
 }
 
 void nanoappEnd(void) {

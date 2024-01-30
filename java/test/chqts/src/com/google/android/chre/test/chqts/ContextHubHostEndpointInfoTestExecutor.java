@@ -19,9 +19,16 @@ package com.google.android.chre.test.chqts;
 import android.hardware.location.ContextHubClient;
 import android.hardware.location.NanoAppBinary;
 
+import androidx.annotation.NonNull;
+
 import com.google.android.utils.chre.ChreApiTestUtil;
 
 import org.junit.Assert;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import dev.chre.rpc.proto.ChreApiTest;
 
@@ -29,20 +36,26 @@ import dev.chre.rpc.proto.ChreApiTest;
  * Test to ensure CHRE HostEndpoint related API works as expected.
  */
 public class ContextHubHostEndpointInfoTestExecutor extends ContextHubChreApiTestExecutor {
+    private static final int HOST_ENDPOINT_NOTIFICATION_TYPE_DISCONNECT = 0;
+    private static final int CHRE_HOST_ENDPOINT_NOTIFICATION_EVENT = 0x0008;
+
     public ContextHubHostEndpointInfoTestExecutor(NanoAppBinary nanoapp) {
         super(nanoapp);
     }
 
     /**
-     * Validates if the host endpoint info stored in ChreApiTest Nanoapp is as expected.
+     * Validates if the host endpoint info stored in ChreApiTest Nanoapp is as
+     * expected.
      *
-     * @param id the host endpoint id of the host endpoint.
-     * @param success true if we are expecting to retrieve host endpoint info by this id, otherwise
-     *     false.
+     * @param id      the host endpoint id of the host endpoint.
+     * @param success true if we are expecting to retrieve host endpoint info by
+     *                this id, otherwise false.
      */
     private void validateHostEndpointInfoById(int id, boolean success) throws Exception {
         ChreApiTest.ChreGetHostEndpointInfoInput input =
-                ChreApiTest.ChreGetHostEndpointInfoInput.newBuilder().setHostEndpointId(id).build();
+                ChreApiTest.ChreGetHostEndpointInfoInput.newBuilder()
+                .setHostEndpointId(id)
+                .build();
         ChreApiTest.ChreGetHostEndpointInfoOutput response =
                 ChreApiTestUtil.callUnaryRpcMethodSync(
                         getRpcClient(), "chre.rpc.ChreApiTestService.ChreGetHostEndpointInfo",
@@ -84,25 +97,31 @@ public class ContextHubHostEndpointInfoTestExecutor extends ContextHubChreApiTes
      * Validates if the nanoapp received a proper host endpoint notification disconnection event.
      *
      * @param id host endpoint id for the most recent disconnected host endpoint.
+     * @param events host endpoint notification events received by the nanoapp.
      */
-    private void validateLatestHostEndpointNotification(int id) throws Exception {
-        // TODO(b/274791978): Deprecate this once we can capture event in test mode.
-        ChreApiTest.RetrieveLatestDisconnectedHostEndpointEventOutput response =
-                ChreApiTestUtil.callUnaryRpcMethodSync(
-                        getRpcClient(),
-                        "chre.rpc.ChreApiTestService.RetrieveLatestDisconnectedHostEndpointEvent");
+    private void validateChreHostEndpointNotification(int id,
+            @NonNull List<ChreApiTest.GeneralEventsMessage> events) throws Exception {
+        Objects.requireNonNull(events);
         Assert.assertEquals(
                 "Should have exactly receive 1 host endpoint notification",
-                1,
-                response.getDisconnectedCount());
-        Assert.assertEquals("Host endpoint Id mismatch", response.getHostEndpointId(), id);
+                1, events.size());
+        ChreApiTest.ChreHostEndpointNotification hostEndpointNotification =
+                events.get(0).getChreHostEndpointNotification();
+        Assert.assertTrue(events.get(0).getStatus());
+        Assert.assertEquals("Host endpoint Id mismatch", id,
+                hostEndpointNotification.getHostEndpointId());
+
+        Assert.assertEquals("Not receive HOST_ENDPOINT_NOTIFICATION_TYPE_DISCONNECT",
+                HOST_ENDPOINT_NOTIFICATION_TYPE_DISCONNECT,
+                hostEndpointNotification.getNotificationType());
     }
 
     /**
      * Asks the test nanoapp to configure host endpoint notification.
      *
      * @param hostEndpointId which host endpoint to get notification.
-     * @param enable true to enable host endpoint notification, false to disable.
+     * @param enable         true to enable host endpoint notification, false to
+     *                       disable.
      */
     private void configureHostEndpointNotification(int hostEndpointId, boolean enable)
             throws Exception {
@@ -127,8 +146,15 @@ public class ContextHubHostEndpointInfoTestExecutor extends ContextHubChreApiTes
         ContextHubClient client = mContextHubManager.createClient(mContextHub, this);
         int clientHostEndpointId = client.getId();
         configureHostEndpointNotification(clientHostEndpointId, true);
+        Future<List<ChreApiTest.GeneralEventsMessage>> eventsFuture = new ChreApiTestUtil()
+                .gatherEvents(mRpcClients.get(0),
+                        CHRE_HOST_ENDPOINT_NOTIFICATION_EVENT,
+                        /* eventCount= */ 1,
+                        ChreApiTestUtil.RPC_TIMEOUT_IN_NS);
         client.close();
-        Thread.sleep(1000);
-        validateLatestHostEndpointNotification(clientHostEndpointId);
+        List<ChreApiTest.GeneralEventsMessage> events =
+                        eventsFuture.get(2 * ChreApiTestUtil.RPC_TIMEOUT_IN_NS,
+                                TimeUnit.NANOSECONDS);
+        validateChreHostEndpointNotification(clientHostEndpointId, events);
     }
 }

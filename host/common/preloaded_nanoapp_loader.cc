@@ -28,82 +28,108 @@ namespace android::chre {
 using android::chre::readFileContents;
 using android::hardware::contexthub::common::implementation::kHalId;
 
+namespace {
+
+bool getNanoappHeaderFromFile(const char *headerFileName,
+                              std::vector<uint8_t> &headerBuffer) {
+  if (!readFileContents(headerFileName, headerBuffer)) {
+    LOGE("Failed to read header file for nanoapp %s", headerFileName);
+    return false;
+  }
+  if (headerBuffer.size() != sizeof(NanoAppBinaryHeader)) {
+    LOGE("Nanoapp binary's header size is incorrect");
+    return false;
+  }
+  return true;
+}
+
+inline bool shouldSkipNanoapp(
+    std::optional<const std::unordered_set<uint64_t>> selectedNanoappIds,
+    uint64_t appId) {
+  return selectedNanoappIds.has_value() &&
+         selectedNanoappIds->find(appId) == selectedNanoappIds->end();
+}
+}  // namespace
+
 void PreloadedNanoappLoader::getPreloadedNanoappIds(
     std::vector<uint64_t> &out_preloadedNanoappIds) {
   std::vector<std::string> nanoappNames;
   std::string directory;
   out_preloadedNanoappIds.clear();
-  bool success =
-      getPreloadedNanoappsFromConfigFile(mConfigPath, directory, nanoappNames);
-  if (!success) {
+  if (!getPreloadedNanoappsFromConfigFile(mConfigPath, directory,
+                                          nanoappNames)) {
     LOGE("Failed to parse preloaded nanoapps config file");
   }
   for (const std::string &nanoappName : nanoappNames) {
-    std::string headerFile = directory + "/" + nanoappName + ".napp_header";
+    std::string headerFileName = directory + "/" + nanoappName + ".napp_header";
     std::vector<uint8_t> headerBuffer;
-    if (!readFileContents(headerFile.c_str(), headerBuffer)) {
-      LOGE("Cannot read header file: %s", headerFile.c_str());
+    if (!getNanoappHeaderFromFile(headerFileName.c_str(), headerBuffer)) {
+      LOGE("Failed to parse the nanoapp header for %s", headerFileName.c_str());
       continue;
     }
-    if (headerBuffer.size() != sizeof(NanoAppBinaryHeader)) {
-      LOGE("Header size mismatch");
-      continue;
-    }
-    const auto *appHeader =
+    auto header =
         reinterpret_cast<const NanoAppBinaryHeader *>(headerBuffer.data());
-    out_preloadedNanoappIds.emplace_back(appHeader->appId);
+    out_preloadedNanoappIds.emplace_back(header->appId);
   }
 }
 
-void PreloadedNanoappLoader::loadPreloadedNanoapps() {
+bool PreloadedNanoappLoader::loadPreloadedNanoapps(
+    const std::optional<const std::unordered_set<uint64_t>>
+        &selectedNanoappIds) {
   std::string directory;
   std::vector<std::string> nanoapps;
-
-  bool success =
-      getPreloadedNanoappsFromConfigFile(mConfigPath, directory, nanoapps);
-  if (!success) {
+  if (!getPreloadedNanoappsFromConfigFile(mConfigPath, directory, nanoapps)) {
     LOGE("Failed to load any preloaded nanoapp");
-  } else {
-    mIsPreloadingOngoing = true;
-    for (uint32_t i = 0; i < nanoapps.size(); ++i) {
-      loadPreloadedNanoapp(directory, nanoapps[i], i);
-    }
-    mIsPreloadingOngoing = false;
-  }
-}
-
-void PreloadedNanoappLoader::loadPreloadedNanoapp(const std::string &directory,
-                                                  const std::string &name,
-                                                  uint32_t transactionId) {
-  std::vector<uint8_t> headerBuffer;
-  std::vector<uint8_t> nanoappBuffer;
-
-  std::string headerFilename = directory + "/" + name + ".napp_header";
-  std::string nanoappFilename = directory + "/" + name + ".so";
-
-  if (!readFileContents(headerFilename.c_str(), headerBuffer) ||
-      !readFileContents(nanoappFilename.c_str(), nanoappBuffer) ||
-      !loadNanoapp(headerBuffer, nanoappBuffer, transactionId)) {
-    LOGE("Failed to load nanoapp: '%s'", name.c_str());
-  }
-}
-
-bool PreloadedNanoappLoader::loadNanoapp(const std::vector<uint8_t> &header,
-                                         const std::vector<uint8_t> &nanoapp,
-                                         uint32_t transactionId) {
-  if (header.size() != sizeof(NanoAppBinaryHeader)) {
-    LOGE("Nanoapp binary's header size is incorrect");
     return false;
   }
-  const auto *appHeader =
-      reinterpret_cast<const NanoAppBinaryHeader *>(header.data());
+  if (mIsPreloadingOngoing.exchange(true)) {
+    LOGE("Preloading is ongoing. A new request shouldn't happen.");
+    return false;
+  }
+  bool success = true;
+  for (uint32_t i = 0; i < nanoapps.size(); ++i) {
+    std::string headerFilename = directory + "/" + nanoapps[i] + ".napp_header";
+    std::string nanoappFilename = directory + "/" + nanoapps[i] + ".so";
+    // parse the header
+    std::vector<uint8_t> headerBuffer;
+    if (!getNanoappHeaderFromFile(headerFilename.c_str(), headerBuffer)) {
+      LOGE("Failed to parse the nanoapp header for %s",
+           nanoappFilename.c_str());
+      success = false;
+      continue;
+    }
+    const auto header =
+        reinterpret_cast<const NanoAppBinaryHeader *>(headerBuffer.data());
+    // check if the app should be skipped
+    if (shouldSkipNanoapp(selectedNanoappIds, header->appId)) {
+      LOGI("Loading of %s is skipped.", headerFilename.c_str());
+      continue;
+    }
+    // load the binary
+    if (!loadNanoapp(header, nanoappFilename, i)) {
+      success = false;
+    }
+  }
+  mIsPreloadingOngoing.store(false);
+  return success;
+}
 
+bool PreloadedNanoappLoader::loadNanoapp(const NanoAppBinaryHeader *appHeader,
+                                         const std::string &nanoappFileName,
+                                         uint32_t transactionId) {
+  // parse the binary
+  std::vector<uint8_t> nanoappBuffer;
+  if (!readFileContents(nanoappFileName.c_str(), nanoappBuffer)) {
+    LOGE("Unable to read %s.", nanoappFileName.c_str());
+    return false;
+  }
   // Build the target API version from major and minor.
   uint32_t targetApiVersion = (appHeader->targetChreApiMajorVersion << 24) |
                               (appHeader->targetChreApiMinorVersion << 16);
   return sendFragmentedLoadAndWaitForEachResponse(
       appHeader->appId, appHeader->appVersion, appHeader->flags,
-      targetApiVersion, nanoapp.data(), nanoapp.size(), transactionId);
+      targetApiVersion, nanoappBuffer.data(), nanoappBuffer.size(),
+      transactionId);
 }
 
 bool PreloadedNanoappLoader::sendFragmentedLoadAndWaitForEachResponse(

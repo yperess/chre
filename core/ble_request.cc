@@ -32,31 +32,49 @@ bool filtersMatch(const chreBleGenericFilter &filter,
          (memcmp(filter.dataMask, otherFilter.dataMask, filter.len) == 0);
 }
 
+bool broadcasterFiltersMatch(
+    const chreBleBroadcasterAddressFilter &filter,
+    const chreBleBroadcasterAddressFilter &otherFilter) {
+  return (memcmp(filter.broadcasterAddress, otherFilter.broadcasterAddress,
+                 sizeof(filter.broadcasterAddress)) == 0);
+}
+
 }  // namespace
 
-BleRequest::BleRequest() : BleRequest(0, false) {}
+BleRequest::BleRequest()
+    : BleRequest(0 /* instanceId */, false /* enable */, nullptr /* cookie */) {
+}
 
-BleRequest::BleRequest(uint16_t instanceId, bool enable)
+BleRequest::BleRequest(uint16_t instanceId, bool enable, const void *cookie)
     : BleRequest(instanceId, enable, CHRE_BLE_SCAN_MODE_BACKGROUND,
-                 0 /* reportDelayMs */, nullptr /* filter */) {}
+                 0 /* reportDelayMs */, nullptr /* filter */, cookie) {}
 
 BleRequest::BleRequest(uint16_t instanceId, bool enable, chreBleScanMode mode,
-                       uint32_t reportDelayMs, const chreBleScanFilter *filter)
+                       uint32_t reportDelayMs,
+                       const chreBleScanFilterV1_9 *filter, const void *cookie)
     : mReportDelayMs(reportDelayMs),
       mInstanceId(instanceId),
       mMode(mode),
       mEnabled(enable),
       mRssiThreshold(CHRE_BLE_RSSI_THRESHOLD_NONE),
-      mStatus(RequestStatus::PENDING_REQ) {
+      mStatus(RequestStatus::PENDING_REQ),
+      mCookie(cookie) {
   if (filter != nullptr) {
     mRssiThreshold = filter->rssiThreshold;
-    if (filter->scanFilterCount > 0) {
-      if (!mFilters.resize(filter->scanFilterCount)) {
+    if (filter->genericFilterCount > 0) {
+      if (!mGenericFilters.resize(filter->genericFilterCount)) {
         FATAL_ERROR("Unable to reserve filter count");
       }
-      for (size_t i = 0; i < filter->scanFilterCount; i++) {
-        mFilters[i] = filter->scanFilters[i];
+      memcpy(mGenericFilters.data(), filter->genericFilters,
+             sizeof(chreBleGenericFilter) * filter->genericFilterCount);
+    }
+    if (filter->broadcasterAddressFilterCount > 0) {
+      if (!mBroadcasterFilters.resize(filter->broadcasterAddressFilterCount)) {
+        FATAL_ERROR("Unable to reserve broadcaster address filter count");
       }
+      memcpy(mBroadcasterFilters.data(), filter->broadcasterAddressFilters,
+             sizeof(chreBleBroadcasterAddressFilter) *
+                 filter->broadcasterAddressFilterCount);
     }
   }
 }
@@ -70,9 +88,11 @@ BleRequest &BleRequest::operator=(BleRequest &&other) {
   mMode = other.mMode;
   mReportDelayMs = other.mReportDelayMs;
   mRssiThreshold = other.mRssiThreshold;
-  mFilters = std::move(other.mFilters);
+  mGenericFilters = std::move(other.mGenericFilters);
+  mBroadcasterFilters = std::move(other.mBroadcasterFilters);
   mEnabled = other.mEnabled;
   mStatus = other.mStatus;
+  mCookie = other.mCookie;
   return *this;
 }
 
@@ -103,10 +123,11 @@ bool BleRequest::mergeWith(const BleRequest &request) {
       attributesChanged = true;
     }
   }
-  const DynamicVector<chreBleGenericFilter> &otherFilters = request.mFilters;
+  const DynamicVector<chreBleGenericFilter> &otherFilters =
+      request.mGenericFilters;
   for (const chreBleGenericFilter &otherFilter : otherFilters) {
     bool addFilter = true;
-    for (const chreBleGenericFilter &filter : mFilters) {
+    for (const chreBleGenericFilter &filter : mGenericFilters) {
       if (filtersMatch(filter, otherFilter)) {
         addFilter = false;
         break;
@@ -114,7 +135,25 @@ bool BleRequest::mergeWith(const BleRequest &request) {
     }
     if (addFilter) {
       attributesChanged = true;
-      if (!mFilters.push_back(otherFilter)) {
+      if (!mGenericFilters.push_back(otherFilter)) {
+        FATAL_ERROR("Unable to merge filters");
+      }
+    }
+  }
+  const DynamicVector<chreBleBroadcasterAddressFilter>
+      &otherBroadcasterFilters = request.mBroadcasterFilters;
+  for (const chreBleBroadcasterAddressFilter &otherFilter :
+       otherBroadcasterFilters) {
+    bool addFilter = true;
+    for (const chreBleBroadcasterAddressFilter &filter : mBroadcasterFilters) {
+      if (broadcasterFiltersMatch(filter, otherFilter)) {
+        addFilter = false;
+        break;
+      }
+    }
+    if (addFilter) {
+      attributesChanged = true;
+      if (!mBroadcasterFilters.push_back(otherFilter)) {
         FATAL_ERROR("Unable to merge filters");
       }
     }
@@ -123,14 +162,26 @@ bool BleRequest::mergeWith(const BleRequest &request) {
 }
 
 bool BleRequest::isEquivalentTo(const BleRequest &request) {
-  const DynamicVector<chreBleGenericFilter> &otherFilters = request.mFilters;
-  bool isEquivalent = (mEnabled && request.mEnabled && mMode == request.mMode &&
-                       mReportDelayMs == request.mReportDelayMs &&
-                       mRssiThreshold == request.mRssiThreshold &&
-                       mFilters.size() == otherFilters.size());
+  const DynamicVector<chreBleGenericFilter> &otherFilters =
+      request.mGenericFilters;
+  const DynamicVector<chreBleBroadcasterAddressFilter>
+      &otherBroadcasterFilters = request.mBroadcasterFilters;
+  bool isEquivalent =
+      (mEnabled && request.mEnabled && mMode == request.mMode &&
+       mReportDelayMs == request.mReportDelayMs &&
+       mRssiThreshold == request.mRssiThreshold &&
+       mGenericFilters.size() == otherFilters.size() &&
+       mBroadcasterFilters.size() == otherBroadcasterFilters.size());
   if (isEquivalent) {
     for (size_t i = 0; i < otherFilters.size(); i++) {
-      if (!filtersMatch(mFilters[i], otherFilters[i])) {
+      if (!filtersMatch(mGenericFilters[i], otherFilters[i])) {
+        isEquivalent = false;
+        break;
+      }
+    }
+    for (size_t i = 0; i < otherBroadcasterFilters.size(); i++) {
+      if (!broadcasterFiltersMatch(mBroadcasterFilters[i],
+                                   otherBroadcasterFilters[i])) {
         isEquivalent = false;
         break;
       }
@@ -165,16 +216,27 @@ void BleRequest::setRequestStatus(RequestStatus status) {
 
 const DynamicVector<chreBleGenericFilter> &BleRequest::getGenericFilters()
     const {
-  return mFilters;
+  return mGenericFilters;
 }
 
-chreBleScanFilter BleRequest::getScanFilter() const {
-  return chreBleScanFilter{
-      mRssiThreshold, static_cast<uint8_t>(mFilters.size()), mFilters.data()};
+const DynamicVector<chreBleBroadcasterAddressFilter> &
+BleRequest::getBroadcasterFilters() const {
+  return mBroadcasterFilters;
+}
+
+chreBleScanFilterV1_9 BleRequest::getScanFilter() const {
+  return chreBleScanFilterV1_9{
+      mRssiThreshold, static_cast<uint8_t>(mGenericFilters.size()),
+      mGenericFilters.data(), static_cast<uint8_t>(mBroadcasterFilters.size()),
+      mBroadcasterFilters.data()};
 }
 
 bool BleRequest::isEnabled() const {
   return mEnabled;
+}
+
+const void *BleRequest::getCookie() const {
+  return mCookie;
 }
 
 void BleRequest::logStateToBuffer(DebugDumpWrapper &debugDump,
@@ -189,8 +251,8 @@ void BleRequest::logStateToBuffer(DebugDumpWrapper &debugDump,
         " mode=%" PRIu8 " reportDelayMs=%" PRIu32 " rssiThreshold=%" PRId8,
         static_cast<uint8_t>(mMode), mReportDelayMs, mRssiThreshold);
     if (isPlatformRequest) {
-      debugDump.print(" filters=[");
-      for (const chreBleGenericFilter &filter : mFilters) {
+      debugDump.print(" genericFilters=[");
+      for (const chreBleGenericFilter &filter : mGenericFilters) {
         debugDump.print("(type=%" PRIx8, filter.type);
         if (filter.len > 0) {
           debugDump.print(" data=%s dataMask=%s len=%" PRIu8 "), ",
@@ -200,9 +262,21 @@ void BleRequest::logStateToBuffer(DebugDumpWrapper &debugDump,
         }
       }
       debugDump.print("]\n");
+      debugDump.print(" broadcasterAddressFilters=[");
+      for (const chreBleBroadcasterAddressFilter &filter :
+           mBroadcasterFilters) {
+        debugDump.print(
+            "(address=%02X:%02X:%02X:%02X:%02X:%02X), ",
+            filter.broadcasterAddress[5], filter.broadcasterAddress[4],
+            filter.broadcasterAddress[3], filter.broadcasterAddress[2],
+            filter.broadcasterAddress[1], filter.broadcasterAddress[0]);
+      }
+      debugDump.print("]\n");
     } else {
-      debugDump.print(" filterCount=%" PRIu8 "\n",
-                      static_cast<uint8_t>(mFilters.size()));
+      debugDump.print(" genericFilterCount=%" PRIu8
+                      " broadcasterFilterCount=%" PRIu8 "\n",
+                      static_cast<uint8_t>(mGenericFilters.size()),
+                      static_cast<uint8_t>(mBroadcasterFilters.size()));
     }
   }
 }

@@ -40,10 +40,11 @@ class BleRequest : public NonCopyable {
  public:
   BleRequest();
 
-  BleRequest(uint16_t instanceId, bool enable);
+  BleRequest(uint16_t instanceId, bool enable, const void *cookie);
 
   BleRequest(uint16_t instanceId, bool enable, chreBleScanMode mode,
-             uint32_t reportDelayMs, const chreBleScanFilter *filter);
+             uint32_t reportDelayMs, const chreBleScanFilterV1_9 *filter,
+             const void *cookie);
 
   BleRequest(BleRequest &&other);
 
@@ -103,10 +104,21 @@ class BleRequest : public NonCopyable {
   const DynamicVector<chreBleGenericFilter> &getGenericFilters() const;
 
   /**
-   * @return chreBleScanFilter that is valid only as long as the internal
+   * @return Broadcaster address filters of this request.
+   */
+  const DynamicVector<chreBleBroadcasterAddressFilter> &getBroadcasterFilters()
+      const;
+
+  /**
+   * @return The cookie this request.
+   */
+  const void *getCookie() const;
+
+  /**
+   * @return chreBleScanFilterV1_9 that is valid only as long as the internal
    *    contents of this class are not modified
    */
-  chreBleScanFilter getScanFilter() const;
+  chreBleScanFilterV1_9 getScanFilter() const;
 
   /**
    * @return true if nanoapp intends to enable a request.
@@ -136,7 +148,7 @@ class BleRequest : public NonCopyable {
   chreBleScanMode mMode;
 
   // Whether a nanoapp intends to enable this request. If set to false, the
-  // following members are invalid: mMode, mReportDelayMs, mFilter.
+  // following members are invalid: mMode, mReportDelayMs, mGenericFilters.
   bool mEnabled;
 
   // RSSI threshold filter.
@@ -148,7 +160,13 @@ class BleRequest : public NonCopyable {
   RequestStatus mStatus;
 
   // Generic scan filters.
-  DynamicVector<chreBleGenericFilter> mFilters;
+  DynamicVector<chreBleGenericFilter> mGenericFilters;
+
+  // Broadcaster address filters.
+  DynamicVector<chreBleBroadcasterAddressFilter> mBroadcasterFilters;
+
+  // Cookie value included in this request, supplied by the nanoapp.
+  const void *mCookie;
 };
 
 }  // namespace chre

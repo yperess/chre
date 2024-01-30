@@ -42,7 +42,6 @@ import dev.pigweed.pw_rpc.Service;
  */
 public class ContextHubChreApiTestExecutor extends ContextHubClientCallback {
     private final List<NanoAppBinary> mNanoAppBinaries;
-    private final List<Long> mNanoAppIds = new ArrayList<Long>();
     private final ContextHubClient mContextHubClient;
     private final AtomicBoolean mChreReset = new AtomicBoolean(false);
     protected final Context mContext = InstrumentationRegistry.getTargetContext();
@@ -64,7 +63,6 @@ public class ContextHubChreApiTestExecutor extends ContextHubClientCallback {
         mContextHubClient = mContextHubManager.createClient(mContextHub, this);
 
         for (NanoAppBinary nanoapp: nanoapps) {
-            mNanoAppIds.add(nanoapp.getNanoAppId());
             Service chreApiService = ChreApiTestUtil.getChreApiService();
             mRpcClients.add(new ChreRpcClient(
                     mContextHubManager, mContextHub, nanoapp.getNanoAppId(),
@@ -79,7 +77,6 @@ public class ContextHubChreApiTestExecutor extends ContextHubClientCallback {
 
     /** Should be invoked before run() is invoked to set up the test, e.g. in a @Before method. */
     public void init() {
-        mContextHubManager.enableTestMode();
         for (NanoAppBinary nanoapp: mNanoAppBinaries) {
             ChreTestUtil.loadNanoAppAssertSuccess(mContextHubManager, mContextHub, nanoapp);
         }
@@ -91,10 +88,10 @@ public class ContextHubChreApiTestExecutor extends ContextHubClientCallback {
             Assert.fail("CHRE reset during the test");
         }
 
-        for (Long nanoappId: mNanoAppIds) {
-            ChreTestUtil.unloadNanoAppAssertSuccess(mContextHubManager, mContextHub, nanoappId);
+        for (NanoAppBinary nanoapp: mNanoAppBinaries) {
+            ChreTestUtil.unloadNanoAppAssertSuccess(mContextHubManager, mContextHub,
+                    nanoapp.getNanoAppId());
         }
-        mContextHubManager.disableTestMode();
         mContextHubClient.close();
     }
 

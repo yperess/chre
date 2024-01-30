@@ -24,8 +24,13 @@
 #include "mbedtls/pk.h"
 #include "mbedtls/sha256.h"
 
+#include "cpufreq_vote.h"
+
 namespace chre {
 namespace {
+
+// A data structure needed for SCP chip frequency change
+DECLARE_OPPDEV(gChreScpFreqVote);
 
 // All the size below are in bytes
 constexpr uint32_t kEcdsaP256SigSize = 64;
@@ -101,6 +106,7 @@ struct ImageHeader {
 class Authenticator {
  public:
   Authenticator() {
+    scp_vote_opp(&gChreScpFreqVote, CLK_OPP2);
     mbedtls_ecp_group_init(&mGroup);
     mbedtls_ecp_point_init(&mQ);
     mbedtls_mpi_init(&mR);
@@ -112,6 +118,7 @@ class Authenticator {
     mbedtls_mpi_free(&mR);
     mbedtls_ecp_point_free(&mQ);
     mbedtls_ecp_group_free(&mGroup);
+    scp_unvote_opp(&gChreScpFreqVote, CLK_OPP2);
   }
 
   bool loadEcpGroup() {

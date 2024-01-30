@@ -31,6 +31,7 @@ const chrePalBleCallbacks PlatformBleBase::sBleCallbacks = {
     PlatformBleBase::scanStatusChangeCallback,
     PlatformBleBase::advertisingEventCallback,
     PlatformBleBase::readRssiCallback,
+    PlatformBleBase::flushCallback,
     PlatformBleBase::handleBtSnoopLog,
 };
 
@@ -49,6 +50,12 @@ void PlatformBle::init() {
   if (mBleApi != nullptr) {
     if (!mBleApi->open(&gChrePalSystemApi, &sBleCallbacks)) {
       LOGE("BLE PAL open returned false");
+
+#ifdef CHRE_TELEMETRY_SUPPORT_ENABLED
+      EventLoopManagerSingleton::get()->getTelemetryManager().onPalOpenFailure(
+          TelemetryManager::PalType::BLE);
+#endif  // CHRE_TELEMETRY_SUPPORT_ENABLED
+
       mBleApi = nullptr;
     } else {
       LOGD("Opened BLE PAL version 0x%08" PRIx32, mBleApi->moduleVersion);
@@ -78,7 +85,7 @@ uint32_t PlatformBle::getFilterCapabilities() {
 }
 
 bool PlatformBle::startScanAsync(chreBleScanMode mode, uint32_t reportDelayMs,
-                                 const struct chreBleScanFilter *filter) {
+                                 const struct chreBleScanFilterV1_9 *filter) {
   if (mBleApi != nullptr) {
     prePalApiCall(PalType::BLE);
     return mBleApi->startScan(mode, reportDelayMs, filter);
@@ -140,6 +147,20 @@ void PlatformBleBase::readRssiCallback(uint8_t errorCode,
   UNUSED_VAR(connectionHandle);
   UNUSED_VAR(rssi);
 #endif
+}
+
+bool PlatformBle::flushAsync() {
+  if (mBleApi != nullptr) {
+    prePalApiCall(PalType::BLE);
+    return mBleApi->flush();
+  } else {
+    return false;
+  }
+}
+
+void PlatformBleBase::flushCallback(uint8_t errorCode) {
+  EventLoopManagerSingleton::get()->getBleRequestManager().handleFlushComplete(
+      errorCode);
 }
 
 void PlatformBleBase::handleBtSnoopLog(bool isTxToBtController,

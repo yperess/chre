@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// IWYU pragma: private, include "chre_api/chre.h"
+// IWYU pragma: friend chre/.*\.h
+
 #ifndef _CHRE_VERSION_H_
 #define _CHRE_VERSION_H_
 
@@ -135,14 +138,28 @@ extern "C" {
 /**
  * Value for version 1.8 of the Context Hub Runtime Environment API interface.
  *
- * This version of the CHRE API is shipped with the Android U release.
+ * This version of the CHRE API is shipped with the Android U release. It adds
+ * support for filtering by manufacturer data in BLE scans, reading the RSSI
+ * value of a BLE connection, allowing the nanoapp to check BLE scan status,
+ * allowing the nanoapp to specify which RPC services it supports, and
+ * delivering batch complete events for batched BLE scans.
+ *
+ * @see CHRE_API_VERSION
+ */
+#define CHRE_API_VERSION_1_8 UINT32_C(0x01080000)
+
+/**
+ * Value for version 1.9 of the Context Hub Runtime Environment API interface.
+ *
+ * This version of the CHRE API is shipped with a post-launch update to the
+ * Android U release. It adds the BLE Broadcaster Address filter.
  *
  * @note This version of the CHRE API has not been finalized yet, and is
  * currently considered a preview that is subject to change.
  *
  * @see CHRE_API_VERSION
  */
-#define CHRE_API_VERSION_1_8 UINT32_C(0x01080000)
+#define CHRE_API_VERSION_1_9 UINT32_C(0x01090000)
 
 /**
  * Major and Minor Version of this Context Hub Runtime Environment API.
@@ -161,7 +178,7 @@ extern "C" {
  * Note that version numbers can always be numerically compared with
  * expected results, so 1.0.0 < 1.0.4 < 1.1.0 < 2.0.300 < 3.5.0.
  */
-#define CHRE_API_VERSION CHRE_API_VERSION_1_8
+#define CHRE_API_VERSION CHRE_API_VERSION_1_9
 
 /**
  * Utility macro to extract only the API major version of a composite CHRE

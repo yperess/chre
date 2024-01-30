@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,26 @@
  * limitations under the License.
  */
 
-#ifndef CHPP_CLIENTS_TEST_H_
-#define CHPP_CLIENTS_TEST_H_
+#include "chre/util/nanoapp/string.h"
+#include "chre/util/nanoapp/assert.h"
 
-#include "chpp/app.h"
-#include "chpp/transport.h"
+namespace chre {
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+void copyString(char *destination, const char *source,
+                size_t destinationBufferSize) {
+  CHRE_ASSERT_NOT_NULL(destination);
+  CHRE_ASSERT_NOT_NULL(source);
 
-/************************************************
- *  Functions necessary for unit testing
- ***********************************************/
+  if (destinationBufferSize == 0) {
+    return;
+  }
 
-struct ChppAppHeader *chppTransportGetClientRequestTimeoutResponse(
-    struct ChppTransportState *context);
+  uint32_t i;
+  for (i = 0; i < destinationBufferSize - 1 && source[i] != '\0'; ++i) {
+    destination[i] = source[i];
+  }
 
-#ifdef __cplusplus
+  memset(&destination[i], 0, destinationBufferSize - i);
 }
-#endif
 
-#endif  // CHPP_CLIENTS_TEST_H_
+}  // namespace chre

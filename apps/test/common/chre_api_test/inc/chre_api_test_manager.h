@@ -38,27 +38,14 @@ class ChreApiTestService final
   /**
    * Returns the BLE capabilities.
    */
-  pw::Status ChreBleGetCapabilities(const chre_rpc_Void &request,
+  pw::Status ChreBleGetCapabilities(const google_protobuf_Empty &request,
                                     chre_rpc_Capabilities &response);
 
   /**
    * Returns the BLE filter capabilities.
    */
-  pw::Status ChreBleGetFilterCapabilities(const chre_rpc_Void &request,
+  pw::Status ChreBleGetFilterCapabilities(const google_protobuf_Empty &request,
                                           chre_rpc_Capabilities &response);
-
-  /**
-   * Starts a BLE scan.
-   */
-  pw::Status ChreBleStartScanAsync(
-      const chre_rpc_ChreBleStartScanAsyncInput &request,
-      chre_rpc_Status &response);
-
-  /**
-   * Stops a BLE scan.
-   */
-  pw::Status ChreBleStopScanAsync(const chre_rpc_Void &request,
-                                  chre_rpc_Status &response);
 
   /**
    * Finds the default sensor and returns the handle in the output.
@@ -108,13 +95,6 @@ class ChreApiTestService final
       chre_rpc_Status &response);
 
   /**
-   * Retrieve the last host endpoint notification.
-   */
-  pw::Status RetrieveLatestDisconnectedHostEndpointEvent(
-      const chre_rpc_Void &request,
-      chre_rpc_RetrieveLatestDisconnectedHostEndpointEventOutput &response);
-
-  /**
    * Gets the host endpoint info for a given host endpoint id.
    */
   pw::Status ChreGetHostEndpointInfo(
@@ -132,7 +112,7 @@ class ChreApiTestService final
    * Stops a BLE scan synchronously. Waits for the CHRE_EVENT_BLE_ASYNC_RESULT
    * event.
    */
-  void ChreBleStopScanSync(const chre_rpc_Void &request,
+  void ChreBleStopScanSync(const google_protobuf_Empty &request,
                            ServerWriter<chre_rpc_GeneralSyncMessage> &writer);
 
   /**
@@ -174,16 +154,6 @@ class ChreApiTestService final
 
  private:
   /**
-   * Copies a string from source to destination up to the length of the source
-   * or the max value. Pads with null characters.
-   *
-   * @param destination         the destination string.
-   * @param source              the source string.
-   * @param maxChars            the maximum number of chars.
-   */
-  void copyString(char *destination, const char *source, size_t maxChars);
-
-  /**
    * Sets the synchronous timeout timer for the active sync message.
    *
    * @return                     if the operation was successful.
@@ -200,17 +170,17 @@ class ChreApiTestService final
    *                             false otherwise.
    */
   bool validateInputAndCallChreBleGetCapabilities(
-      const chre_rpc_Void &request, chre_rpc_Capabilities &response);
+      const google_protobuf_Empty &request, chre_rpc_Capabilities &response);
 
   bool validateInputAndCallChreBleGetFilterCapabilities(
-      const chre_rpc_Void &request, chre_rpc_Capabilities &response);
+      const google_protobuf_Empty &request, chre_rpc_Capabilities &response);
 
   bool validateInputAndCallChreBleStartScanAsync(
       const chre_rpc_ChreBleStartScanAsyncInput &request,
       chre_rpc_Status &response);
 
-  bool validateInputAndCallChreBleStopScanAsync(const chre_rpc_Void &request,
-                                                chre_rpc_Status &response);
+  bool validateInputAndCallChreBleStopScanAsync(
+      const google_protobuf_Empty &request, chre_rpc_Status &response);
 
   bool validateInputAndCallChreSensorFindDefault(
       const chre_rpc_ChreSensorFindDefaultInput &request,
@@ -240,13 +210,23 @@ class ChreApiTestService final
       const chre_rpc_ChreConfigureHostEndpointNotificationsInput &request,
       chre_rpc_Status &response);
 
-  bool validateInputAndRetrieveLatestDisconnectedHostEndpointEvent(
-      const chre_rpc_Void &request,
-      chre_rpc_RetrieveLatestDisconnectedHostEndpointEventOutput &response);
-
   bool validateInputAndCallChreGetHostEndpointInfo(
       const chre_rpc_ChreGetHostEndpointInfoInput &request,
       chre_rpc_ChreGetHostEndpointInfoOutput &response);
+
+  /**
+   * Validates the BLE scan filters and creates a generic filter in the
+   * outputScanFilters array. scanFilters and outputScanFilters must be of size
+   * scanFilterCount or greater.
+   *
+   * @param scanFilters          the input scan filters.
+   * @param outputScanFilters    the output scan filters.
+   * @param scanFilterCount      the number of scan filters.
+   * @return                     whether the validation was successful.
+   */
+  bool validateBleScanFilters(const chre_rpc_ChreBleGenericFilter *scanFilters,
+                              chreBleGenericFilter *outputScanFilters,
+                              uint32_t scanFilterCount);
 
   constexpr static uint32_t kMaxNumEventTypes =
       10;  // declared in chre_api_test.options
@@ -258,12 +238,6 @@ class ChreApiTestService final
   Optional<ServerWriter<chre_rpc_GeneralSyncMessage>> mWriter;
   uint32_t mSyncTimerHandle = CHRE_TIMER_INVALID;
   uint8_t mRequestType;
-
-  /**
-   * Variables to store disconnected host endpoint notification.
-   */
-  uint32_t mReceivedHostEndpointDisconnectedNum = 0;
-  chreHostEndpointNotification mLatestHostEndpointNotification;
 
   /*
    * Variables to control synchronization for sync events calls.

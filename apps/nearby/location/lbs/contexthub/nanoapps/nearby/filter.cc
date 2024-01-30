@@ -20,8 +20,10 @@
 #include <inttypes.h>
 #include <pb_decode.h>
 
+#include <cstdint>
 #include <iterator>
 
+#include "chre_api/chre.h"
 #include "location/lbs/contexthub/nanoapps/nearby/ble_scan_record.h"
 #include "location/lbs/contexthub/nanoapps/nearby/fast_pair_filter.h"
 #ifdef ENABLE_PRESENCE
@@ -111,6 +113,10 @@ void Filter::MatchBle(
     // The buffer size has already been checked.
     static_assert(std::size(result.bluetooth_address) == CHRE_BLE_ADDRESS_LEN);
     memcpy(result.bluetooth_address, report.address, std::size(report.address));
+    result.has_timestamp_ns = true;
+    result.timestamp_ns =
+        report.timestamp +
+        static_cast<uint64_t>(chreGetEstimatedHostTimeOffset());
     if (MatchFastPair(ble_filters_.filter[filter_index], record, &result)) {
       LOGD("Add a matched Fast Pair filter result");
       fp_filter_results->push_back(result);

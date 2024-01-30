@@ -90,6 +90,6 @@ class HostEndpointManager : public NonCopyable {
   auto getHostNotificationCallback();
 };
 
-};  // namespace chre
+}  // namespace chre
 
 #endif  // CHRE_CORE_HOST_ENDPOINT_MANAGER_H_

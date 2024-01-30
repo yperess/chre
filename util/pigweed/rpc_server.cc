@@ -29,15 +29,6 @@
 
 namespace chre {
 
-RpcServer::~RpcServer() {
-  chreConfigureNanoappInfoEvents(false);
-  // TODO(b/251257328): Disable all notifications at once.
-  while (!mConnectedHosts.empty()) {
-    chreConfigureHostEndpointNotifications(mConnectedHosts[0], false);
-    mConnectedHosts.erase(0);
-  }
-}
-
 bool RpcServer::registerServices(size_t numServices,
                                  RpcServer::Service *services) {
   // Avoid blowing up the stack with chreServices.
@@ -77,7 +68,7 @@ bool RpcServer::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
   switch (eventType) {
     case CHRE_EVENT_MESSAGE_FROM_HOST:
       return handleMessageFromHost(eventData);
-    case ChreChannelOutputBase::PW_RPC_CHRE_NAPP_REQUEST_EVENT_TYPE:
+    case CHRE_EVENT_RPC_REQUEST:
       return handleMessageFromNanoapp(senderInstanceId, eventData);
     case CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION:
       handleHostClientNotification(eventData);
@@ -90,11 +81,19 @@ bool RpcServer::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
   }
 }
 
+void RpcServer::close() {
+  chreConfigureNanoappInfoEvents(false);
+  // TODO(b/251257328): Disable all notifications at once.
+  while (!mConnectedHosts.empty()) {
+    chreConfigureHostEndpointNotifications(mConnectedHosts[0], false);
+    mConnectedHosts.erase(0);
+  }
+}
+
 bool RpcServer::handleMessageFromHost(const void *eventData) {
   auto *hostMessage = static_cast<const chreMessageFromHostData *>(eventData);
 
-  if (hostMessage->messageType !=
-      ChreChannelOutputBase::PW_RPC_CHRE_HOST_MESSAGE_TYPE) {
+  if (hostMessage->messageType != CHRE_MESSAGE_TYPE_RPC) {
     return false;
   }
 
@@ -138,7 +137,8 @@ bool RpcServer::handleMessageFromHost(const void *eventData) {
 bool RpcServer::handleMessageFromNanoapp(uint32_t senderInstanceId,
                                          const void *eventData) {
   const auto data = static_cast<const ChrePigweedNanoappMessage *>(eventData);
-  pw::span packet(static_cast<const std::byte *>(data->msg), data->msgSize);
+  pw::span packet(reinterpret_cast<const std::byte *>(data->msg),
+                  data->msgSize);
 
   pw::Result<uint32_t> result = pw::rpc::ExtractChannelId(packet);
   if (result.status() != PW_STATUS_OK) {

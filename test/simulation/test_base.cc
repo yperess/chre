@@ -76,6 +76,7 @@ void TestBase::TearDown() {
   TestEventQueueSingleton::deinit();
   TaskManagerSingleton::deinit();
   deleteNanoappInfos();
+  unregisterAllTestNanoapps();
 }
 
 TEST_F(TestBase, CanLoadAndStartSingleNanoapp) {
@@ -116,6 +117,36 @@ TEST_F(TestBase, CanLoadAndStartMultipleNanoapps) {
                   .findNanoappInstanceIdByAppId(kAppId2, &id2));
 
   EXPECT_NE(id1, id2);
+}
+
+TEST_F(TestBase, methods) {
+  CREATE_CHRE_TEST_EVENT(SOME_EVENT, 0);
+
+  class App : public TestNanoapp {
+   public:
+    explicit App(TestNanoappInfo info) : TestNanoapp(info) {}
+    bool start() override {
+      LOGE("start");
+      mTest = 0xc0ffee;
+      return true;
+    }
+
+    void handleEvent(uint32_t /*senderInstanceId*/, uint16_t /*eventType*/,
+                     const void * /**eventData*/) override {
+      LOGE("handleEvent %" PRIx16, mTest);
+    }
+
+    void end() override {
+      LOGE("end");
+    }
+
+   protected:
+    uint32_t mTest = 0;
+  };
+
+  uint64_t appId = loadNanoapp(MakeUnique<App>(TestNanoappInfo{.id = 0x456}));
+
+  sendEventToNanoapp(appId, SOME_EVENT);
 }
 
 // Explicitly instantiate the TestEventQueueSingleton to reduce codesize.

@@ -69,7 +69,7 @@ class PlatformBle : public PlatformBleBase {
    * @return true if scan was successfully enabled.
    */
   bool startScanAsync(chreBleScanMode mode, uint32_t reportDelayMs,
-                      const struct chreBleScanFilter *filter);
+                      const struct chreBleScanFilterV1_9 *filter);
 
   /**
    * End a BLE scan asynchronously. The result is delivered through a
@@ -105,6 +105,17 @@ class PlatformBle : public PlatformBleBase {
    * @since v1.8
    */
   bool readRssiAsync(uint16_t connectionHandle);
+
+  /**
+   * Initiates a flush operation where all batched advertisement events will be
+   * immediately processed.
+   *
+   * @return true if the request was accepted, in which case a subsequent call
+   * to flushCallback() will be used to indicate the result of the operation.
+   *
+   * @since v1.9
+   */
+  bool flushAsync();
 };
 
 }  // namespace chre

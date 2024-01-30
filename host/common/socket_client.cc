@@ -177,6 +177,10 @@ void SocketClient::receiveThread() {
       ssize_t bytesReceived = recv(mSockFd, buffer, sizeof(buffer), 0);
       if (bytesReceived < 0) {
         LOG_ERROR("Exiting RX thread", errno);
+        if (!mGracefulShutdown) {
+          LOGI("Force onDisconnected");
+          mCallbacks->onDisconnected();
+        }
         break;
       } else if (bytesReceived == 0) {
         if (!mGracefulShutdown) {

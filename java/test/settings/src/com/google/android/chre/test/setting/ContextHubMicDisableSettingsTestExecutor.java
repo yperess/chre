@@ -50,7 +50,7 @@ public class ContextHubMicDisableSettingsTestExecutor {
         mExecutor.init();
     }
 
-    public void runMicDisableSettingsTest() {
+    public void runMicDisableSettingsTest() throws InterruptedException {
         setMicrophoneDisableSetting(false /* disableAccess */);
         runTest(ChreSettingsTest.TestCommand.Feature.AUDIO, false /* enableFeature */);
 
@@ -87,7 +87,8 @@ public class ContextHubMicDisableSettingsTestExecutor {
      * @param feature The feature to test.
      * @param enableFeature True for enable.
      */
-    private void runTest(ChreSettingsTest.TestCommand.Feature feature, boolean enableFeature) {
+    private void runTest(ChreSettingsTest.TestCommand.Feature feature, boolean enableFeature)
+            throws InterruptedException {
         ChreSettingsTest.TestCommand.State state = enableFeature
                 ? ChreSettingsTest.TestCommand.State.ENABLED
                 : ChreSettingsTest.TestCommand.State.DISABLED;

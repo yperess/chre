@@ -21,7 +21,9 @@
 #include "chre/core/ble_request_multiplexer.h"
 #include "chre/core/nanoapp.h"
 #include "chre/core/settings.h"
+#include "chre/core/timer_pool.h"
 #include "chre/platform/platform_ble.h"
+#include "chre/platform/system_time.h"
 #include "chre/util/array_queue.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/system/debug_dump.h"
@@ -61,24 +63,29 @@ class BleRequestManager : public NonCopyable {
    *                      batching. Note that the system may deliver results
    *                      before the maximum specified delay is reached.
    * @param filter Pointer to the requested best-effort filter configuration as
-   *               defined by struct chreBleScanFilter. The ownership of filter
-   *               and its nested elements remains with the caller, and the
-   *               caller may release it as soon as chreBleStartScanAsync()
-   *               returns.
+   *               defined by struct chreBleScanFilterV1_9. The ownership of
+   *               filter and its nested elements remains with the caller, and
+   *               the caller may release it as soon as
+   *               chreBleStartScanAsyncV1_9() returns.
+   * @param cookie The cookie to be provided to the nanoapp. This is
+   *               round-tripped from the nanoapp to provide context.
    * @return true if scan was successfully enabled.
    */
   bool startScanAsync(Nanoapp *nanoapp, chreBleScanMode mode,
                       uint32_t reportDelayMs,
-                      const struct chreBleScanFilter *filter);
+                      const struct chreBleScanFilterV1_9 *filter,
+                      const void *cookie);
 
   /**
    * End a BLE scan asynchronously. The result is delivered through a
    * CHRE_EVENT_BLE_ASYNC_RESULT event.
    *
    * @param nanoapp The nanoapp stopping the request.
+   * @param cookie A cookie that is round-tripped back to the nanoapp to
+   *               provide a context when making the request.
    * @return whether the scan was successfully ended.
    */
-  bool stopScanAsync(Nanoapp *nanoapp);
+  bool stopScanAsync(Nanoapp *nanoapp, const void *cookie);
 
 #ifdef CHRE_BLE_READ_RSSI_SUPPORT_ENABLED
   /**
@@ -109,6 +116,18 @@ class BleRequestManager : public NonCopyable {
   bool readRssiAsync(Nanoapp *nanoapp, uint16_t connectionHandle,
                      const void *cookie);
 #endif
+
+  /**
+   * Initiates a flush operation where all batched advertisement events will be
+   * immediately processed and delivered. The nanoapp must have an existing
+   * active BLE scan.
+   *
+   * @param nanoapp the nanoapp requesting the flush operation.
+   * @param cookie the cookie value stored with the request.
+   * @return true if the request has been accepted and dispatched to the
+   *         controller. false otherwise.
+   */
+  bool flushAsync(Nanoapp *nanoapp, const void *cookie);
 
   /**
    * Disables active scan for a nanoapp (no-op if no active scan).
@@ -173,6 +192,17 @@ class BleRequestManager : public NonCopyable {
 #endif
 
   /**
+   * Handler for the flush complete operation. Called when a flush operation is
+   * complete. Processes in an asynchronous manner.
+   *
+   * @param errorCode the error code from the flush operation.
+   */
+  void handleFlushComplete(uint8_t errorCode);
+
+  //! Timeout handler for the flush operation. Called on a timeout.
+  void handleFlushCompleteTimeout();
+
+  /**
    * Retrieves the current scan status.
    *
    * @param status A non-null pointer to where the scan status will be
@@ -201,6 +231,23 @@ class BleRequestManager : public NonCopyable {
   void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
  private:
+  //! An internal structure to store incoming sensor flush requests
+  struct FlushRequest {
+    FlushRequest(uint16_t id, const void *cookiePtr)
+        : nanoappInstanceId(id), cookie(cookiePtr) {}
+
+    //! The timestamp at which this request should complete.
+    Nanoseconds deadlineTimestamp =
+        SystemTime::getMonotonicTime() +
+        Nanoseconds(CHRE_BLE_FLUSH_COMPLETE_TIMEOUT_NS);
+    //! The ID of the nanoapp that requested the flush.
+    uint16_t nanoappInstanceId;
+    //! The opaque pointer provided in flushAsync().
+    const void *cookie;
+    //! True if this flush request is active and is pending completion.
+    bool isActive = false;
+  };
+
   // Multiplexer used to keep track of BLE requests from nanoapps.
   BleRequestMultiplexer mRequests;
 
@@ -222,6 +269,13 @@ class BleRequestManager : public NonCopyable {
   // True if a setting change request is pending to be processed.
   bool mSettingChangePending;
 
+  //! A queue of flush requests made by nanoapps.
+  static constexpr size_t kMaxFlushRequests = 16;
+  ArrayQueue<FlushRequest, kMaxFlushRequests> mFlushRequestQueue;
+
+  //! The timer handle for the flush operation. Used to track a flush timeout.
+  TimerHandle mFlushRequestTimerHandle = CHRE_TIMER_INVALID;
+
 #ifdef CHRE_BLE_READ_RSSI_SUPPORT_ENABLED
   // A pending request from a nanoapp
   struct BleReadRssiRequest {
@@ -238,17 +292,19 @@ class BleRequestManager : public NonCopyable {
 
   // Struct to hold ble request data for logging
   struct BleRequestLog {
-    BleRequestLog(Nanoseconds timestamp, uint32_t instanceId, bool enable,
-                  bool compliesWithBleSetting)
-        : timestamp(timestamp),
-          instanceId(instanceId),
-          enable(enable),
-          compliesWithBleSetting(compliesWithBleSetting) {}
+    BleRequestLog(Nanoseconds timestamp_, uint32_t instanceId_, bool enable_,
+                  bool compliesWithBleSetting_)
+        : timestamp(timestamp_),
+          instanceId(instanceId_),
+          enable(enable_),
+          compliesWithBleSetting(compliesWithBleSetting_) {}
     void populateRequestData(const BleRequest &req) {
       mode = req.getMode();
       reportDelayMs = req.getReportDelayMs();
       rssiThreshold = req.getRssiThreshold();
       scanFilterCount = static_cast<uint8_t>(req.getGenericFilters().size());
+      broadcasterFilterCount =
+          static_cast<uint8_t>(req.getBroadcasterFilters().size());
     }
     Nanoseconds timestamp;
     uint32_t instanceId;
@@ -258,6 +314,7 @@ class BleRequestManager : public NonCopyable {
     uint32_t reportDelayMs;
     int8_t rssiThreshold;
     uint8_t scanFilterCount;
+    uint8_t broadcasterFilterCount;
   };
 
   // List of most recent ble request logs
@@ -301,11 +358,13 @@ class BleRequestManager : public NonCopyable {
    * to the nanoapp instance id of the new request.
    * @param requestIndex If hasExistingRequest is true, requestIndex
    * corresponds to the index of that request.
+   * @param cookie The cookie to be provided to the nanoapp.
    * @return true if the request does not attempt to enable the platform while
    * the BLE setting is disabled.
    */
   bool compliesWithBleSetting(uint16_t instanceId, bool enabled,
-                              bool hasExistingRequest, size_t requestIndex);
+                              bool hasExistingRequest, size_t requestIndex,
+                              const void *cookie);
 
   /**
    * Add a log to list of BLE request logs possibly pushing out the oldest log.
@@ -375,10 +434,13 @@ class BleRequestManager : public NonCopyable {
    * @param success Whether the request was processed by the PAL successfully
    * @param errorCode Error code resulting from the request
    * @param forceUnregister Whether the nanoapp should be force unregistered
+   * @param cookie The cookie to be provided to the nanoapp. This is
+   *               round-tripped from the nanoapp to provide context.
    *                        from BLE broadcast events.
    */
   void handleAsyncResult(uint16_t instanceId, bool enabled, bool success,
-                         uint8_t errorCode, bool forceUnregister = false);
+                         uint8_t errorCode, const void *cookie,
+                         bool forceUnregister = false);
 
   /**
    * Invoked as a result of a requestStateResync() callback from the BLE PAL.
@@ -396,6 +458,54 @@ class BleRequestManager : public NonCopyable {
   void updatePlatformRequest(bool forceUpdate = false);
 
   /**
+   * Helper function for flush complete handling in all cases - normal and
+   * timeout. This function defers a call to handleFlushCompleteSync.
+   *
+   * @param errorCode the error code for the flush operation.
+   */
+  void handleFlushCompleteInternal(uint8_t errorCode);
+
+  /**
+   * Synchronously processed a flush complete operation. Starts a new flush
+   * operation if there is one in the queue. Properly sends the flush complete
+   * event.
+   *
+   * @param errorCode the error code for the flush operation.
+   */
+  void handleFlushCompleteSync(uint8_t errorCode);
+
+  /**
+   * Sends the flush request to the controller if there is a non-active flush
+   * request in the flush request queue. Sets the timer callback to handle
+   * timeouts.
+   *
+   * @return the error code, chreError enum (CHRE_ERROR_NONE for success).
+   */
+  uint8_t doFlushRequest();
+
+  /**
+   * Sends the flush complete event or aborts CHRE.
+   *
+   * @param flushRequest the current active flush request.
+   * @param errorCode the error code, chreError enum.
+   */
+  void sendFlushCompleteEventOrDie(const FlushRequest &flushRequest,
+                                   uint8_t errorCode);
+
+  /**
+   * Processes flush requests in the flush request queue in order. Calls
+   * doFlushRequest on the request. If an error is detected, it sends the flush
+   * complete event with the error. This function continues to process requests
+   * until one flush request is successfully made. Once this happens, the
+   * request manager waits for a timeout or for a callback from the BLE
+   * platform.
+   *
+   * @return true if there was one flush request that was successfully
+   * initiated, false otherwise.
+   */
+  bool processFlushRequests();
+
+  /**
    * Validates the parameters given to ensure that they can be issued to the
    * PAL.
    *
@@ -410,10 +520,11 @@ class BleRequestManager : public NonCopyable {
    * @param requestType The type of BLE request the nanoapp issued.
    * @param success true if the operation was successful.
    * @param errorCode the error code as a result of this operation.
+   * @param cookie The cookie to be provided to the nanoapp.
    */
   static void postAsyncResultEventFatal(uint16_t instanceId,
                                         uint8_t requestType, bool success,
-                                        uint8_t errorCode);
+                                        uint8_t errorCode, const void *cookie);
 
   /**
    * @return True if the given advertisement type is valid

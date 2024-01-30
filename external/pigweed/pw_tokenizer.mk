@@ -24,13 +24,17 @@ TOKEN_MAP_CSV_GEN_CMD = $(PYTHON) $(PIGWEED_SCRIPTS_DIR)/database.py create \
 COMMON_SRCS += $(PIGWEED_DIR)/pw_tokenizer/encode_args.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_tokenizer/tokenize.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_varint/varint.cc
+COMMON_SRCS += $(PIGWEED_DIR)/pw_varint/varint_c.c
 
 # Pigweed include paths
 COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_containers/public
+COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_log_tokenized/public
+COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_log/public
 COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_polyfill/public
 COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_polyfill/standard_library_public
 COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_preprocessor/public
 COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_span/public
 COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_span/public_overrides
 COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_tokenizer/public
-COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_varint/public/
+COMMON_CFLAGS += -I$(PIGWEED_DIR)/pw_varint/public
+COMMON_CFLAGS += -I$(PIGWEED_DIR)/third_party/fuchsia/repo/sdk/lib/stdcompat/include

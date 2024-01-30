@@ -27,7 +27,7 @@ bool RequestMultiplexer<RequestType>::addRequest(const RequestType &request,
                                                  size_t *index,
                                                  bool *maximalRequestChanged) {
   CHRE_ASSERT_NOT_NULL(index);
-  CHRE_ASSERT(maximalRequestChanged);
+  CHRE_ASSERT_NOT_NULL(maximalRequestChanged);
 
   bool requestStored = mRequests.push_back(request);
   if (requestStored) {
@@ -43,7 +43,7 @@ bool RequestMultiplexer<RequestType>::addRequest(RequestType &&request,
                                                  size_t *index,
                                                  bool *maximalRequestChanged) {
   CHRE_ASSERT_NOT_NULL(index);
-  CHRE_ASSERT(maximalRequestChanged);
+  CHRE_ASSERT_NOT_NULL(maximalRequestChanged);
 
   bool requestStored = mRequests.push_back(std::move(request));
   if (requestStored) {
@@ -57,7 +57,7 @@ bool RequestMultiplexer<RequestType>::addRequest(RequestType &&request,
 template <typename RequestType>
 void RequestMultiplexer<RequestType>::updateRequest(
     size_t index, const RequestType &request, bool *maximalRequestChanged) {
-  CHRE_ASSERT(maximalRequestChanged);
+  CHRE_ASSERT_NOT_NULL(maximalRequestChanged);
   CHRE_ASSERT(index < mRequests.size());
 
   if (index < mRequests.size()) {
@@ -114,6 +114,8 @@ const RequestType &RequestMultiplexer<RequestType>::getCurrentMaximalRequest()
 template <typename RequestType>
 void RequestMultiplexer<RequestType>::updateMaximalRequest(
     bool *maximalRequestChanged) {
+  CHRE_ASSERT_NOT_NULL(maximalRequestChanged);
+
   RequestType maximalRequest;
   for (size_t i = 0; i < mRequests.size(); i++) {
     maximalRequest.mergeWith(mRequests[i]);

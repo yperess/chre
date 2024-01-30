@@ -38,7 +38,7 @@ class SynchronizedMemoryPool : public NonCopyable {
    *         fails.
    */
   template <typename... Args>
-  ElementType *allocate(Args &&... args);
+  ElementType *allocate(Args &&...args);
 
   /**
    * Releases the memory of a previously allocated element. The pointer provided

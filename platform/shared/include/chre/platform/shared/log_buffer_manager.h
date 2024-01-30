@@ -21,6 +21,7 @@
 #include "chre/platform/condition_variable.h"
 #include "chre/platform/mutex.h"
 #include "chre/platform/shared/bt_snoop_log.h"
+#include "chre/platform/shared/generated/host_messages_generated.h"
 #include "chre/platform/shared/log_buffer.h"
 #include "chre/util/singleton.h"
 #include "chre_api/chre/re.h"
@@ -30,6 +31,8 @@
 #endif
 
 namespace chre {
+
+using LogType = fbs::LogType;
 
 /**
  * A log buffer manager that platform code can use to buffer logs when the host
@@ -132,7 +135,7 @@ class LogBufferManager : public LogBufferCallbackInterface {
 
   uint32_t getTimestampMs();
 
-  void bufferOverflowGuard(size_t logSize);
+  void bufferOverflowGuard(size_t logSize, LogType type);
 
   LogBuffer mPrimaryLogBuffer;
   LogBuffer mSecondaryLogBuffer;

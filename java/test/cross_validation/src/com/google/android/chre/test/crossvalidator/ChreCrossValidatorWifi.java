@@ -41,6 +41,7 @@ import org.junit.Assert;
 import org.junit.Assume;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -104,7 +105,7 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
         context.registerReceiver(mWifiScanReceiver, intentFilter);
     }
 
-    @Override public void validate() throws AssertionError {
+    @Override public void validate() throws AssertionError, InterruptedException {
         mCollectingData.set(true);
         sendStepStartMessage(Step.CAPABILITIES);
         waitForMessageFromNanoapp();
@@ -183,12 +184,10 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
     /**
      * Wait for a messaage from the nanoapp.
      */
-    private void waitForMessageFromNanoapp() {
-        try {
-            mAwaitDataLatch.await(AWAIT_STEP_RESULT_MESSAGE_TIMEOUT_SEC, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail("Interrupted while awaiting " + getCurrentStepName() + " step");
-        }
+    private void waitForMessageFromNanoapp() throws InterruptedException {
+        boolean success =
+                mAwaitDataLatch.await(AWAIT_STEP_RESULT_MESSAGE_TIMEOUT_SEC, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: wait for message from nanoapp", success);
         mAwaitDataLatch = new CountDownLatch(1);
         Assert.assertTrue("Timed out while waiting for step result in " + getCurrentStepName()
                 + " step", mDidReceiveNanoAppMessage.get());
@@ -207,18 +206,31 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
             && (capabilities.getWifiCapabilities() & WIFI_CAPABILITIES_ON_DEMAND_SCAN) != 0;
     }
 
-    private void waitForApScanResults() {
-        try {
-            mAwaitApWifiSetupScan.await(AWAIT_WIFI_SCAN_RESULT_TIMEOUT_SEC, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail("Interrupted while awaiting ap wifi scan result");
-        }
+    private void waitForApScanResults() throws InterruptedException {
+        boolean success =
+                mAwaitApWifiSetupScan.await(AWAIT_WIFI_SCAN_RESULT_TIMEOUT_SEC, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: wait for ap scan results", success);
         Assert.assertTrue("AP wifi scan result failed asynchronously", mApWifiScanSuccess.get());
     }
 
     private void sendWifiScanResultsToChre() {
         List<ScanResult> results = mWifiManager.getScanResults();
         Assert.assertTrue("No wifi scan results returned from AP", !results.isEmpty());
+
+        // CHRE does not currently support 6 GHz results, so filter these results from the list
+        int logsRemoved = 0;
+        Iterator<ScanResult> iter = results.iterator();
+        while (iter.hasNext()) {
+            ScanResult current = iter.next();
+            if (current.getBand() == ScanResult.WIFI_BAND_6_GHZ) {
+                iter.remove();
+                logsRemoved++;
+            }
+        }
+        if (logsRemoved > 0) {
+            Log.i(TAG, "Filtering out 6 GHz band scan result for CHRE, total=" + logsRemoved);
+        }
+
         for (int i = 0; i < results.size(); i++) {
             sendMessageToNanoApp(makeWifiScanResultMessage(results.get(i), results.size(), i));
         }

@@ -26,11 +26,9 @@ namespace android::chre {
 
 using hardware::contexthub::common::implementation::ChreConnection;
 
-/** The class synchronizes time between the Context hub and Android. */
-class TimeSyncer {
+/** The functions synchronizing time between the Context hub and Android. */
+class TimeSyncer final {
  public:
-  explicit TimeSyncer(ChreConnection *connection) : mConnection(connection) {}
-
   /**
    * Sends time sync message to Context hub and retries numRetries times until
    * success.
@@ -40,7 +38,9 @@ class TimeSyncer {
    *
    * @return true if success, false otherwise.
    */
-  bool sendTimeSyncWithRetry(size_t numOfRetries, useconds_t retryDelayUs);
+  static bool sendTimeSyncWithRetry(ChreConnection *connection,
+                                    size_t numOfRetries,
+                                    useconds_t retryDelayUs);
 
   /**
    * Sends a time sync message to Context hub for once.
@@ -50,10 +50,10 @@ class TimeSyncer {
    *
    * @return true if success, false otherwise.
    */
-  bool sendTimeSync();
+  static bool sendTimeSync(ChreConnection *connection);
 
  private:
-  ChreConnection *mConnection;
+  TimeSyncer() = default;
 };
 
 }  // namespace android::chre

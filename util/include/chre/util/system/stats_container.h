@@ -41,7 +41,7 @@ class StatsContainer {
    * it should not be bigger than the default value to prevent rounding to 0
    */
   StatsContainer(uint32_t averageWindow_ = 512)
-      : mAverageWindow(averageWindow_){};
+      : mAverageWindow(averageWindow_) {}
 
   /**
    * Add a new value to the metric collection and update mean/max value
@@ -68,14 +68,14 @@ class StatsContainer {
    */
   T getMean() const {
     return mMean;
-  };
+  }
 
   /**
    * @return the max value
    */
   T getMax() const {
     return mMax;
-  };
+  }
 
   /**
    * @return the average window

@@ -18,28 +18,21 @@
 
 namespace aidl::android::hardware::contexthub {
 TinysysContextHub::TinysysContextHub() {
-  mDeathRecipient = ndk::ScopedAIBinder_DeathRecipient(
-      AIBinder_DeathRecipient_new(onClientDied));
-  AIBinder_DeathRecipient_setOnUnlinked(
-      mDeathRecipient.get(), [](void *cookie) {
-        LOGI("Callback is unlinked. Releasing the death recipient cookie.");
-        delete static_cast<HalDeathRecipientCookie *>(cookie);
-      });
   mConnection = std::make_unique<TinysysChreConnection>(this);
-  mHalClientManager = std::make_unique<HalClientManager>();
+  mHalClientManager = std::make_unique<HalClientManager>(
+      mDeadClientUnlinker, kClientIdMappingFilePath);
   mPreloadedNanoappLoader = std::make_unique<PreloadedNanoappLoader>(
       mConnection.get(), kPreloadedNanoappsConfigPath);
   if (mConnection->init()) {
-    if (!kPreloadedNanoappsConfigPath.empty()) {
-      mPreloadedNanoappLoader->loadPreloadedNanoapps();
-    }
+    mPreloadedNanoappLoader->loadPreloadedNanoapps();
+  } else {
+    LOGE("Failed to initialize the connection to CHRE. Restart.");
+    exit(-1);
   }
 }
 
 void TinysysContextHub::onChreRestarted() {
-  if (!kPreloadedNanoappsConfigPath.empty()) {
-    mPreloadedNanoappLoader->loadPreloadedNanoapps();
-  }
+  mPreloadedNanoappLoader->loadPreloadedNanoapps();
   MultiClientContextHubBase::onChreRestarted();
 }
 }  // namespace aidl::android::hardware::contexthub

@@ -17,6 +17,7 @@
 #ifndef ANDROID_HARDWARE_CONTEXTHUB_COMMON_HAL_CLIENT_ID_H_
 #define ANDROID_HARDWARE_CONTEXTHUB_COMMON_HAL_CLIENT_ID_H_
 
+#include <cstdint>
 #include <limits>
 
 namespace android::hardware::contexthub::common::implementation {
@@ -28,9 +29,6 @@ constexpr HalClientId kMaxHalClientId = 0x1ff;
 
 /** Max number of HAL clients supported. */
 constexpr uint16_t kMaxNumOfHalClients = kMaxHalClientId - 1;
-
-/** The default HAL client id indicating the id is not assigned. */
-constexpr HalClientId kDefaultHalClientId = 0;
 
 /**
  * The HAL client id indicating the message is actually sent to the HAL itself.

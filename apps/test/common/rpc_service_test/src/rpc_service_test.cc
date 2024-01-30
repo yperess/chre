@@ -31,6 +31,7 @@ extern "C" bool nanoappStart(void) {
 }
 
 extern "C" void nanoappEnd(void) {
+  RpcServiceManagerSingleton::get()->end();
   RpcServiceManagerSingleton::deinit();
 }
 

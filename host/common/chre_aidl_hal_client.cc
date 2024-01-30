@@ -30,26 +30,30 @@
 #include <regex>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "chre_api/chre/version.h"
 #include "chre_host/file_stream.h"
+#include "chre_host/hal_client.h"
 #include "chre_host/napp_header.h"
 
-using aidl::android::hardware::contexthub::AsyncEventType;
-using aidl::android::hardware::contexthub::BnContextHubCallback;
-using aidl::android::hardware::contexthub::ContextHubInfo;
-using aidl::android::hardware::contexthub::ContextHubMessage;
-using aidl::android::hardware::contexthub::HostEndpointInfo;
-using aidl::android::hardware::contexthub::IContextHub;
-using aidl::android::hardware::contexthub::NanoappBinary;
-using aidl::android::hardware::contexthub::NanoappInfo;
-using aidl::android::hardware::contexthub::NanSessionRequest;
-using aidl::android::hardware::contexthub::Setting;
-using android::chre::NanoAppBinaryHeader;
-using android::chre::readFileContents;
-using android::internal::ToString;
-using ndk::ScopedAStatus;
+using ::aidl::android::hardware::contexthub::AsyncEventType;
+using ::aidl::android::hardware::contexthub::BnContextHubCallback;
+using ::aidl::android::hardware::contexthub::ContextHubInfo;
+using ::aidl::android::hardware::contexthub::ContextHubMessage;
+using ::aidl::android::hardware::contexthub::HostEndpointInfo;
+using ::aidl::android::hardware::contexthub::IContextHub;
+using ::aidl::android::hardware::contexthub::MessageDeliveryStatus;
+using ::aidl::android::hardware::contexthub::NanoappBinary;
+using ::aidl::android::hardware::contexthub::NanoappInfo;
+using ::aidl::android::hardware::contexthub::NanSessionRequest;
+using ::aidl::android::hardware::contexthub::Setting;
+using ::android::chre::HalClient;
+using ::android::chre::NanoAppBinaryHeader;
+using ::android::chre::readFileContents;
+using ::android::internal::ToString;
+using ::ndk::ScopedAStatus;
 
 namespace {
 // A default id 0 is used for every command requiring a context hub id. When
@@ -58,7 +62,17 @@ namespace {
 constexpr uint32_t kContextHubId = 0;
 constexpr int32_t kLoadTransactionId = 1;
 constexpr int32_t kUnloadTransactionId = 2;
+
+// Though IContextHub.aidl says loading operation is capped at 30s to finish,
+// multiclient HAL can terminate a load/unload transaction after 5s to avoid
+// blocking other load/unload transactions.
 constexpr auto kTimeOutThresholdInSec = std::chrono::seconds(5);
+
+// 34a3a27e-9b83-4098-b564-e83b0c28d4bb
+constexpr std::array<uint8_t, 16> kUuid = {0x34, 0xa3, 0xa2, 0x7e, 0x9b, 0x83,
+                                           0x40, 0x98, 0xb5, 0x64, 0xe8, 0x3b,
+                                           0x0c, 0x28, 0xd4, 0xbb};
+
 // Locations should be searched in the sequence defined below:
 const char *kPredefinedNanoappPaths[] = {
     "/vendor/etc/chre/",
@@ -66,41 +80,8 @@ const char *kPredefinedNanoappPaths[] = {
     "/vendor/dsp/sdsp/",
     "/vendor/lib/rfsa/adsp/",
 };
-// Please keep kUsage in alphabetical order
-constexpr char kUsage[] = R"(
-Usage: chre_aidl_hal_client COMMAND [ARGS]
-COMMAND ARGS...:
-  connect                     - connect to HAL, register the callback and keep
-                                the session alive while user can execute other
-                                commands. Use `exit` to quit the session.
-  connectEndpoint <HEX_HOST_ENDPOINT_ID>
-                              - associate an endpoint with the current client
-                                and notify HAL.
-  disableSetting <SETTING>    - disable a setting identified by a number defined
-                                in android/hardware/contexthub/Setting.aidl.
-  disableTestMode             - disable test mode.
-  disconnectEndpoint <HEX_HOST_ENDPOINT_ID>
-                              - remove an endpoint with the current client and
-                                notify HAL.
-  enableSetting <SETTING>     - enable a setting identified by a number defined
-                                in android/hardware/contexthub/Setting.aidl.
-  enableTestMode              - enable test mode.
-  getContextHubs              - get all the context hubs.
-  list <PATH_OF_NANOAPPS>     - list all the nanoapps' header info in the path.
-  load <APP_NAME>             - load the nanoapp specified by the name.
-                                If an absolute path like /path/to/awesome.so,
-                                which is optional, is not provided then default
-                                locations are searched.
-  query                       - show all loaded nanoapps (system apps excluded)
-  sendMessage <HEX_HOST_ENDPOINT_ID> <HEX_NANOAPP_ID | APP_NAME> <HEX_PAYLOAD>
-                              - send a payload to a nanoapp.
-  unload <HEX_NANOAPP_ID | APP_NAME>
-                              - unload the nanoapp specified by either the
-                                nanoapp id in hex format or the app name.
-                                If an absolute path like /path/to/awesome.so,
-                                which is optional, is not provided then default
-                                locations are searched.
-)";
+
+const std::string kClientName{"ChreAidlHalClient"};
 
 inline void throwError(const std::string &message) {
   throw std::system_error{std::error_code(), message};
@@ -176,29 +157,30 @@ class ContextHubCallback : public BnContextHubCallback {
                 << "\n\trpcServices: " << ToString(app.rpcServices) << "\n}"
                 << std::endl;
     }
-    setPromiseAndRefresh();
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
   ScopedAStatus handleContextHubMessage(
       const ContextHubMessage &message,
       const std::vector<std::string> & /*msgContentPerms*/) override {
-    std::cout << "Received a message with type " << message.messageType
-              << " size " << message.messageBody.size() << " from nanoapp 0x"
-              << std::hex << message.nanoappId
-              << " sent to the host endpoint 0x"
-              << static_cast<int>(message.hostEndPoint) << std::endl;
-    std::cout << "message: 0x";
+    std::cout << "Received a message!" << std::endl
+              << "   From: 0x" << std::hex << message.nanoappId << std::endl
+              << "     To: 0x" << static_cast<int>(message.hostEndPoint)
+              << std::endl
+              << "   Body: (type " << message.messageType << " size "
+              << message.messageBody.size() << ") 0x";
     for (const uint8_t &data : message.messageBody) {
-      std::cout << std::hex << static_cast<uint32_t>(data);
+      std::cout << std::hex << static_cast<uint16_t>(data);
     }
-    std::cout << std::endl;
-    setPromiseAndRefresh();
+    std::cout << std::endl << std::endl;
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
-  ScopedAStatus handleContextHubAsyncEvent(AsyncEventType /*event*/) override {
-    setPromiseAndRefresh();
+  ScopedAStatus handleContextHubAsyncEvent(AsyncEventType event) override {
+    std::cout << "Received async event " << toString(event) << std::endl;
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
@@ -207,26 +189,65 @@ class ContextHubCallback : public BnContextHubCallback {
                                         bool success) override {
     std::cout << parseTransactionId(transactionId) << " transaction is "
               << (success ? "successful" : "failed") << std::endl;
-    setPromiseAndRefresh();
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
   ScopedAStatus handleNanSessionRequest(
       const NanSessionRequest & /* request */) override {
+    resetPromise();
     return ScopedAStatus::ok();
   }
 
-  std::promise<void> promise;
+  ScopedAStatus handleMessageDeliveryStatus(
+      char16_t /* hostEndPointId */,
+      const MessageDeliveryStatus & /* messageDeliveryStatus */) override {
+    resetPromise();
+    return ScopedAStatus::ok();
+  }
 
- private:
-  void setPromiseAndRefresh() {
+  ScopedAStatus getUuid(std::array<uint8_t, 16> *out_uuid) override {
+    *out_uuid = kUuid;
+    return ScopedAStatus::ok();
+  }
+
+  ScopedAStatus getName(std::string *out_name) override {
+    *out_name = kClientName;
+    return ScopedAStatus::ok();
+  }
+
+  void resetPromise() {
     promise.set_value();
     promise = std::promise<void>{};
   }
+
+  // TODO(b/247124878):
+  // This promise is shared among all the HAL callbacks to simplify the
+  // implementation. This is based on the assumption that every command should
+  // get a response before timeout and the first callback triggered is for the
+  // response.
+  //
+  // In very rare cases, however, the assumption doesn't hold:
+  //  - multiple callbacks are triggered by a command and come back out of order
+  //  - one command is timed out and the user typed in another command then the
+  //  first callback for the first command is triggered
+  // Once we have a chance we should consider refactor this design to let each
+  // callback use their specific promises.
+  std::promise<void> promise;
 };
 
 std::shared_ptr<IContextHub> gContextHub = nullptr;
 std::shared_ptr<ContextHubCallback> gCallback = nullptr;
+
+void registerHostCallback() {
+  if (gCallback != nullptr) {
+    gCallback.reset();
+  }
+  gCallback = ContextHubCallback::make<ContextHubCallback>();
+  if (!gContextHub->registerCallback(kContextHubId, gCallback).isOk()) {
+    throwError("Failed to register the callback");
+  }
+}
 
 /** Initializes gContextHub and register gCallback. */
 std::shared_ptr<IContextHub> getContextHub() {
@@ -238,11 +259,9 @@ std::shared_ptr<IContextHub> getContextHub() {
       throwError("Could not find Context Hub HAL");
     }
     gContextHub = IContextHub::fromBinder(binder);
-    gCallback = ContextHubCallback::make<ContextHubCallback>();
-
-    if (!gContextHub->registerCallback(kContextHubId, gCallback).isOk()) {
-      throwError("Failed to register the callback");
-    }
+  }
+  if (gCallback == nullptr) {
+    registerHostCallback();
   }
   return gContextHub;
 }
@@ -304,6 +323,7 @@ void readNanoappHeaders(std::map<std::string, NanoAppBinaryHeader> &nanoapps,
 
 void verifyStatus(const std::string &operation, const ScopedAStatus &status) {
   if (!status.isOk()) {
+    gCallback->resetPromise();
     throwError(operation + " fails with abnormal status " +
                ToString(status.getMessage()) + " error code " +
                ToString(status.getServiceSpecificError()));
@@ -317,6 +337,7 @@ void verifyStatusAndSignal(const std::string &operation,
   std::future_status future_status =
       future_signal.wait_for(kTimeOutThresholdInSec);
   if (future_status != std::future_status::ready) {
+    gCallback->resetPromise();
     throwError(operation + " doesn't finish within " +
                ToString(kTimeOutThresholdInSec.count()) + " seconds");
   }
@@ -359,7 +380,6 @@ std::unique_ptr<NanoAppBinaryHeader> findHeaderAndNormalizePath(
       continue;
     }
     pathAndName = predefinedPath + appName + ".so";
-    std::cout << "Found the nanoapp header for " << pathAndName << std::endl;
     return result;
   }
   throwError("Unable to find the nanoapp header for " + pathAndName);
@@ -435,19 +455,23 @@ void queryNanoapps() {
                         gCallback->promise.get_future());
 }
 
-void onEndpointConnected(const std::string &hexEndpointId) {
-  auto contextHub = getContextHub();
+HostEndpointInfo createHostEndpointInfo(const std::string &hexEndpointId) {
   uint16_t hostEndpointId = verifyAndConvertEndpointHexId(hexEndpointId);
-  HostEndpointInfo info = {
+  return {
       .hostEndpointId = hostEndpointId,
       .type = HostEndpointInfo::Type::NATIVE,
       .packageName = "chre_aidl_hal_client",
       .attributionTag{},
   };
+}
+
+void onEndpointConnected(const std::string &hexEndpointId) {
+  auto contextHub = getContextHub();
+  HostEndpointInfo info = createHostEndpointInfo(hexEndpointId);
   // connect the endpoint to HAL
   verifyStatus(/* operation= */ "connect endpoint",
                contextHub->onHostEndpointConnected(info));
-  std::cout << "onHostEndpointConnected() is called. " << std::endl;
+  std::cout << "Connected." << std::endl;
 }
 
 void onEndpointDisconnected(const std::string &hexEndpointId) {
@@ -456,13 +480,12 @@ void onEndpointDisconnected(const std::string &hexEndpointId) {
   // disconnect the endpoint from HAL
   verifyStatus(/* operation= */ "disconnect endpoint",
                contextHub->onHostEndpointDisconnected(hostEndpointId));
-  std::cout << "onHostEndpointDisconnected() is called. " << std::endl;
+  std::cout << "Disconnected." << std::endl;
 }
 
-/** Sends a hexPayload from hexHostEndpointId to appIdOrName. */
-void sendMessageToNanoapp(const std::string &hexHostEndpointId,
-                          std::string &appIdOrName,
-                          const std::string &hexPayload) {
+ContextHubMessage createContextHubMessage(const std::string &hexHostEndpointId,
+                                          std::string &appIdOrName,
+                                          const std::string &hexPayload) {
   if (!isValidHexNumber(hexPayload)) {
     throwError("Invalid hex payload.");
   }
@@ -479,13 +502,20 @@ void sendMessageToNanoapp(const std::string &hexHostEndpointId,
     contextHubMessage.messageBody.push_back(
         std::stoi(hexPayload.substr(i, 2), /* idx= */ nullptr, /* base= */ 16));
   }
+  return contextHubMessage;
+}
+
+/** Sends a hexPayload from hexHostEndpointId to appIdOrName. */
+void sendMessageToNanoapp(const std::string &hexHostEndpointId,
+                          std::string &appIdOrName,
+                          const std::string &hexPayload) {
+  ContextHubMessage contextHubMessage =
+      createContextHubMessage(hexHostEndpointId, appIdOrName, hexPayload);
   // send the message
   auto contextHub = getContextHub();
-  onEndpointConnected(hexHostEndpointId);
   auto status = contextHub->sendMessageToHub(kContextHubId, contextHubMessage);
   verifyStatusAndSignal(/* operation= */ "sending a message to " + appIdOrName,
                         status, gCallback->promise.get_future());
-  onEndpointDisconnected(hexHostEndpointId);
 }
 
 void changeSetting(const std::string &setting, bool enabled) {
@@ -504,14 +534,23 @@ void changeSetting(const std::string &setting, bool enabled) {
 
 void enableTestModeOnContextHub() {
   auto status = getContextHub()->setTestMode(true);
-  verifyStatusAndSignal(/* operation= */ "enabling test mode", status,
-                        gCallback->promise.get_future());
+  verifyStatus(/* operation= */ "enabling test mode", status);
+  std::cout << "Test mode is enabled" << std::endl;
 }
 
 void disableTestModeOnContextHub() {
   auto status = getContextHub()->setTestMode(false);
-  verifyStatusAndSignal(/* operation= */ "disabling test mode", status,
-                        gCallback->promise.get_future());
+  verifyStatus(/* operation= */ "disabling test mode", status);
+  std::cout << "Test mode is disabled" << std::endl;
+}
+
+void getAllPreloadedNanoappIds() {
+  std::vector<int64_t> appIds{};
+  verifyStatus("get preloaded nanoapp ids",
+               getContextHub()->getPreloadedNanoappIds(kContextHubId, &appIds));
+  for (const auto &appId : appIds) {
+    std::cout << "0x" << std::hex << appId << std::endl;
+  }
 }
 
 // Please keep Command in alphabetical order
@@ -524,9 +563,11 @@ enum Command {
   enableSetting,
   enableTestMode,
   getContextHubs,
+  getPreloadedNanoappIds,
   list,
   load,
   query,
+  registerCallback,
   sendMessage,
   unload,
   unsupported
@@ -534,34 +575,137 @@ enum Command {
 
 struct CommandInfo {
   Command cmd;
-  u_int8_t numofArgs;  // including cmd;
+  u_int8_t numOfArgs;  // including cmd;
+  std::string argsFormat;
+  std::string usage;
 };
 
-Command parseCommand(const std::vector<std::string> &cmdLine) {
-  std::map<std::string, CommandInfo> commandMap{
-      {"connect", {connect, 1}},
-      {"connectEndpoint", {connectEndpoint, 2}},
-      {"disableSetting", {disableSetting, 2}},
-      {"disableTestMode", {disableTestMode, 1}},
-      {"disconnectEndpoint", {disconnectEndpoint, 2}},
-      {"enableSetting", {enableSetting, 2}},
-      {"enableTestMode", {enableTestMode, 1}},
-      {"getContextHubs", {getContextHubs, 1}},
-      {"list", {list, 2}},
-      {"load", {load, 2}},
-      {"query", {query, 1}},
-      {"sendMessage", {sendMessage, 4}},
-      {"unload", {unload, 2}},
-  };
-  if (cmdLine.empty() || commandMap.find(cmdLine[0]) == commandMap.end()) {
+const std::map<std::string, CommandInfo> kAllCommands{
+    {"connect",
+     {.cmd = connect,
+      .numOfArgs = 1,
+      .argsFormat = "",
+      .usage = "connect to HAL using hal_client library and keep the session "
+               "alive while user can execute other commands. Use 'exit' to "
+               "quit the session."}},
+    {"connectEndpoint",
+     {.cmd = connectEndpoint,
+      .numOfArgs = 2,
+      .argsFormat = "<HEX_ENDPOINT_ID>",
+      .usage =
+          "associate an endpoint with the current client and notify HAL."}},
+    {"disableSetting",
+     {.cmd = disableSetting,
+      .numOfArgs = 2,
+      .argsFormat = "<SETTING>",
+      .usage = "disable a setting identified by a number defined in "
+               "android/hardware/contexthub/Setting.aidl."}},
+    {"disableTestMode",
+     {.cmd = disableTestMode,
+      .numOfArgs = 1,
+      .argsFormat = "",
+      .usage = "disable test mode."}},
+    {"disconnectEndpoint",
+     {.cmd = disconnectEndpoint,
+      .numOfArgs = 2,
+      .argsFormat = "<HEX_ENDPOINT_ID>",
+      .usage = "remove an endpoint with the current client and notify HAL."}},
+    {"enableSetting",
+     {.cmd = enableSetting,
+      .numOfArgs = 2,
+      .argsFormat = "<SETTING>",
+      .usage = "enable a setting identified by a number defined in "
+               "android/hardware/contexthub/Setting.aidl."}},
+    {"enableTestMode",
+     {.cmd = enableTestMode,
+      .numOfArgs = 1,
+      .argsFormat = "",
+      .usage = "enable test mode."}},
+    {"getContextHubs",
+     {.cmd = getContextHubs,
+      .numOfArgs = 1,
+      .argsFormat = "",
+      .usage = "get all the context hubs."}},
+    {"getPreloadedNanoappIds",
+     {.cmd = getPreloadedNanoappIds,
+      .numOfArgs = 1,
+      .argsFormat = "",
+      .usage = "get a list of ids for the preloaded nanoapps."}},
+    {"list",
+     {.cmd = list,
+      .numOfArgs = 2,
+      .argsFormat = "</PATH/TO/NANOAPPS>",
+      .usage = "list all the nanoapps' header info in the path."}},
+    {"load",
+     {.cmd = load,
+      .numOfArgs = 2,
+      .argsFormat = "<APP_NAME | /PATH/TO/APP_NAME>",
+      .usage = "load the nanoapp specified by the name. If an absolute path is "
+               "not provided the default locations are searched."}},
+    {"query",
+     {.cmd = query,
+      .numOfArgs = 1,
+      .argsFormat = "",
+      .usage = "show all loaded nanoapps (system apps excluded)."}},
+    {"registerCallback",
+     {.cmd = registerCallback,
+      .numOfArgs = 1,
+      .argsFormat = "",
+      .usage = "register a callback for the current client."}},
+    {"sendMessage",
+     {.cmd = sendMessage,
+      .numOfArgs = 4,
+      .argsFormat = "<HEX_ENDPOINT_ID> <HEX_NANOAPP_ID | APP_NAME | "
+                    "/PATH/TO/APP_NAME> <HEX_PAYLOAD>",
+      .usage = "send a payload to a nanoapp. If an absolute path is not "
+               "provided the default locations are searched."}},
+    {"unload",
+     {.cmd = unload,
+      .numOfArgs = 2,
+      .argsFormat = "<HEX_NANOAPP_ID | APP_NAME | /PATH/TO/APP_NAME>",
+      .usage = "unload the nanoapp specified by either the nanoapp id or the "
+               "app name. If an absolute path is not provided the default "
+               "locations are searched."}},
+};
+
+void fillSupportedCommandMap(
+    const std::unordered_set<std::string> &supportedCommands,
+    std::map<std::string, CommandInfo> &supportedCommandMap) {
+  std::copy_if(kAllCommands.begin(), kAllCommands.end(),
+               std::inserter(supportedCommandMap, supportedCommandMap.begin()),
+               [&](auto const &kv_pair) {
+                 return supportedCommands.find(kv_pair.first) !=
+                        supportedCommands.end();
+               });
+}
+
+void printUsage(const std::map<std::string, CommandInfo> &supportedCommands) {
+  constexpr uint32_t kCommandLength = 40;
+  std::cout << std::left << "Usage: COMMAND [ARGUMENTS]" << std::endl;
+  for (auto const &kv_pair : supportedCommands) {
+    std::string cmdLine = kv_pair.first + " " + kv_pair.second.argsFormat;
+    std::cout << std::setw(kCommandLength) << cmdLine;
+    if (cmdLine.size() > kCommandLength) {
+      std::cout << std::endl << std::string(kCommandLength, ' ');
+    }
+    std::cout << " - " + kv_pair.second.usage << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+Command parseCommand(
+    const std::vector<std::string> &cmdLine,
+    const std::map<std::string, CommandInfo> &supportedCommandMap) {
+  if (cmdLine.empty() ||
+      supportedCommandMap.find(cmdLine[0]) == supportedCommandMap.end()) {
     return unsupported;
   }
-  auto cmdInfo = commandMap.at(cmdLine[0]);
-  return cmdLine.size() == cmdInfo.numofArgs ? cmdInfo.cmd : unsupported;
+  auto cmdInfo = supportedCommandMap.at(cmdLine[0]);
+  return cmdLine.size() == cmdInfo.numOfArgs ? cmdInfo.cmd : unsupported;
 }
 
 void executeCommand(std::vector<std::string> cmdLine) {
-  switch (parseCommand(cmdLine)) {
+  switch (parseCommand(cmdLine, kAllCommands)) {
     case connectEndpoint: {
       onEndpointConnected(cmdLine[1]);
       break;
@@ -590,6 +734,10 @@ void executeCommand(std::vector<std::string> cmdLine) {
       getAllContextHubs();
       break;
     }
+    case getPreloadedNanoappIds: {
+      getAllPreloadedNanoappIds();
+      break;
+    }
     case list: {
       std::map<std::string, NanoAppBinaryHeader> nanoapps{};
       readNanoappHeaders(nanoapps, cmdLine[1]);
@@ -607,6 +755,10 @@ void executeCommand(std::vector<std::string> cmdLine) {
       queryNanoapps();
       break;
     }
+    case registerCallback: {
+      registerHostCallback();
+      break;
+    }
     case sendMessage: {
       sendMessageToNanoapp(cmdLine[1], cmdLine[2], cmdLine[3]);
       break;
@@ -616,7 +768,7 @@ void executeCommand(std::vector<std::string> cmdLine) {
       break;
     }
     default:
-      std::cout << kUsage;
+      printUsage(kAllCommands);
   }
 }
 
@@ -642,22 +794,63 @@ std::vector<std::string> getCommandLine() {
 }
 
 void connectToHal() {
-  auto hub = getContextHub();
-  std::cout << "Connected to context hub." << std::endl;
+  if (gCallback == nullptr) {
+    gCallback = ContextHubCallback::make<ContextHubCallback>();
+  }
+  std::unique_ptr<HalClient> halClient = HalClient::create(gCallback);
+  if (halClient == nullptr) {
+    LOGE("Failed to init the connection to HAL.");
+    return;
+  }
+  std::unordered_set<std::string> supportedCommands = {
+      "connectEndpoint", "disconnectEndpoint", "query", "sendMessage"};
+  std::map<std::string, CommandInfo> supportedCommandMap{};
+  fillSupportedCommandMap(supportedCommands, supportedCommandMap);
+
   while (true) {
     auto cmdLine = getCommandLine();
     if (cmdLine.empty()) {
-      continue;
-    }
-    if (cmdLine.size() == 1 && cmdLine[0] == "connect") {
-      std::cout << "Already in a live session." << std::endl;
       continue;
     }
     if (cmdLine.size() == 1 && cmdLine[0] == "exit") {
       break;
     }
     try {
-      executeCommand(cmdLine);
+      switch (parseCommand(cmdLine, supportedCommandMap)) {
+        case connectEndpoint: {
+          HostEndpointInfo info =
+              createHostEndpointInfo(/* hexEndpointId= */ cmdLine[1]);
+          verifyStatus(/* operation= */ "connect endpoint",
+                       halClient->connectEndpoint(info));
+          break;
+        }
+
+        case query: {
+          verifyStatusAndSignal(/* operation= */ "querying nanoapps",
+                                halClient->queryNanoapps(),
+                                gCallback->promise.get_future());
+          break;
+        }
+
+        case disconnectEndpoint: {
+          uint16_t hostEndpointId =
+              verifyAndConvertEndpointHexId(/* number= */ cmdLine[1]);
+          verifyStatus(/* operation= */ "disconnect endpoint",
+                       halClient->disconnectEndpoint(hostEndpointId));
+          break;
+        }
+        case sendMessage: {
+          ContextHubMessage message = createContextHubMessage(
+              /* hexHostEndpointId= */ cmdLine[1],
+              /* appIdOrName= */ cmdLine[2], /* hexPayload= */ cmdLine[3]);
+          verifyStatusAndSignal(
+              /* operation= */ "sending a message to " + cmdLine[2],
+              halClient->sendMessage(message), gCallback->promise.get_future());
+          break;
+        }
+        default:
+          printUsage(supportedCommandMap);
+      }
     } catch (std::system_error &e) {
       std::cerr << e.what() << std::endl;
     }
@@ -673,11 +866,11 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
     cmdLine.emplace_back(argv[i]);
   }
-  if (cmdLine.size() == 1 && cmdLine[0] == "connect") {
-    connectToHal();
-    return 0;
-  }
   try {
+    if (cmdLine.size() == 1 && cmdLine[0] == "connect") {
+      connectToHal();
+      return 0;
+    }
     executeCommand(cmdLine);
   } catch (std::system_error &e) {
     std::cerr << e.what() << std::endl;

@@ -81,16 +81,22 @@ TimerHandle TimerPool::setTimer(uint16_t instanceId, Nanoseconds duration,
   timerRequest.callbackType = callbackType;
   timerRequest.isOneShot = isOneShot;
 
-  bool newTimerExpiresEarliest =
-      (!mTimerRequests.empty() && mTimerRequests.top() > timerRequest);
   bool success = insertTimerRequestLocked(timerRequest);
 
   if (success) {
-    if (newTimerExpiresEarliest) {
-      mSystemTimer.set(handleSystemTimerCallback, this, duration);
-    } else if (mTimerRequests.size() == 1) {
+    if (mTimerRequests.size() == 1) {
       // If this timer request was the first, schedule it.
       handleExpiredTimersAndScheduleNextLocked();
+    } else {
+      // If there was already a timer pending before this, and we just inserted
+      // to the top of the queue, just update the system timer. This is slightly
+      // more efficient than calling into
+      // handleExpiredTimersAndScheduleNextLocked().
+      bool newRequestExpiresFirst =
+          timerRequest.timerHandle == mTimerRequests.top().timerHandle;
+      if (newRequestExpiresFirst) {
+        mSystemTimer.set(handleSystemTimerCallback, this, duration);
+      }
     }
   }
 
@@ -132,7 +138,7 @@ TimerPool::TimerRequest *TimerPool::getTimerRequestByTimerHandleLocked(
 }
 
 bool TimerPool::TimerRequest::operator>(const TimerRequest &request) const {
-  return (expirationTime > request.expirationTime);
+  return expirationTime > request.expirationTime;
 }
 
 TimerHandle TimerPool::generateTimerHandleLocked() {
@@ -264,7 +270,7 @@ bool TimerPool::handleExpiredTimersAndScheduleNextLocked() {
         // insert operation (thereby invalidating it).
         TimerRequest cyclicTimerRequest = currentTimerRequest;
         cyclicTimerRequest.expirationTime =
-            currentTime + currentTimerRequest.duration;
+            currentTimerRequest.expirationTime + currentTimerRequest.duration;
         popTimerRequestLocked();
         CHRE_ASSERT(insertTimerRequestLocked(cyclicTimerRequest));
       } else {

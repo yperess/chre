@@ -23,7 +23,9 @@
 
 #include "chpp/app.h"
 #include "chpp/log.h"
+#include "chpp/macros.h"
 #include "chpp/memory.h"
+#include "chpp/mutex.h"
 #ifdef CHPP_SERVICE_ENABLED_GNSS
 #include "chpp/services/gnss.h"
 #endif
@@ -33,7 +35,6 @@
 #ifdef CHPP_SERVICE_ENABLED_WWAN
 #include "chpp/services/wwan.h"
 #endif
-#include "chpp/time.h"
 #include "chpp/transport.h"
 
 /************************************************
@@ -41,6 +42,7 @@
  ***********************************************/
 
 void chppRegisterCommonServices(struct ChppAppState *context) {
+  CHPP_DEBUG_NOT_NULL(context);
   UNUSED_VAR(context);
 
 #ifdef CHPP_SERVICE_ENABLED_WWAN
@@ -63,6 +65,7 @@ void chppRegisterCommonServices(struct ChppAppState *context) {
 }
 
 void chppDeregisterCommonServices(struct ChppAppState *context) {
+  CHPP_DEBUG_NOT_NULL(context);
   UNUSED_VAR(context);
 
 #ifdef CHPP_SERVICE_ENABLED_WWAN
@@ -85,7 +88,8 @@ void chppDeregisterCommonServices(struct ChppAppState *context) {
 }
 
 void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
-                         struct ChppServiceState *serviceState,
+                         struct ChppEndpointState *serviceState,
+                         struct ChppOutgoingRequestState *outReqStates,
                          const struct ChppService *newService) {
   CHPP_DEBUG_NOT_NULL(appContext);
   CHPP_DEBUG_NOT_NULL(serviceContext);
@@ -96,6 +100,8 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
 
   serviceState->openState = CHPP_OPEN_STATE_CLOSED;
   serviceState->appContext = appContext;
+  serviceState->outReqStates = outReqStates;
+  serviceState->context = serviceContext;
 
   if (numServices >= CHPP_MAX_REGISTERED_SERVICES) {
     CHPP_LOGE("Max services registered: # %" PRIu8, numServices);
@@ -103,11 +109,15 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
     return;
   }
 
+  serviceState->index = numServices;
   serviceState->handle = CHPP_SERVICE_HANDLE_OF_INDEX(numServices);
 
   appContext->registeredServices[numServices] = newService;
-  appContext->registeredServiceContexts[numServices] = serviceContext;
+  appContext->registeredServiceStates[numServices] = serviceState;
   appContext->registeredServiceCount++;
+
+  chppMutexInit(&serviceState->syncResponse.mutex);
+  chppConditionVariableInit(&serviceState->syncResponse.condVar);
 
   char uuidText[CHPP_SERVICE_UUID_STRING_LEN];
   chppUuidToStr(newService->descriptor.uuid, uuidText);
@@ -119,79 +129,64 @@ void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
             uuidText, newService->descriptor.version.major,
             newService->descriptor.version.minor,
             newService->descriptor.version.patch, newService->minLength);
-
-  return;
 }
 
 struct ChppAppHeader *chppAllocServiceNotification(size_t len) {
-  CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
-
-  struct ChppAppHeader *result = chppMalloc(len);
-  if (result) {
-    result->handle = CHPP_HANDLE_NONE;
-    result->type = CHPP_MESSAGE_TYPE_SERVICE_NOTIFICATION;
-    result->transaction = 0;
-    result->error = CHPP_APP_ERROR_NONE;
-    result->command = CHPP_APP_COMMAND_NONE;
-  }
-  return result;
+  return chppAllocNotification(CHPP_MESSAGE_TYPE_SERVICE_NOTIFICATION, len);
 }
 
-struct ChppAppHeader *chppAllocServiceResponse(
-    const struct ChppAppHeader *requestHeader, size_t len) {
-  CHPP_ASSERT(len >= sizeof(struct ChppAppHeader));
-
-  struct ChppAppHeader *result = chppMalloc(len);
-  if (result) {
-    *result = *requestHeader;
-    result->type = CHPP_MESSAGE_TYPE_SERVICE_RESPONSE;
-    result->error = CHPP_APP_ERROR_NONE;
-  }
-  return result;
+struct ChppAppHeader *chppAllocServiceRequest(
+    struct ChppEndpointState *serviceState, size_t len) {
+  CHPP_DEBUG_NOT_NULL(serviceState);
+  return chppAllocRequest(CHPP_MESSAGE_TYPE_SERVICE_REQUEST, serviceState, len);
 }
 
-void chppServiceTimestampRequest(struct ChppRequestResponseState *rRState,
-                                 struct ChppAppHeader *requestHeader) {
-  if (rRState->responseTimeNs == CHPP_TIME_NONE &&
-      rRState->requestTimeNs != CHPP_TIME_NONE) {
-    CHPP_LOGE("RX dupe req t=%" PRIu64,
-              rRState->requestTimeNs / CHPP_NSEC_PER_MSEC);
+struct ChppAppHeader *chppAllocServiceRequestCommand(
+    struct ChppEndpointState *serviceState, uint16_t command) {
+  struct ChppAppHeader *request =
+      chppAllocServiceRequest(serviceState, sizeof(struct ChppAppHeader));
+
+  if (request != NULL) {
+    request->command = command;
   }
-  rRState->requestTimeNs = chppGetCurrentTimeNs();
-  rRState->responseTimeNs = CHPP_TIME_NONE;
-  rRState->transaction = requestHeader->transaction;
+  return request;
 }
 
-uint64_t chppServiceTimestampResponse(
-    struct ChppRequestResponseState *rRState) {
-  uint64_t previousResponseTime = rRState->responseTimeNs;
-  rRState->responseTimeNs = chppGetCurrentTimeNs();
-  return previousResponseTime;
+bool chppServiceSendTimestampedRequestOrFail(
+    struct ChppEndpointState *serviceState,
+    struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
+    uint64_t timeoutNs) {
+  return chppSendTimestampedRequestOrFail(serviceState, outReqState, buf, len,
+                                          timeoutNs);
 }
 
-bool chppSendTimestampedResponseOrFail(struct ChppServiceState *serviceState,
-                                       struct ChppRequestResponseState *rRState,
-                                       void *buf, size_t len) {
-  uint64_t previousResponseTime = chppServiceTimestampResponse(rRState);
+bool chppServiceSendTimestampedRequestAndWait(
+    struct ChppEndpointState *serviceState,
+    struct ChppOutgoingRequestState *outReqState, void *buf, size_t len) {
+  return chppServiceSendTimestampedRequestAndWaitTimeout(
+      serviceState, outReqState, buf, len, CHPP_REQUEST_TIMEOUT_DEFAULT);
+}
 
-  if (rRState->requestTimeNs == CHPP_TIME_NONE) {
-    CHPP_LOGE("TX response w/ no req t=%" PRIu64,
-              rRState->responseTimeNs / CHPP_NSEC_PER_MSEC);
+bool chppServiceSendTimestampedRequestAndWaitTimeout(
+    struct ChppEndpointState *serviceState,
+    struct ChppOutgoingRequestState *outReqState, void *buf, size_t len,
+    uint64_t timeoutNs) {
+  CHPP_DEBUG_NOT_NULL(serviceState);
 
-  } else if (previousResponseTime != CHPP_TIME_NONE) {
-    CHPP_LOGW("TX additional response t=%" PRIu64 " for req t=%" PRIu64,
-              rRState->responseTimeNs / CHPP_NSEC_PER_MSEC,
-              rRState->requestTimeNs / CHPP_NSEC_PER_MSEC);
+  bool result = chppServiceSendTimestampedRequestOrFail(
+      serviceState, outReqState, buf, len, CHPP_REQUEST_TIMEOUT_INFINITE);
 
-  } else {
-    CHPP_LOGD("Sending initial response at t=%" PRIu64
-              " for request at t=%" PRIu64 " (RTT=%" PRIu64 ")",
-              rRState->responseTimeNs / CHPP_NSEC_PER_MSEC,
-              rRState->requestTimeNs / CHPP_NSEC_PER_MSEC,
-              (rRState->responseTimeNs - rRState->requestTimeNs) /
-                  CHPP_NSEC_PER_MSEC);
+  if (!result) {
+    return false;
   }
 
-  return chppEnqueueTxDatagramOrFail(serviceState->appContext->transportContext,
-                                     buf, len);
+  return chppWaitForResponseWithTimeout(&serviceState->syncResponse,
+                                        outReqState, timeoutNs);
+}
+
+void chppServiceCloseOpenRequests(struct ChppEndpointState *serviceState,
+                                  const struct ChppService *service,
+                                  bool clearOnly) {
+  UNUSED_VAR(service);
+  chppCloseOpenRequests(serviceState, CHPP_ENDPOINT_SERVICE, clearOnly);
 }

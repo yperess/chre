@@ -295,7 +295,7 @@ struct ChppTransportConfiguration {
   uint16_t reserved3;
 } CHPP_PACKED_ATTR;
 CHPP_PACKED_END
-// LINT.ThenChange(chpp/test/packet_util.cpp)
+// LINT.ThenChange(../../../chpp/test/packet_util.cpp)
 
 struct ChppRxStatus {
   //! Current receiving state, as described in ChppRxState.
