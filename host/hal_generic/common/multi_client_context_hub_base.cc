@@ -783,6 +783,21 @@ binder_status_t MultiClientContextHubBase::dump(int fd,
          dumpOfHalClientManager.size());
   }
 
+  // Dump the status of test mode
+  std::ostringstream testModeDump;
+  testModeDump << "\n-- HAL Test Mode Status --\n\n";
+  {
+    std::lock_guard<std::mutex> lockGuard(mTestModeMutex);
+    testModeDump << (mIsTestModeEnabled ? "Enabled" : "Disabled") << "\n";
+    if (!mTestModeNanoapps.has_value()) {
+      testModeDump << "\nError: Nanoapp list is left unset\n";
+    }
+  }
+  testModeDump << "\n-- End of HAL Test Mode Status --\n";
+  if (!WriteStringToFd(testModeDump.str(), fd)) {
+    LOGW("Failed to write test mode dump");
+  }
+
   return STATUS_OK;
 }
 
