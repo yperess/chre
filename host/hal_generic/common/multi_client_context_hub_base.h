@@ -131,7 +131,7 @@ class MultiClientContextHubBase
   /**
    * Enables test mode by unloading all the nanoapps except the system nanoapps.
    *
-   * @return true if at least one nanoapp is successfully unloaded.
+   * @return true as long as we have a list of nanoapps to unload.
    */
   bool enableTestMode();
 
@@ -141,11 +141,9 @@ class MultiClientContextHubBase
    *
    * <p>Note that dynamically loaded nanoapps that are unloaded during
    * enableTestMode() are not reloaded back because HAL doesn't track the
-   * location of their binaries, which can be anywhere.
-   *
-   * @return true if at least one nanoapp is successfully reloaded.
+   * location of their binaries.
    */
-  bool disableTestMode();
+  void disableTestMode();
 
   inline bool isSettingEnabled(Setting setting) {
     return mSettingEnabled.find(setting) != mSettingEnabled.end() &&

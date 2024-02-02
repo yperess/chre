@@ -193,7 +193,8 @@ ScopedAStatus MultiClientContextHubBase::unloadNanoapp(int32_t contextHubId,
     return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
   }
   pid_t pid = AIBinder_getCallingPid();
-  if (!mHalClientManager->registerPendingUnloadTransaction(pid,
+  if (transactionId != kTestModeTransactionId &&
+      !mHalClientManager->registerPendingUnloadTransaction(pid,
                                                            transactionId)) {
     return fromResult(false);
   }
@@ -412,7 +413,11 @@ ScopedAStatus MultiClientContextHubBase::onNanSessionStateChanged(
 }
 
 ScopedAStatus MultiClientContextHubBase::setTestMode(bool enable) {
-  return fromResult(enable ? enableTestMode() : disableTestMode());
+  if (enable) {
+    return fromResult(enableTestMode());
+  }
+  disableTestMode();
+  return ScopedAStatus::ok();
 }
 
 ScopedAStatus MultiClientContextHubBase::sendMessageDeliveryStatusToHub(
@@ -475,30 +480,21 @@ bool MultiClientContextHubBase::enableTestMode() {
   LOGI("%" PRIu64 " nanoapps are unloaded to enable test mode",
        mTestModeNanoapps->size());
 
-  // When at least one nanoapp is unloaded, we treat test mode as enabled
-  // so that disableTestMode() can reload them.
-  mIsTestModeEnabled = !mTestModeNanoapps->empty();
+  mIsTestModeEnabled = true;
   mTestModeNanoapps.emplace();
-  return mIsTestModeEnabled;
+  return true;
 }
 
-bool MultiClientContextHubBase::disableTestMode() {
+void MultiClientContextHubBase::disableTestMode() {
   std::unique_lock<std::mutex> lock(mTestModeMutex);
   if (!mIsTestModeEnabled) {
-    return true;
+    return;
   }
-
   int numOfNanoappsLoaded =
       mPreloadedNanoappLoader->loadPreloadedNanoapps(mTestModeSystemNanoapps);
-  if (numOfNanoappsLoaded > 0) {
-    // As long as one nanoapp is reloaded, test mode is treated as
-    // disabled.
-    mIsTestModeEnabled = false;
-  }
   LOGI("%d nanoapps are reloaded to recover from test mode",
        numOfNanoappsLoaded);
-
-  return !mIsTestModeEnabled;
+  mIsTestModeEnabled = false;
 }
 
 void MultiClientContextHubBase::handleMessageFromChre(
@@ -604,6 +600,22 @@ void MultiClientContextHubBase::onDebugDumpComplete(
 
 void MultiClientContextHubBase::onNanoappListResponse(
     const fbs::NanoappListResponseT &response, HalClientId clientId) {
+  {
+    std::unique_lock<std::mutex> lock(mTestModeMutex);
+    if (!mTestModeNanoapps.has_value()) {
+      mTestModeNanoapps.emplace();
+      mTestModeSystemNanoapps.emplace();
+      for (const auto &nanoapp : response.nanoapps) {
+        if (nanoapp->is_system) {
+          mTestModeSystemNanoapps->push_back(nanoapp->app_id);
+        } else {
+          mTestModeNanoapps->push_back(nanoapp->app_id);
+        }
+      }
+      mEnableTestModeCv.notify_all();
+    }
+  }
+
   std::shared_ptr<IContextHubCallback> callback =
       mHalClientManager->getCallback(clientId);
   if (callback == nullptr) {
@@ -630,22 +642,6 @@ void MultiClientContextHubBase::onNanoappListResponse(
     }
     appInfo.rpcServices = rpcServices;
     appInfoList.push_back(appInfo);
-  }
-
-  {
-    std::unique_lock<std::mutex> lock(mTestModeMutex);
-    if (!mTestModeNanoapps.has_value()) {
-      mTestModeNanoapps.emplace();
-      mTestModeSystemNanoapps.emplace();
-      for (const auto &nanoapp : response.nanoapps) {
-        if (nanoapp->is_system) {
-          mTestModeSystemNanoapps->push_back(nanoapp->app_id);
-        } else {
-          mTestModeNanoapps->push_back(nanoapp->app_id);
-        }
-      }
-      mEnableTestModeCv.notify_all();
-    }
   }
 
   callback->handleNanoappInfo(appInfoList);
@@ -700,16 +696,14 @@ void MultiClientContextHubBase::onNanoappLoadResponse(
 
 void MultiClientContextHubBase::onNanoappUnloadResponse(
     const fbs::UnloadNanoappResponseT &response, HalClientId clientId) {
+  if (response.transaction_id == kTestModeTransactionId) {
+    std::unique_lock<std::mutex> lock(mTestModeMutex);
+    mTestModeSyncUnloadResult.emplace(response.success);
+    mEnableTestModeCv.notify_all();
+    return;
+  }
   if (mHalClientManager->resetPendingUnloadTransaction(
           clientId, response.transaction_id)) {
-    {
-      std::unique_lock<std::mutex> lock(mTestModeMutex);
-      if (response.transaction_id == kTestModeTransactionId) {
-        mTestModeSyncUnloadResult.emplace(response.success);
-        mEnableTestModeCv.notify_all();
-        return;
-      }
-    }
     if (auto callback = mHalClientManager->getCallback(clientId);
         callback != nullptr) {
       callback->handleTransactionResult(response.transaction_id,
