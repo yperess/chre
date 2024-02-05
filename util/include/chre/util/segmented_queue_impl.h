@@ -314,8 +314,10 @@ template <typename ElementType, size_t kBlockSize>
 void SegmentedQueue<ElementType, kBlockSize>::moveElements(size_t srcIndex,
                                                            size_t destIndex,
                                                            size_t count) {
-  // TODO(b/259281024): Make sure SegmentedQueue::moveElement() does not
-  // incorrectly overwrites elements.
+  CHRE_ASSERT(count <= mSize);
+  CHRE_ASSERT(absoluteIndexToRelative(srcIndex) >
+              absoluteIndexToRelative(destIndex));
+
   while (count--) {
     doMove(srcIndex, destIndex,
            typename std::is_move_constructible<ElementType>::type());

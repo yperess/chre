@@ -245,8 +245,10 @@ class SegmentedQueue : public NonCopyable {
    *
    * @param srcIndex: The index of the first element to be moved.
    * @param destIndex: The index of the destination to place the first moved
-   * element.
-   * @param count: Number of element to move.
+   * element, absoluteIndexToRelative(srcIndex) needs to be bigger than
+   * absoluteIndexToRelative(destIndex).
+   * @param count: Number of element to move, it is illegal to call with count >
+   * size.
    */
 
   void moveElements(size_t srcIndex, size_t destIndex, size_t count);
