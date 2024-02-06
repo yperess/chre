@@ -41,6 +41,7 @@ public class ContextHubAudioDiagnosticsTestExecutor extends ContextHubChreApiTes
     private static final long AUDIO_DATA_TIMEOUT_NS = 2000000000L; // 2s
     private static final int GATHER_SINGLE_AUDIO_EVENT = 1;
     private static final int CHRE_MIC_HANDLE = 0;
+    private static final int DC_OFFSET_LIMIT = 15;
     private static final int RMSE_ERROR_DB = 3;
     private static final double RMSE_TARGET_DB = 22;
     private static final double MAX_SIGNED_SHORT = 32767;
@@ -100,6 +101,45 @@ public class ContextHubAudioDiagnosticsTestExecutor extends ContextHubChreApiTes
 
         Log.i(TAG, "RMSE: " + chreRmseDb + " dB");
         Assert.assertEquals(RMSE_TARGET_DB, chreRmseDb, RMSE_ERROR_DB);
+    }
+
+    /**
+     * Runs the audio DC offset test.
+     */
+    public void runAudioDiagnosticsDcOffsetTest() throws Exception {
+        long runningSampleAvg = 0;
+        long samplesRead = 0;
+        enableChreAudio(/* skipPop= */ true);
+
+        ChreApiTest.ChreAudioDataEvent audioEvent =
+                new ChreApiTestUtil().gatherAudioDataEvent(
+                    getRpcClient(),
+                    CHRE_EVENT_AUDIO_DATA,
+                    GATHER_SINGLE_AUDIO_EVENT,
+                    AUDIO_DATA_TIMEOUT_NS);
+        Assert.assertNotNull(audioEvent);
+        Assert.assertEquals(audioEvent.getStatus(), true);
+
+        disableChreAudio();
+
+        // Test logic - Get the average of all samples
+        ByteBuffer chreBuffer = ByteBuffer.allocate(audioEvent.getSamples().size());
+        chreBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        audioEvent.getSamples().copyTo(chreBuffer);
+        chreBuffer.rewind();
+        ShortBuffer chreShortBuffer = chreBuffer.asShortBuffer();
+        while (chreShortBuffer.hasRemaining()) {
+            short sample = chreShortBuffer.get();
+            runningSampleAvg += sample;
+            samplesRead += 1;
+        }
+        runningSampleAvg /= samplesRead;
+
+        ChreApiTestUtil.writeDataToFile(chreBuffer.array(),
+                                        "audio_dc_offset_test_data.bin", mContext);
+
+        Log.i(TAG, "DC Offset: " + runningSampleAvg);
+        Assert.assertTrue(runningSampleAvg < DC_OFFSET_LIMIT);
     }
 
     /**
