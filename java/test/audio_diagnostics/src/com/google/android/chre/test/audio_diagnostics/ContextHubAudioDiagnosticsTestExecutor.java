@@ -17,11 +17,17 @@
 package com.google.android.chre.test.audiodiagnostics;
 
 import android.hardware.location.NanoAppBinary;
+import android.util.Log;
 
 import com.google.android.chre.test.chqts.ContextHubChreApiTestExecutor;
 import com.google.android.utils.chre.ChreApiTestUtil;
 
 import org.junit.Assert;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
+import java.util.List;
 
 import dev.chre.rpc.proto.ChreApiTest;
 
@@ -35,6 +41,9 @@ public class ContextHubAudioDiagnosticsTestExecutor extends ContextHubChreApiTes
     private static final long AUDIO_DATA_TIMEOUT_NS = 2000000000L; // 2s
     private static final int GATHER_SINGLE_AUDIO_EVENT = 1;
     private static final int CHRE_MIC_HANDLE = 0;
+    private static final int RMSE_ERROR_DB = 3;
+    private static final double RMSE_TARGET_DB = 22;
+    private static final double MAX_SIGNED_SHORT = 32767;
 
     public ContextHubAudioDiagnosticsTestExecutor(NanoAppBinary nanoapp) {
         super(nanoapp);
@@ -58,6 +67,64 @@ public class ContextHubAudioDiagnosticsTestExecutor extends ContextHubChreApiTes
         ChreApiTestUtil.writeDataToFile(audioEvent.getSamples().toByteArray(),
                 "audio_enable_disable_test_data.bin", mContext);
         Assert.assertTrue(audioEvent.getStatus());
+    }
+
+    /**
+     * Runs the audio RMSE test.
+     */
+    public void runAudioDiagnosticsRmseTest() throws Exception {
+        enableChreAudio(/* skipPop= */ true);
+
+        ChreApiTest.ChreAudioDataEvent audioEvent =
+                new ChreApiTestUtil().gatherAudioDataEvent(
+                    getRpcClient(),
+                    CHRE_EVENT_AUDIO_DATA,
+                    GATHER_SINGLE_AUDIO_EVENT,
+                    AUDIO_DATA_TIMEOUT_NS);
+        Assert.assertNotNull(audioEvent);
+        Assert.assertEquals(audioEvent.getStatus(), true);
+
+        disableChreAudio();
+
+        // Test logic - calculate RMSE
+        ByteBuffer chreBuffer = ByteBuffer.allocate(audioEvent.getSamples().size());
+        chreBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        audioEvent.getSamples().copyTo(chreBuffer);
+        chreBuffer.rewind();
+        ShortBuffer chreShortBuffer = chreBuffer.asShortBuffer();
+        List<Double> chreRMSE = calculateRMSE(chreShortBuffer);
+        double chreRmseDb = Math.abs(chreRMSE.get(1));
+
+        ChreApiTestUtil.writeDataToFile(chreBuffer.array(), "audio_rmse_test_data.bin",
+                mContext);
+
+        Log.i(TAG, "RMSE: " + chreRmseDb + " dB");
+        Assert.assertEquals(RMSE_TARGET_DB, chreRmseDb, RMSE_ERROR_DB);
+    }
+
+    /**
+     * Calculates RMSE of a given buffer of 16-bit PCM samples.
+     *
+     * @param audioSamples  Buffer of 16-bit PCM audio samples.
+     * @return              A list of RMSE values. The first entry will be the
+     *                      linear value and the second will be the decibel.
+     */
+    private List<Double> calculateRMSE(ShortBuffer audioSamples) throws Exception {
+        double runningSquareSum = 0;
+        double samplesRead = 0;
+
+        // rewind the buffer to make sure we start at the beginning
+        audioSamples.rewind();
+        while (audioSamples.hasRemaining()) {
+            short sample = audioSamples.get();
+            double scaledSample = sample / MAX_SIGNED_SHORT;
+            runningSquareSum += scaledSample * scaledSample;
+            samplesRead += 1;
+        }
+        double rmseLinear = Math.sqrt(runningSquareSum / samplesRead);
+        double rmseDecibel = 20 * Math.log10(Math.abs(rmseLinear));
+
+        return List.of(rmseLinear, rmseDecibel);
     }
 
     /**
