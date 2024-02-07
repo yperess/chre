@@ -792,6 +792,21 @@ DRAM_REGION_FUNCTION void HostMessageHandlers::handleUnloadNanoappRequest(
   }
 }
 
+DRAM_REGION_FUNCTION void HostMessageHandlers::sendNanoappInstanceIdInfo(
+    uint16_t hostClientId, uint16_t instanceId, uint64_t appId) {
+  constexpr size_t kInitialBufferSize = 56;
+  ChreFlatBufferBuilder builder(kInitialBufferSize);
+  HostProtocolChre::encodeNanoappInstanceIdInfo(builder, hostClientId,
+                                                instanceId, appId);
+
+  if (!getHostCommsManager().send(builder.GetBufferPointer(),
+                                  builder.GetSize())) {
+    LOGE("Failed to send instance ID for HostClientID: %" PRIu16
+         " AppID: 0x%016" PRIx64 " InstanceID: %" PRIu16,
+         hostClientId, appId, instanceId);
+  }
+}
+
 DRAM_REGION_FUNCTION void HostLink::flushMessagesSentByNanoapp(
     uint64_t /* appId */) {
   // Not implemented
