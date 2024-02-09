@@ -62,10 +62,9 @@ bool NanoappLoader::relocateTable(DynamicHeader *dyn, int tag) {
                  static_cast<long unsigned int>(curr->r_offset));
             size_t posInSymbolTable = ELFW_R_SYM(curr->r_info);
             auto *dynamicSymbolTable =
-                reinterpret_cast<ElfSym *>(getDynamicSymbolTable());
+                reinterpret_cast<ElfSym *>(mDynamicSymbolTablePtr);
             ElfSym *sym = &dynamicSymbolTable[posInSymbolTable];
             *addr = reinterpret_cast<uintptr_t>(mMapping + sym->st_value);
-
             break;
           }
 

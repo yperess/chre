@@ -168,23 +168,23 @@ class NanoappLoader {
   using SectionHeader = ElfW(Shdr);
 
   //! Name of various segments in the ELF that need to be looked up
-  static constexpr const char *kSymTableName = ".symtab";
-  static constexpr const char *kStrTableName = ".strtab";
+  static constexpr const char *kDynsymTableName = ".dynsym";
+  static constexpr const char *kDynstrTableName = ".dynstr";
   static constexpr const char *kInitArrayName = ".init_array";
   static constexpr const char *kFiniArrayName = ".fini_array";
 
   //! Pointer to the table of all the section names.
   char *mSectionNamesPtr = nullptr;
-  //! Pointer to the table of symbol names of defined symbols.
-  char *mStringTablePtr = nullptr;
-  //! Pointer to the table of symbol information for defined symbols.
-  uint8_t *mSymbolTablePtr = nullptr;
+  //! Pointer to the table of dynamic symbol names for defined symbols.
+  char *mDynamicStringTablePtr = nullptr;
+  //! Pointer to the table of dynamic symbol information for defined symbols.
+  uint8_t *mDynamicSymbolTablePtr = nullptr;
   //! Pointer to the array of section header entries.
   SectionHeader *mSectionHeadersPtr = nullptr;
   //! Number of SectionHeaders pointed to by mSectionHeadersPtr.
   size_t mNumSectionHeaders = 0;
-  //! Size of the data pointed to by mSymbolTablePtr.
-  size_t mSymbolTableSize = 0;
+  //! Size of the data pointed to by mDynamicSymbolTablePtr.
+  size_t mDynamicSymbolTableSize = 0;
 
   //! The ELF that is being mapped into the system. This pointer will be invalid
   //! after open returns.
@@ -370,23 +370,11 @@ class NanoappLoader {
   size_t getProgramHeaderArraySize();
 
   /**
-   * @return An array of characters containing the symbol names for dynamic
-   *    symbols inside the binary being loaded. nullptr if it doesn't exist or
-   *    no binary is being loaded.
+   * Verifies dynamic tables that must exist in the ELF header.
+   *
+   * @return true if all the required tables exist, otherwise false.
    */
-  char *getDynamicStringTable();
-
-  /**
-   * @return An array of dynamic symbol information for the binary being loaded.
-   *     nullptr if it doesn't exist or no binary is being loaded.
-   */
-  uint8_t *getDynamicSymbolTable();
-
-  /**
-   * @return The size of the array of dynamic symbol information for the binary
-   *     being loaded. 0 if it doesn't exist or no binary is being loaded.
-   */
-  size_t getDynamicSymbolTableSize();
+  bool verifyDynamicTables();
 
   /**
    * Returns the first entry in the dynamic header that has a tag that matches
