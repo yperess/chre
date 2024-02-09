@@ -254,6 +254,22 @@ class SegmentedQueue : public NonCopyable {
   void moveElements(size_t srcIndex, size_t destIndex, size_t count);
 
   /**
+   * Clear the element in gapIndex, pull all elements behind forward
+   * to fill the gap and update mTail accordingly.
+   *
+   * @param gapIndex relative index of the gap.
+   */
+  void pullForward(size_t gapIndex);
+
+  /**
+   * Clear the element in gapIndex, pull all elements before backward
+   * to fill the gap and update mHead accordingly.
+   *
+   * @param gapIndex relative index of the gap.
+   */
+  void pullBackward(size_t gapIndex);
+
+  /**
    * Move a movable item from srcIndex to destIndex. Note that index here refers
    * to absolute index that starts from the head of the DynamicVector.
    *

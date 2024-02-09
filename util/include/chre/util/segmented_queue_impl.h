@@ -156,16 +156,15 @@ bool SegmentedQueue<ElementType, kBlockSize>::remove(size_t index) {
   if (index >= mSize) {
     return false;
   }
-  size_t absoluteIndex = relativeIndexToAbsolute(index);
-  doRemove(absoluteIndex);
+
+  if (index < mSize / 2) {
+    pullBackward(index);
+  } else {
+    pullForward(index);
+  }
+
   if (mSize == 0) {
     resetEmptyQueue();
-  } else {
-    // TODO(b/258557394): optimize by adding check to see if pull from head
-    // to tail is more efficient.
-    moveElements(advanceOrWrapAround(absoluteIndex), absoluteIndex,
-                 absoluteIndexToRelative(mTail) - index);
-    mTail = subtractOrWrapAround(mTail, /* steps= */ 1);
   }
   return true;
 }
@@ -324,6 +323,48 @@ void SegmentedQueue<ElementType, kBlockSize>::moveElements(size_t srcIndex,
     srcIndex = advanceOrWrapAround(srcIndex);
     destIndex = advanceOrWrapAround(destIndex);
   }
+}
+
+template <typename ElementType, size_t kBlockSize>
+void SegmentedQueue<ElementType, kBlockSize>::pullForward(size_t gapIndex) {
+  CHRE_ASSERT(gapIndex < mSize);
+
+  if (gapIndex < mSize / 2) {
+    LOGD("Consider using pullBackward for better performance");
+  }
+
+  size_t gapAbsolute = relativeIndexToAbsolute(gapIndex);
+  size_t tailSize = absoluteIndexToRelative(mTail) - gapIndex;
+  size_t nextAbsolute = advanceOrWrapAround(gapAbsolute);
+  doRemove(gapAbsolute);
+  for (size_t i = 0; i < tailSize; ++i) {
+    doMove(nextAbsolute, gapAbsolute,
+           typename std::is_move_constructible<ElementType>::type());
+    gapAbsolute = nextAbsolute;
+    nextAbsolute = advanceOrWrapAround(nextAbsolute);
+  }
+  mTail = subtractOrWrapAround(mTail, /* steps= */ 1);
+}
+
+template <typename ElementType, size_t kBlockSize>
+void SegmentedQueue<ElementType, kBlockSize>::pullBackward(size_t gapIndex) {
+  CHRE_ASSERT(gapIndex < mSize);
+
+  if (gapIndex > mSize / 2) {
+    LOGD("Consider using pullForward for better performance");
+  }
+
+  size_t headSize = gapIndex;
+  size_t gapAbsolute = relativeIndexToAbsolute(gapIndex);
+  size_t prevAbsolute = subtractOrWrapAround(gapAbsolute, /* steps= */ 1);
+  doRemove(gapAbsolute);
+  for (size_t i = 0; i < headSize; ++i) {
+    doMove(prevAbsolute, gapAbsolute,
+           typename std::is_move_constructible<ElementType>::type());
+    gapAbsolute = prevAbsolute;
+    prevAbsolute = subtractOrWrapAround(prevAbsolute, /* steps= */ 1);
+  }
+  mHead = advanceOrWrapAround(mHead);
 }
 
 template <typename ElementType, size_t kBlockSize>
