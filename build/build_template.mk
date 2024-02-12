@@ -45,6 +45,7 @@
 #                                  build targets.
 #     $14 - TARGET_ACONFIGFLAGS  - The list of aconfig flag value files specific
 #                                  to this build target
+#     $15 - TARGET_ADDITIONAL_LD - Additional linker for this target variant.
 #
 ################################################################################
 
@@ -282,7 +283,7 @@ $$($(1)_SO): $$($(1)_CC_DEPS) \
               $$($(1)_CPP_DEPS) $$($(1)_C_DEPS) $$($(1)_S_DEPS) \
               $$($(1)_CC_OBJS) $$($(1)_CPP_OBJS) $$($(1)_C_OBJS) \
               $$($(1)_S_OBJS) $(RUST_DEPENDENCIES) | $$(OUT)/$(1) $$($(1)_DIRS)
-	$(5) $(4) -o $$@ $(11) $$(filter %.o, $$^) $(12)
+	$(5) $(4) -o $$@ $(11) $$(filter %.o, $$^) $(12) $(15)
 
 $$($(1)_BIN): $$($(1)_CC_DEPS) \
                $$($(1)_CPP_DEPS) $$($(1)_C_DEPS) $$($(1)_S_DEPS) \
@@ -354,7 +355,8 @@ $(eval $(call BUILD_TEMPLATE,$(TARGET_NAME), \
                              $(TARGET_SO_EARLY_LIBS), \
                              $(TARGET_SO_LATE_LIBS), \
                              $(TARGET_PLATFORM_ID), \
-                             $(TARGET_ACONFIGFLAGS)))
+                             $(TARGET_ACONFIGFLAGS), \
+                             $(TARGET_ADDITIONAL_LD)))
 
 # Debug Template Invocation ####################################################
 
@@ -373,4 +375,5 @@ $(eval $(call BUILD_TEMPLATE,$(TARGET_NAME)_debug, \
                              $(TARGET_SO_EARLY_LIBS), \
                              $(TARGET_SO_LATE_LIBS), \
                              $(TARGET_PLATFORM_ID), \
-                             $(TARGET_ACONFIGFLAGS)))
+                             $(TARGET_ACONFIGFLAGS), \
+                             $(TARGET_ADDITIONAL_LD)))
