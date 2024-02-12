@@ -460,6 +460,8 @@ cc_library_static {
     local_include_dirs: [
         "util/include",
         "host/common/include",
+        "platform/android/include",
+        "platform/include",
     ],
     shared_libs: [
         "android.hardware.contexthub-V3-ndk",
@@ -467,12 +469,14 @@ cc_library_static {
         "libutils",
     ],
     header_libs: [
+        "chre_api",
         "chre_flatbuffers",
     ],
     cflags: [
         "-Wall",
         "-Werror",
         "-DCHRE_IS_HOST_BUILD",
+        "-DCHRE_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG",
     ],
 }
 
@@ -514,6 +518,8 @@ cc_test_host {
         "host/hal_generic/common/",
         "util/include/",
         "host/hal_generic/aidl/",
+        "platform/android/include",
+        "platform/include",
         "platform/shared/include/",
     ],
     static_libs: [

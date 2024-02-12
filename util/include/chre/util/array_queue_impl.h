@@ -146,30 +146,13 @@ bool ArrayQueueCore<ElementType, StorageType>::remove(size_t index) {
   // static_assert(std::is_trivially_copyable<ElementType>::value,
   //               "Elements within ArrayQueue must be trivially copyable");
 
-  bool success;
+  bool success = true;
   if (index >= mSize) {
     success = false;
+  } else if (index > mSize / 2) {
+    removeAndPullTail(index);
   } else {
-    // Number of elements before the one to be popped
-    size_t headLength = index;
-
-    size_t absoluteIndex = relativeIndexToAbsolute(index);
-    StorageType::data()[absoluteIndex].~ElementType();
-
-    // Move all the elements before the one just popped to the next storage
-    // space.
-    // TODO(b/258557394): optimize by comparing headLength to half of mSize.
-    // If headLength < mSize/2, pull heads towards tail.
-    // Otherwise, pull tails towards head.
-    for (size_t i = 0; i < headLength; ++i) {
-      size_t prev = (absoluteIndex == 0) ? (StorageType::capacity() - 1)
-                                         : (absoluteIndex - 1);
-      StorageType::data()[absoluteIndex] = StorageType::data()[prev];
-      absoluteIndex = prev;
-    }
-
-    pullHead();
-    success = true;
+    removeAndPullHead(index);
   }
   return success;
 }
@@ -250,6 +233,49 @@ size_t ArrayQueueCore<ElementType, StorageType>::relativeIndexToAbsolute(
     absoluteIndex -= StorageType::capacity();
   }
   return absoluteIndex;
+}
+
+template <typename ElementType, typename StorageType>
+size_t ArrayQueueCore<ElementType, StorageType>::absoluteIndexToRelative(
+    size_t index) const {
+  if (mHead > index) {
+    index += StorageType::capacity();
+  }
+  return index - mHead;
+}
+
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::removeAndPullTail(size_t index) {
+  CHRE_ASSERT(index < mSize);
+
+  size_t gapAbsolute = relativeIndexToAbsolute(index);
+  size_t tailSize = absoluteIndexToRelative(mTail) - index;
+  size_t nextAbsolute = advanceOrWrapAround(gapAbsolute);
+  StorageType::data()[gapAbsolute].~ElementType();
+  for (size_t i = 0; i < tailSize; ++i) {
+    StorageType::data()[gapAbsolute] = StorageType::data()[nextAbsolute];
+    gapAbsolute = nextAbsolute;
+    nextAbsolute = advanceOrWrapAround(nextAbsolute);
+  }
+  mTail = subtractOrWrapAround(mTail);
+  --mSize;
+}
+
+template <typename ElementType, typename StorageType>
+void ArrayQueueCore<ElementType, StorageType>::removeAndPullHead(size_t index) {
+  CHRE_ASSERT(index < mSize);
+
+  size_t gapAbsolute = relativeIndexToAbsolute(index);
+  size_t headSize = index;
+  size_t prevAbsolute = subtractOrWrapAround(gapAbsolute);
+  StorageType::data()[gapAbsolute].~ElementType();
+  for (size_t i = 0; i < headSize; ++i) {
+    StorageType::data()[gapAbsolute] = StorageType::data()[prevAbsolute];
+    gapAbsolute = prevAbsolute;
+    prevAbsolute = subtractOrWrapAround(prevAbsolute);
+  }
+  mHead = advanceOrWrapAround(mHead);
+  --mSize;
 }
 
 template <typename ElementType, typename StorageType>

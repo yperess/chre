@@ -239,16 +239,22 @@ TEST(ArrayQueueTest, RemoveWithInvalidIndex) {
 }
 
 TEST(ArrayQueueTest, RemoveWithIndex) {
-  ArrayQueue<int, 3> q;
+  ArrayQueue<int, 5> q;
   q.push(1);
   q.push(2);
   q.remove(0);
   EXPECT_EQ(2, q.front());
   EXPECT_EQ(1, q.size());
   q.push(3);
-  q.remove(1);
-  EXPECT_EQ(2, q.front());
-  EXPECT_EQ(1, q.size());
+  q.push(4);
+  q.push(5);
+  q.remove(3);
+  int sampleArray[] = {2, 3, 5};
+  EXPECT_EQ(3, q.size());
+  for (size_t i = 0; i < q.size(); ++i) {
+    EXPECT_EQ(sampleArray[i], q.front());
+    q.remove(0);
+  }
 }
 
 TEST(ArrayQueueTest, DestructorCalledOnPop) {
