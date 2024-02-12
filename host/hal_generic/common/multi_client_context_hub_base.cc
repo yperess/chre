@@ -116,6 +116,7 @@ MultiClientContextHubBase::MultiClientContextHubBase() {
                                       deathRecipient.get(),
                                       deathRecipientCookie) == STATUS_OK;
       };
+  mLogger.init();
 }
 
 ScopedAStatus MultiClientContextHubBase::getContextHubs(
@@ -543,6 +544,14 @@ void MultiClientContextHubBase::handleMessageFromChre(
     }
     case fbs::ChreMessage::DebugDumpResponse: {
       onDebugDumpComplete(*message.AsDebugDumpResponse());
+      break;
+    }
+    case fbs::ChreMessage::LogMessageV2: {
+      const chre::fbs::LogMessageV2T *logMessage = message.AsLogMessageV2();
+      const std::vector<int8_t> &buffer = logMessage->buffer;
+      auto logData = reinterpret_cast<const uint8_t *>(buffer.data());
+      uint32_t numLogsDropped = logMessage->num_logs_dropped;
+      mLogger.logV2(logData, buffer.size(), numLogsDropped);
       break;
     }
     case fbs::ChreMessage::NanoappInstanceIdInfo: {

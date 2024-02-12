@@ -19,6 +19,7 @@
 
 #include <aidl/android/hardware/contexthub/BnContextHub.h>
 #include <chre_host/generated/host_messages_generated.h>
+#include <chre_host/log_message_parser.h>
 
 #include "chre_connection_callback.h"
 #include "chre_host/napp_header.h"
@@ -191,7 +192,11 @@ class MultiClientContextHubBase
   // mTestModeSystemNanoapps records system nanoapps that won't be reloaded in
   // disableTestMode().
   std::optional<std::vector<uint64_t>> mTestModeSystemNanoapps;
+
   EventLogger mEventLogger;
+
+  // The parser of buffered logs from CHRE
+  LogMessageParser mLogger;
 };
 }  // namespace android::hardware::contexthub::common::implementation
 #endif  // ANDROID_HARDWARE_CONTEXTHUB_COMMON_MULTICLIENTS_HAL_BASE_H_
