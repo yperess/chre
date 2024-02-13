@@ -430,6 +430,7 @@ void chreAbort(uint32_t abortCode) CHRE_NO_RETURN;
  *
  * @see chreHeapFree.
  */
+CHRE_MALLOC_ATTR
 void *chreHeapAlloc(uint32_t bytes);
 
 /**
