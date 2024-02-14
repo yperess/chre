@@ -71,11 +71,6 @@ class NanoappLoader {
  public:
   NanoappLoader() = delete;
 
-  explicit NanoappLoader(void *elfInput, bool mapIntoTcm) {
-    mBinary = static_cast<uint8_t *>(elfInput);
-    mIsTcmBinary = mapIntoTcm;
-  }
-
   /**
    * Factory method to create a NanoappLoader Instance after loading
    * the buffer containing the ELF binary.
@@ -86,7 +81,7 @@ class NanoappLoader {
    * @return Class instance on successful load and verification,
    *     nullptr otherwise.
    */
-  static void *create(void *elfInput, bool mapIntoTcm);
+  static NanoappLoader *create(void *elfInput, bool mapIntoTcm);
 
   /**
    * Closes and destroys the NanoappLoader instance.
@@ -152,9 +147,16 @@ class NanoappLoader {
   bool getTokenDatabaseSectionInfo(uint32_t *offset, size_t *size);
 
  private:
+  explicit NanoappLoader(void *elfInput, bool mapIntoTcm) {
+    mBinary = static_cast<uint8_t *>(elfInput);
+    mIsTcmBinary = mapIntoTcm;
+  }
+
   /**
    * Opens the ELF binary. This maps the binary into memory, resolves symbols,
    * and invokes any static initializers.
+   *
+   * <p>This function must be called before any symbol-finding functions.
    *
    * @return true if all required opening steps were completed.
    */
@@ -367,7 +369,9 @@ class NanoappLoader {
    * @return The ELF header for the binary being loaded. nullptr if it doesn't
    *    exist or no binary is being loaded.
    */
-  ElfHeader *getElfHeader();
+  ElfHeader *getElfHeader() {
+    return reinterpret_cast<ElfHeader *>(mBinary);
+  }
 
   /**
    * @return The array of program headers for the binary being loaded. nullptr
@@ -399,7 +403,10 @@ class NanoappLoader {
   static ElfWord getDynEntry(DynamicHeader *dyn, int field);
 
   /**
-   * Handle reolcation for entries in the specified table.
+   * Handle relocation for entries in the specified table.
+   *
+   * <p> this function must return true if the table is not required or is
+   * empty. If the entry is present when not expected, it must return false.
    *
    * @param dyn The dynamic header for the binary.
    * @param tableTag The dynamic tag (DT_x) of the relocation table.

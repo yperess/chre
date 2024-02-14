@@ -273,20 +273,28 @@ CHRE_DEPRECATED_EPILOGUE
 
 }  // namespace
 
-void *NanoappLoader::create(void *elfInput, bool mapIntoTcm) {
-  void *instance = nullptr;
-  NanoappLoader *loader = memoryAllocDram<NanoappLoader>(elfInput, mapIntoTcm);
-  if (loader != nullptr) {
-    if (loader->open()) {
-      instance = loader;
-    } else {
-      memoryFreeDram(loader);
-    }
-  } else {
-    LOG_OOM();
+NanoappLoader *NanoappLoader::create(void *elfInput, bool mapIntoTcm) {
+  if (elfInput == nullptr) {
+    LOGE("Elf header must not be null");
+    return nullptr;
   }
 
-  return instance;
+  auto *loader =
+      static_cast<NanoappLoader *>(memoryAllocDram(sizeof(NanoappLoader)));
+  if (loader == nullptr) {
+    LOG_OOM();
+    return nullptr;
+  }
+  new (loader) NanoappLoader(elfInput, mapIntoTcm);
+
+  if (loader->open()) {
+    return loader;
+  }
+
+  // Call the destructor explicitly as memoryFreeDram() never calls it.
+  loader->~NanoappLoader();
+  memoryFreeDram(loader);
+  return nullptr;
 }
 
 void NanoappLoader::destroy(NanoappLoader *loader) {
@@ -319,33 +327,26 @@ void *NanoappLoader::findExportedSymbol(const char *name) {
 }
 
 bool NanoappLoader::open() {
-  bool success = false;
-  if (mBinary != nullptr) {
-    if (!copyAndVerifyHeaders()) {
-      LOGE("Failed to verify headers");
-    } else if (!createMappings()) {
-      LOGE("Failed to create mappings");
-    } else if (!fixRelocations()) {
-      LOGE("Failed to fix relocations");
-    } else if (!resolveGot()) {
-      LOGE("Failed to resolve GOT");
+  if (!copyAndVerifyHeaders()) {
+    LOGE("Failed to copy and verify elf headers");
+  } else if (!createMappings()) {
+    LOGE("Failed to create mappings");
+  } else if (!fixRelocations()) {
+    LOGE("Failed to fix relocations");
+  } else if (!resolveGot()) {
+    LOGE("Failed to resolve GOT");
+  } else {
+    // Wipe caches before calling init array to ensure initializers are not in
+    // the data cache.
+    wipeSystemCaches(reinterpret_cast<uintptr_t>(mMapping), mMemorySpan);
+    if (!callInitArray()) {
+      LOGE("Failed to perform static init");
     } else {
-      // Wipe caches before calling init array to ensure initializers are not in
-      // the data cache.
-      wipeSystemCaches(reinterpret_cast<uintptr_t>(mMapping), mMemorySpan);
-      if (!callInitArray()) {
-        LOGE("Failed to perform static init");
-      } else {
-        success = true;
-      }
+      return true;
     }
   }
-
-  if (!success) {
-    freeAllocatedData();
-  }
-
-  return success;
+  freeAllocatedData();
+  return false;
 }
 
 void NanoappLoader::close() {
@@ -444,7 +445,6 @@ void NanoappLoader::freeAllocatedData() {
 }
 
 bool NanoappLoader::verifyElfHeader() {
-  bool success = false;
   ElfHeader *elfHeader = getElfHeader();
   if (elfHeader != nullptr && (elfHeader->e_ident[EI_MAG0] == ELFMAG0) &&
       (elfHeader->e_ident[EI_MAG1] == ELFMAG1) &&
@@ -457,9 +457,9 @@ bool NanoappLoader::verifyElfHeader() {
       (elfHeader->e_version == EV_CURRENT) &&
       (elfHeader->e_machine == CHRE_LOADER_ARCH) &&
       (elfHeader->e_type == ET_DYN)) {
-    success = true;
+    return true;
   }
-  return success;
+  return false;
 }
 
 bool NanoappLoader::verifyProgramHeaders() {
@@ -495,29 +495,12 @@ NanoappLoader::SectionHeader *NanoappLoader::getSectionHeader(
   return rv;
 }
 
-ElfHeader *NanoappLoader::getElfHeader() {
-  return reinterpret_cast<ElfHeader *>(mBinary);
-}
-
 ProgramHeader *NanoappLoader::getProgramHeaderArray() {
-  ElfHeader *elfHeader = getElfHeader();
-  ProgramHeader *programHeader = nullptr;
-  if (elfHeader != nullptr) {
-    programHeader =
-        reinterpret_cast<ProgramHeader *>(mBinary + elfHeader->e_phoff);
-  }
-
-  return programHeader;
+  return reinterpret_cast<ProgramHeader *>(mBinary + getElfHeader()->e_phoff);
 }
 
 size_t NanoappLoader::getProgramHeaderArraySize() {
-  ElfHeader *elfHeader = getElfHeader();
-  size_t arraySize = 0;
-  if (elfHeader != nullptr) {
-    arraySize = elfHeader->e_phnum;
-  }
-
-  return arraySize;
+  return getElfHeader()->e_phnum;
 }
 
 bool NanoappLoader::verifyDynamicTables() {
@@ -541,11 +524,7 @@ bool NanoappLoader::verifyDynamicTables() {
 }
 
 bool NanoappLoader::copyAndVerifyHeaders() {
-  size_t offset = 0;
-  CHRE_ASSERT(mBinary != nullptr);
-
   // Verify the ELF Header
-  ElfHeader *elfHeader = getElfHeader();
   if (!verifyElfHeader()) {
     LOGE("ELF header is invalid");
     return false;
@@ -558,7 +537,7 @@ bool NanoappLoader::copyAndVerifyHeaders() {
   }
 
   // Load Section Headers
-  offset = elfHeader->e_shoff;
+  ElfHeader *elfHeader = getElfHeader();
   size_t sectionHeaderSizeBytes = sizeof(SectionHeader) * elfHeader->e_shnum;
   mSectionHeadersPtr =
       static_cast<SectionHeader *>(memoryAllocDram(sectionHeaderSizeBytes));
@@ -566,7 +545,8 @@ bool NanoappLoader::copyAndVerifyHeaders() {
     LOG_OOM();
     return false;
   }
-  memcpy(mSectionHeadersPtr, (mBinary + offset), sectionHeaderSizeBytes);
+  memcpy(mSectionHeadersPtr, (mBinary + elfHeader->e_shoff),
+         sectionHeaderSizeBytes);
   mNumSectionHeaders = elfHeader->e_shnum;
 
   // Load section header names
@@ -592,7 +572,6 @@ bool NanoappLoader::createMappings() {
   // ELF needs pt_load segments to be in contiguous ascending order of
   // virtual addresses. So the first and last segs can be used to
   // calculate the entire address span of the image.
-  ElfHeader *elfHeader = getElfHeader();
   ProgramHeader *programHeaderArray = getProgramHeaderArray();
   size_t numProgramHeaders = getProgramHeaderArraySize();
   const ProgramHeader *first = &programHeaderArray[0];
@@ -611,9 +590,9 @@ bool NanoappLoader::createMappings() {
     // first byte of a valid load segment can't be greater than the
     // program header offset
     bool valid =
-        (first->p_offset < elfHeader->e_phoff) &&
-        (first->p_filesz >=
-         (elfHeader->e_phoff + (numProgramHeaders * sizeof(ProgramHeader))));
+        (first->p_offset < getElfHeader()->e_phoff) &&
+        (first->p_filesz >= (getElfHeader()->e_phoff +
+                             (numProgramHeaders * sizeof(ProgramHeader))));
     if (!valid) {
       LOGE("Load segment program header validation failed");
     } else {
@@ -693,7 +672,6 @@ void *NanoappLoader::getSymbolTarget(const ElfSym *symbol) {
   if (symbol == nullptr || symbol->st_shndx == SHN_UNDEF) {
     return nullptr;
   }
-
   return mMapping + symbol->st_value;
 }
 
@@ -759,25 +737,14 @@ NanoappLoader::ElfWord NanoappLoader::getDynEntry(DynamicHeader *dyn,
 
 bool NanoappLoader::fixRelocations() {
   DynamicHeader *dyn = getDynamicHeader();
-  ProgramHeader *roSeg = getFirstRoSegHeader();
-
-  bool success = false;
-  if ((dyn == nullptr) || (roSeg == nullptr)) {
-    LOGE("Mandatory headers missing from shared object, aborting load");
+  if (dyn == nullptr) {
+    LOGE("Dynamic headers are missing from shared object");
   }
-
-  // Must return true if it table is not required or is empty. If
-  // the entry is present when not expected, this must return false.
-  success = relocateTable(dyn, DT_RELA);
-  if (success) {
-    success = relocateTable(dyn, DT_REL);
+  if (relocateTable(dyn, DT_RELA) && relocateTable(dyn, DT_REL)) {
+    return true;
   }
-
-  if (!success) {
-    LOGE("Unable to resolve all symbols in the binary");
-  }
-
-  return success;
+  LOGE("Unable to resolve all symbols in the binary");
+  return false;
 }
 
 void NanoappLoader::callAtexitFunctions() {
