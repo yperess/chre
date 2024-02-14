@@ -17,6 +17,7 @@ soong_namespace {
 }
 
 package {
+    default_team: "trendy_team_context_hub",
     // See: http://go/android-license-faq
     // A large-scale-change added 'default_applicable_licenses' to import
     // all of the 'license_kinds' from "system_chre_license"
@@ -30,7 +31,10 @@ cc_binary {
     defaults: ["chre_aidl_hal_generic_defaults"],
     vendor: true,
     relative_install_path: "hw",
-    srcs: [":hal_aidl_generic_srcs", "aidl/service.cc"],
+    srcs: [
+        ":hal_aidl_generic_srcs",
+        "aidl/service.cc",
+    ],
     init_rc: ["aidl/android.hardware.contexthub-service.generic.rc"],
     vintf_fragments: ["aidl/android.hardware.contexthub-service.generic.xml"],
     visibility: ["//visibility:public"],

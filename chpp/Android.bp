@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-
 package {
+    default_team: "trendy_team_context_hub",
     // See: http://go/android-license-faq
     // A large-scale-change added 'default_applicable_licenses' to import
     // all of the 'license_kinds' from "system_chre_license"
@@ -124,7 +124,7 @@ cc_defaults {
         "services/gnss.c",
         "services/wifi.c",
         "services/wwan.c",
-    ]
+    ],
 }
 
 cc_library_static {
@@ -167,8 +167,8 @@ cc_test_host {
         "chre_pal_linux",
     ],
     sanitize: {
-      address: true,
-    }
+        address: true,
+    },
 }
 
 cc_test_host {
@@ -182,7 +182,7 @@ cc_test_host {
     ],
     srcs: [
         "test/wifi_convert_test.cpp",
-        "test/wwan_convert_test.cpp"
+        "test/wwan_convert_test.cpp",
     ],
     static_libs: ["chre_chpp_linux"],
 }
@@ -210,5 +210,5 @@ cc_test_host {
     ],
     header_libs: [
         "libbase_headers",
-    ]
+    ],
 }
