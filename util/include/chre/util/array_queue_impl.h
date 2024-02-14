@@ -118,7 +118,7 @@ void ArrayQueueCore<ElementType, StorageType>::kick_push(
   if (full()) {
     pop();
   }
-  push(element);
+  push(std::move(element));
 }
 
 template <typename ElementType, typename StorageType>

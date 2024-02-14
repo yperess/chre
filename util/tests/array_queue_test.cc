@@ -18,7 +18,9 @@
 #include "gtest/gtest.h"
 
 #include <algorithm>
+#include <memory>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 using chre::ArrayQueue;
@@ -573,4 +575,26 @@ TEST(ArrayQueueExtTest, BasicTest) {
   for (int i = 0; i < kNumElements; i++) {
     EXPECT_EQ(array[i], q[i]);
   }
+}
+
+TEST(ArrayQueueTest, KickPushNonCopyable) {
+  ArrayQueue<std::unique_ptr<int>, 2> q;
+  auto p1 = std::make_unique<int>(42);
+  auto p2 = std::make_unique<int>(43);
+  auto p3 = std::make_unique<int>(44);
+
+  q.kick_push(std::move(p1));
+  EXPECT_EQ(q.size(), 1);
+  EXPECT_EQ(*q.front(), 42);
+  EXPECT_EQ(*q.back(), 42);
+
+  q.kick_push(std::move(p2));
+  EXPECT_EQ(q.size(), 2);
+  EXPECT_EQ(*q.front(), 42);
+  EXPECT_EQ(*q.back(), 43);
+
+  q.kick_push(std::move(p3));
+  EXPECT_EQ(q.size(), 2);
+  EXPECT_EQ(*q.front(), 43);
+  EXPECT_EQ(*q.back(), 44);
 }
