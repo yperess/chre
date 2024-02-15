@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// CHRE flat buffers declaration.
+///
+/// New fields declaration should be added at the end.
+/// See https://flatbuffers.dev/md__schemas.html for details.
+
 namespace chre.fbs;
 
 /// Represents a message sent to/from a nanoapp from/to a client on the host
@@ -42,6 +47,23 @@ table NanoappMessage {
   // from suspend to awake as a result of this message transfer). This field is
   // only valid for messages originating from a nanoapp.
   woke_host:bool = false;
+
+  // Whether the message is reliable.
+  // The receiver acknowledges reliable messages by sending a status back.
+  // The status contains the message delivery status.
+  is_reliable:bool;
+
+  // The message sequence number used for reliable messages.
+  message_sequence_number:uint;
+}
+
+// Status of sending a reliable message.
+table MessageDeliveryStatus {
+  // The message sequence number.
+  message_sequence_number:uint;
+
+  // Error code.
+  error_code:byte;
 }
 
 table HubInfoRequest {}
@@ -66,7 +88,7 @@ table HubInfoResponse {
   sleep_power:float;
   peak_power:float;
 
-  /// Maximum size message that can be sent to a nanoapp
+  /// Maximum size regular message that can be sent to a nanoapp
   max_msg_len:uint;
 
   /// @see chreGetPlatformId()
@@ -74,6 +96,9 @@ table HubInfoResponse {
 
   /// @see chreGetVersion()
   chre_platform_version:uint;
+
+  /// Whether reliable messages are supported
+  supports_reliable_messages:bool = false;
 
   // TODO: list of connected sensors
 }
@@ -500,6 +525,8 @@ union ChreMessage {
   PulseResponse,
 
   NanoappInstanceIdInfo,
+
+  MessageDeliveryStatus,
 }
 
 struct HostAddress {
