@@ -26,6 +26,8 @@
 #include "chre_host/host_protocol_host.h"
 #include "permissions_util.h"
 
+#include <system/chre/core/chre_metrics.pb.h>
+
 namespace android::hardware::contexthub::common::implementation {
 
 using ::android::base::WriteStringToFd;
@@ -554,6 +556,10 @@ void MultiClientContextHubBase::handleMessageFromChre(
       mLogger.logV2(logData, buffer.size(), numLogsDropped);
       break;
     }
+    case fbs::ChreMessage::MetricLog: {
+      onMetricLog(*message.AsMetricLog());
+      break;
+    }
     case fbs::ChreMessage::NanoappInstanceIdInfo: {
       // TODO(b/242760291): Map nanoapp log detokenizers to instance IDs in the
       //  log message parser.
@@ -814,5 +820,46 @@ void MultiClientContextHubBase::writeToDebugFile(const char *str) {
   if (!WriteStringToFd(std::string(str), getDebugFd())) {
     LOGW("Failed to write %zu bytes to debug dump fd", strlen(str));
   }
+}
+
+void MultiClientContextHubBase::onMetricLog(
+    const ::chre::fbs::MetricLogT &metricMessage) {
+  using ::android::chre::Atoms::ChrePalOpenFailed;
+
+  const std::vector<int8_t> &encodedMetric = metricMessage.encoded_metric;
+  auto metricSize = static_cast<int>(encodedMetric.size());
+
+  switch (metricMessage.id) {
+    case Atoms::CHRE_PAL_OPEN_FAILED: {
+      metrics::ChrePalOpenFailed metric;
+      if (!metric.ParseFromArray(encodedMetric.data(), metricSize)) {
+        break;
+      }
+      auto pal = static_cast<ChrePalOpenFailed::ChrePalType>(metric.pal());
+      auto type = static_cast<ChrePalOpenFailed::Type>(metric.type());
+      if (!mMetricsReporter.logPalOpenFailed(pal, type)) {
+        LOGE("Could not log the PAL open failed metric");
+      }
+      return;
+    }
+    case Atoms::CHRE_EVENT_QUEUE_SNAPSHOT_REPORTED: {
+      metrics::ChreEventQueueSnapshotReported metric;
+      if (!metric.ParseFromArray(encodedMetric.data(), metricSize)) {
+        break;
+      }
+      if (!mMetricsReporter.logEventQueueSnapshotReported(
+              metric.snapshot_chre_get_time_ms(), metric.max_event_queue_size(),
+              metric.mean_event_queue_size(), metric.num_dropped_events())) {
+        LOGE("Could not log the event queue snapshot metric");
+      }
+      return;
+    }
+    default: {
+      LOGW("Unknown metric ID %" PRIu32, metricMessage.id);
+      return;
+    }
+  }
+  // Reached here only if an error has occurred for a known metric id.
+  LOGE("Failed to parse metric data with id %" PRIu32, metricMessage.id);
 }
 }  // namespace android::hardware::contexthub::common::implementation

@@ -20,6 +20,7 @@
 #include <aidl/android/hardware/contexthub/BnContextHub.h>
 #include <chre_host/generated/host_messages_generated.h>
 #include <chre_host/log_message_parser.h>
+#include <chre_host/metrics_reporter.h>
 
 #include "chre_connection_callback.h"
 #include "chre_host/napp_header.h"
@@ -127,6 +128,7 @@ class MultiClientContextHubBase
   void onDebugDumpData(const ::chre::fbs::DebugDumpDataT &data);
   void onDebugDumpComplete(
       const ::chre::fbs::DebugDumpResponseT & /* response */);
+  virtual void onMetricLog(const ::chre::fbs::MetricLogT &metricMessage);
   void handleClientDeath(pid_t pid);
 
   /**
@@ -197,6 +199,8 @@ class MultiClientContextHubBase
 
   // The parser of buffered logs from CHRE
   LogMessageParser mLogger;
+
+  MetricsReporter mMetricsReporter;
 };
 }  // namespace android::hardware::contexthub::common::implementation
 #endif  // ANDROID_HARDWARE_CONTEXTHUB_COMMON_MULTICLIENTS_HAL_BASE_H_

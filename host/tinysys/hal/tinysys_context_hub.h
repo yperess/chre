@@ -34,6 +34,8 @@ class TinysysContextHub : public MultiClientContextHubBase {
 
  protected:
   void onChreRestarted() override;
+  void onMetricLog(const ::chre::fbs::MetricLogT & /*metricMessage*/) override {
+  }
   const std::string kPreloadedNanoappsConfigPath =
       "/vendor/etc/chre/preloaded_nanoapps.json";
   const std::string kClientIdMappingFilePath =

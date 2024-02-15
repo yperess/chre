@@ -67,7 +67,7 @@ cc_defaults {
         "chre_api",
     ],
     shared_libs: [
-        "android.frameworks.stats-V1-ndk",
+        "android.frameworks.stats-V2-ndk",
         "libcutils",
         "libjsoncpp",
         "liblog",

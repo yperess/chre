@@ -111,7 +111,7 @@ cc_library {
         "host/common/log.cc",
     ],
     shared_libs: [
-        "android.frameworks.stats-V1-ndk",
+        "android.frameworks.stats-V2-ndk",
         "chremetrics-cpp",
         "chre_atoms_log",
         "libbinder_ndk",
