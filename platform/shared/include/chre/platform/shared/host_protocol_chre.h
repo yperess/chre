@@ -101,9 +101,6 @@ class HostMessageHandlers {
                                    uint32_t transactionId, uint32_t fragmentId,
                                    bool success);
 
-  static void sendNanoappInstanceIdInfo(uint16_t hostClientId,
-                                        uint16_t instanceId, uint64_t appId);
-
   static void finishLoadingNanoappCallback(
       SystemCallbackType type, UniquePtr<LoadNanoappCallbackData> &&cbData);
 
@@ -229,9 +226,11 @@ class HostProtocolChre : public HostProtocolCommon {
   /**
    * Encodes a nanoapp's instance ID and app ID to the host.
    */
-  static void encodeNanoappInstanceIdInfo(ChreFlatBufferBuilder &builder,
-                                          uint16_t hostClientId,
-                                          uint16_t instanceId, uint64_t appId);
+  static void encodeNanoappTokenDatabaseInfo(ChreFlatBufferBuilder &builder,
+                                             uint16_t instanceId,
+                                             uint64_t appId,
+                                             uint32_t tokenDatabaseOffset,
+                                             size_t tokenDatabaseSize);
 
   /**
    * Encodes a buffer of log messages to the host.

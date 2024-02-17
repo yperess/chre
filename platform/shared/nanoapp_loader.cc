@@ -808,4 +808,20 @@ void NanoappLoader::callTerminatorArray() {
   }
 }
 
+bool NanoappLoader::getTokenDatabaseSectionInfo(uint32_t *offset,
+                                                size_t *size) {
+  // Find token database.
+  SectionHeader *pwTokenTableHeader = getSectionHeader(kTokenTableName);
+  if (pwTokenTableHeader != nullptr) {
+    if (pwTokenTableHeader->sh_size != 0) {
+      *size = pwTokenTableHeader->sh_size;
+      *offset = pwTokenTableHeader->sh_offset;
+      return true;
+    } else {
+      LOGE("Found empty token database");
+    }
+  }
+  return false;
+}
+
 }  // namespace chre

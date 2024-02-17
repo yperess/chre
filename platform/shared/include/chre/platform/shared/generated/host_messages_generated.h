@@ -39,8 +39,8 @@ struct LoadNanoappRequestBuilder;
 struct LoadNanoappResponse;
 struct LoadNanoappResponseBuilder;
 
-struct NanoappInstanceIdInfo;
-struct NanoappInstanceIdInfoBuilder;
+struct NanoappTokenDatabaseInfo;
+struct NanoappTokenDatabaseInfoBuilder;
 
 struct UnloadNanoappRequest;
 struct UnloadNanoappRequestBuilder;
@@ -326,7 +326,7 @@ enum class ChreMessage : uint8_t {
   DebugConfiguration = 28,
   PulseRequest = 29,
   PulseResponse = 30,
-  NanoappInstanceIdInfo = 31,
+  NanoappTokenDatabaseInfo = 31,
   MessageDeliveryStatus = 32,
   MIN = NONE,
   MAX = MessageDeliveryStatus
@@ -365,7 +365,7 @@ inline const ChreMessage (&EnumValuesChreMessage())[33] {
     ChreMessage::DebugConfiguration,
     ChreMessage::PulseRequest,
     ChreMessage::PulseResponse,
-    ChreMessage::NanoappInstanceIdInfo,
+    ChreMessage::NanoappTokenDatabaseInfo,
     ChreMessage::MessageDeliveryStatus
   };
   return values;
@@ -404,7 +404,7 @@ inline const char * const *EnumNamesChreMessage() {
     "DebugConfiguration",
     "PulseRequest",
     "PulseResponse",
-    "NanoappInstanceIdInfo",
+    "NanoappTokenDatabaseInfo",
     "MessageDeliveryStatus",
     nullptr
   };
@@ -541,8 +541,8 @@ template<> struct ChreMessageTraits<chre::fbs::PulseResponse> {
   static const ChreMessage enum_value = ChreMessage::PulseResponse;
 };
 
-template<> struct ChreMessageTraits<chre::fbs::NanoappInstanceIdInfo> {
-  static const ChreMessage enum_value = ChreMessage::NanoappInstanceIdInfo;
+template<> struct ChreMessageTraits<chre::fbs::NanoappTokenDatabaseInfo> {
+  static const ChreMessage enum_value = ChreMessage::NanoappTokenDatabaseInfo;
 };
 
 template<> struct ChreMessageTraits<chre::fbs::MessageDeliveryStatus> {
@@ -1561,11 +1561,16 @@ inline flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(
   return builder_.Finish();
 }
 
-struct NanoappInstanceIdInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef NanoappInstanceIdInfoBuilder Builder;
+/// Contains information needed for the host to load the token database for the
+/// nanoapp. This message is only sent if a token database section is found in
+/// the nanoapp elf binary.
+struct NanoappTokenDatabaseInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef NanoappTokenDatabaseInfoBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INSTANCE_ID = 4,
-    VT_APP_ID = 6
+    VT_APP_ID = 6,
+    VT_DATABASE_OFFSET_BYTES = 8,
+    VT_DATABASE_SIZE_BYTES = 10
   };
   uint32_t instance_id() const {
     return GetField<uint32_t>(VT_INSTANCE_ID, 0);
@@ -1573,42 +1578,63 @@ struct NanoappInstanceIdInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   uint64_t app_id() const {
     return GetField<uint64_t>(VT_APP_ID, 0);
   }
+  /// The size offset of the token database from the start of the address of
+  /// the ELF binary in bytes.
+  uint32_t database_offset_bytes() const {
+    return GetField<uint32_t>(VT_DATABASE_OFFSET_BYTES, 0);
+  }
+  /// The size of the token database section in the ELF binary in bytes.
+  uint32_t database_size_bytes() const {
+    return GetField<uint32_t>(VT_DATABASE_SIZE_BYTES, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_INSTANCE_ID) &&
            VerifyField<uint64_t>(verifier, VT_APP_ID) &&
+           VerifyField<uint32_t>(verifier, VT_DATABASE_OFFSET_BYTES) &&
+           VerifyField<uint32_t>(verifier, VT_DATABASE_SIZE_BYTES) &&
            verifier.EndTable();
   }
 };
 
-struct NanoappInstanceIdInfoBuilder {
-  typedef NanoappInstanceIdInfo Table;
+struct NanoappTokenDatabaseInfoBuilder {
+  typedef NanoappTokenDatabaseInfo Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_instance_id(uint32_t instance_id) {
-    fbb_.AddElement<uint32_t>(NanoappInstanceIdInfo::VT_INSTANCE_ID, instance_id, 0);
+    fbb_.AddElement<uint32_t>(NanoappTokenDatabaseInfo::VT_INSTANCE_ID, instance_id, 0);
   }
   void add_app_id(uint64_t app_id) {
-    fbb_.AddElement<uint64_t>(NanoappInstanceIdInfo::VT_APP_ID, app_id, 0);
+    fbb_.AddElement<uint64_t>(NanoappTokenDatabaseInfo::VT_APP_ID, app_id, 0);
   }
-  explicit NanoappInstanceIdInfoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  void add_database_offset_bytes(uint32_t database_offset_bytes) {
+    fbb_.AddElement<uint32_t>(NanoappTokenDatabaseInfo::VT_DATABASE_OFFSET_BYTES, database_offset_bytes, 0);
+  }
+  void add_database_size_bytes(uint32_t database_size_bytes) {
+    fbb_.AddElement<uint32_t>(NanoappTokenDatabaseInfo::VT_DATABASE_SIZE_BYTES, database_size_bytes, 0);
+  }
+  explicit NanoappTokenDatabaseInfoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  NanoappInstanceIdInfoBuilder &operator=(const NanoappInstanceIdInfoBuilder &);
-  flatbuffers::Offset<NanoappInstanceIdInfo> Finish() {
+  NanoappTokenDatabaseInfoBuilder &operator=(const NanoappTokenDatabaseInfoBuilder &);
+  flatbuffers::Offset<NanoappTokenDatabaseInfo> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<NanoappInstanceIdInfo>(end);
+    auto o = flatbuffers::Offset<NanoappTokenDatabaseInfo>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<NanoappInstanceIdInfo> CreateNanoappInstanceIdInfo(
+inline flatbuffers::Offset<NanoappTokenDatabaseInfo> CreateNanoappTokenDatabaseInfo(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t instance_id = 0,
-    uint64_t app_id = 0) {
-  NanoappInstanceIdInfoBuilder builder_(_fbb);
+    uint64_t app_id = 0,
+    uint32_t database_offset_bytes = 0,
+    uint32_t database_size_bytes = 0) {
+  NanoappTokenDatabaseInfoBuilder builder_(_fbb);
   builder_.add_app_id(app_id);
+  builder_.add_database_size_bytes(database_size_bytes);
+  builder_.add_database_offset_bytes(database_offset_bytes);
   builder_.add_instance_id(instance_id);
   return builder_.Finish();
 }
@@ -2868,8 +2894,8 @@ struct MessageContainer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const chre::fbs::PulseResponse *message_as_PulseResponse() const {
     return message_type() == chre::fbs::ChreMessage::PulseResponse ? static_cast<const chre::fbs::PulseResponse *>(message()) : nullptr;
   }
-  const chre::fbs::NanoappInstanceIdInfo *message_as_NanoappInstanceIdInfo() const {
-    return message_type() == chre::fbs::ChreMessage::NanoappInstanceIdInfo ? static_cast<const chre::fbs::NanoappInstanceIdInfo *>(message()) : nullptr;
+  const chre::fbs::NanoappTokenDatabaseInfo *message_as_NanoappTokenDatabaseInfo() const {
+    return message_type() == chre::fbs::ChreMessage::NanoappTokenDatabaseInfo ? static_cast<const chre::fbs::NanoappTokenDatabaseInfo *>(message()) : nullptr;
   }
   const chre::fbs::MessageDeliveryStatus *message_as_MessageDeliveryStatus() const {
     return message_type() == chre::fbs::ChreMessage::MessageDeliveryStatus ? static_cast<const chre::fbs::MessageDeliveryStatus *>(message()) : nullptr;
@@ -3013,8 +3039,8 @@ template<> inline const chre::fbs::PulseResponse *MessageContainer::message_as<c
   return message_as_PulseResponse();
 }
 
-template<> inline const chre::fbs::NanoappInstanceIdInfo *MessageContainer::message_as<chre::fbs::NanoappInstanceIdInfo>() const {
-  return message_as_NanoappInstanceIdInfo();
+template<> inline const chre::fbs::NanoappTokenDatabaseInfo *MessageContainer::message_as<chre::fbs::NanoappTokenDatabaseInfo>() const {
+  return message_as_NanoappTokenDatabaseInfo();
 }
 
 template<> inline const chre::fbs::MessageDeliveryStatus *MessageContainer::message_as<chre::fbs::MessageDeliveryStatus>() const {
@@ -3185,8 +3211,8 @@ inline bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, 
       auto ptr = reinterpret_cast<const chre::fbs::PulseResponse *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case ChreMessage::NanoappInstanceIdInfo: {
-      auto ptr = reinterpret_cast<const chre::fbs::NanoappInstanceIdInfo *>(obj);
+    case ChreMessage::NanoappTokenDatabaseInfo: {
+      auto ptr = reinterpret_cast<const chre::fbs::NanoappTokenDatabaseInfo *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case ChreMessage::MessageDeliveryStatus: {

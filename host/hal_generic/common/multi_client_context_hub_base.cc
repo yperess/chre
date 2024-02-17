@@ -560,7 +560,7 @@ void MultiClientContextHubBase::handleMessageFromChre(
       onMetricLog(*message.AsMetricLog());
       break;
     }
-    case fbs::ChreMessage::NanoappInstanceIdInfo: {
+    case fbs::ChreMessage::NanoappTokenDatabaseInfo: {
       // TODO(b/242760291): Map nanoapp log detokenizers to instance IDs in the
       //  log message parser.
       break;

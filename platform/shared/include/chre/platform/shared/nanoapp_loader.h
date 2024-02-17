@@ -140,6 +140,17 @@ class NanoappLoader {
    */
   static uintptr_t roundDownToAlign(uintptr_t virtualAddr, size_t alignment);
 
+  /**
+   * Returns true if a token database is found in the nanoapp ELF binary and
+   * pass the database offset and database size to the caller.
+   *
+   * @param offset Pointer to the size offset of the token database from the
+   * start of the address of the ELF binary in bytes.
+   * @param size Pointer to the size of the token database section in the ELF
+   * binary in bytes.
+   */
+  bool getTokenDatabaseSectionInfo(uint32_t *offset, size_t *size);
+
  private:
   /**
    * Opens the ELF binary. This maps the binary into memory, resolves symbols,
@@ -172,6 +183,7 @@ class NanoappLoader {
   static constexpr const char *kDynstrTableName = ".dynstr";
   static constexpr const char *kInitArrayName = ".init_array";
   static constexpr const char *kFiniArrayName = ".fini_array";
+  static constexpr const char *kTokenTableName = ".pw_tokenizer.entries";
 
   //! Pointer to the table of all the section names.
   char *mSectionNamesPtr = nullptr;
