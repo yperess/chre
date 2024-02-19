@@ -15,6 +15,7 @@
  */
 
 package {
+    default_team: "trendy_team_context_hub",
     // See: http://go/android-license-faq
     // A large-scale-change added 'default_applicable_licenses' to import
     // all of the 'license_kinds' from "system_chre_license"
@@ -24,22 +25,25 @@ package {
 }
 
 cc_fuzz {
-  name: "chpp_wifi_scan_param_fuzzer",
-  srcs: [
-    "chpp_wifi_scan_param_fuzzer.cpp",
-  ],
-  static_libs: [
-    "chre_chpp_linux",
-    "chre_pal_linux",
-  ],
-  fuzz_config: {
-    cc: ["stange@google.com", "rahmati@google.com"],
-    componentid: 156070,
-    fuzz_on_haiku_host: true,
-    fuzz_on_haiku_device: false,
-  },
+    name: "chpp_wifi_scan_param_fuzzer",
+    srcs: [
+        "chpp_wifi_scan_param_fuzzer.cpp",
+    ],
+    static_libs: [
+        "chre_chpp_linux",
+        "chre_pal_linux",
+    ],
+    fuzz_config: {
+        cc: [
+            "stange@google.com",
+            "rahmati@google.com",
+        ],
+        componentid: 156070,
+        fuzz_on_haiku_host: true,
+        fuzz_on_haiku_device: false,
+    },
 
-  // If true, build and run on x86 in addition to on-device.
-  host_supported: true,
-  device_supported: false,
+    // If true, build and run on x86 in addition to on-device.
+    host_supported: true,
+    device_supported: false,
 }
