@@ -128,20 +128,21 @@ ScopedAStatus MultiClientContextHubBase::getContextHubs(
     fbs::HubInfoResponseT response;
     flatbuffers::FlatBufferBuilder builder;
     HostProtocolHost::encodeHubInfoRequest(builder);
-    if (!mConnection->sendMessage(builder)) {
+    if (mConnection->sendMessage(builder)) {
+      mHubInfoCondition.wait_for(lock, kHubInfoQueryTimeout, [this]() {
+        return mContextHubInfo != nullptr;
+      });
+    } else {
       LOGE("Failed to send a message to CHRE to get context hub info.");
-      return fromServiceError(HalError::OPERATION_FAILED);
     }
-    mHubInfoCondition.wait_for(lock, kHubInfoQueryTimeout,
-                               [this]() { return mContextHubInfo != nullptr; });
   }
   if (mContextHubInfo != nullptr) {
     contextHubInfos->push_back(*mContextHubInfo);
-    return ScopedAStatus::ok();
+  } else {
+    LOGE("Unable to get a valid context hub info for PID %d",
+         AIBinder_getCallingPid());
   }
-  LOGE("Unable to get a valid context hub info for PID %d",
-       AIBinder_getCallingPid());
-  return fromServiceError(HalError::INVALID_RESULT);
+  return ScopedAStatus::ok();
 }
 
 ScopedAStatus MultiClientContextHubBase::loadNanoapp(
