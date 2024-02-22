@@ -262,7 +262,7 @@ HalClientManager::getNextFragmentedLoadRequest() {
   }
   auto request = mPendingLoadTransaction->transaction->getNextRequest();
   mPendingLoadTransaction->currentFragmentId = request.fragmentId;
-  LOGD("Client %" PRIu16 " has fragment #%zu ready",
+  LOGV("Client %" PRIu16 " has fragment #%zu ready",
        mPendingLoadTransaction->clientId, request.fragmentId);
   return request;
 }

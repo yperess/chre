@@ -202,6 +202,7 @@ ScopedAStatus MultiClientContextHubBase::unloadNanoapp(int32_t contextHubId,
                                                            transactionId)) {
     return fromResult(false);
   }
+  LOGI("Unloading nanoapp 0x%" PRIx64, appId);
   HalClientId clientId = mHalClientManager->getClientId(pid);
   flatbuffers::FlatBufferBuilder builder(64);
   HostProtocolHost::encodeUnloadNanoappRequest(
@@ -665,7 +666,7 @@ void MultiClientContextHubBase::onNanoappListResponse(
 
 void MultiClientContextHubBase::onNanoappLoadResponse(
     const fbs::LoadNanoappResponseT &response, HalClientId clientId) {
-  LOGD("Received nanoapp load response for client %" PRIu16
+  LOGV("Received nanoapp load response for client %" PRIu16
        " transaction %" PRIu32 " fragment %" PRIu32,
        clientId, response.transaction_id, response.fragment_id);
   if (mPreloadedNanoappLoader->isPreloadOngoing()) {
@@ -687,7 +688,7 @@ void MultiClientContextHubBase::onNanoappLoadResponse(
       // nextFragmentedRequest will only have a value if the pending transaction
       // matches the response and there are more fragments to send. Hold off on
       // calling the callback in this case.
-      LOGD("Sending next FragmentedLoadRequest for client %" PRIu16
+      LOGV("Sending next FragmentedLoadRequest for client %" PRIu16
            ": (transaction: %" PRIu32 ", fragment %zu)",
            clientId, nextFragmentedRequest->transactionId,
            nextFragmentedRequest->fragmentId);
