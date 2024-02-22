@@ -204,9 +204,13 @@ const struct chreNslNanoappInfo *getChreNslDsoNanoappInfo() {
 // be avoided at the expense of a nanoapp not being able to load at all on prior
 // implementations.
 
-#if !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT) && \
-    defined(CHRE_FIRST_SUPPORTED_API_VERSION) && \
-    CHRE_FIRST_SUPPORTED_API_VERSION >= CHRE_API_VERSION_1_1
+#if !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT)
+
+#if !defined(CHRE_FIRST_SUPPORTED_API_VERSION)
+#error "CHRE_FIRST_SUPPORTED_API_VERSION must be defined for this platform"
+#elif CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_1
+#error "CHRE_FIRST_SUPPORTED_API_VERSION must be at least CHRE_API_VERSION_1_1"
+#endif  // !defined(CHRE_FIRST_SUPPORTED_API_VERSION)
 
 #include <dlfcn.h>
 
@@ -665,6 +669,4 @@ uint32_t chreGetMessageToHostMaxSize() {
 }
 #endif /* CHRE_FIRST_SUPPORTED_API_VERSION < CHRE_API_VERSION_1_10 */
 
-#endif  // !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT) &&
-        // defined(CHRE_FIRST_SUPPORTED_API_VERSION) &&
-        // CHRE_FIRST_SUPPORTED_API_VERSION >= CHRE_API_VERSION_1_1
+#endif  // !defined(CHRE_NANOAPP_DISABLE_BACKCOMPAT)
