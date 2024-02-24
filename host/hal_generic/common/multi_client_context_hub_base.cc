@@ -835,6 +835,10 @@ void MultiClientContextHubBase::onNanoappMessage(
         HalClientManager::convertToOriginalEndpointId(message.host_endpoint);
     callback->handleContextHubMessage(outMessage, messageContentPerms);
   }
+
+  if (isMetricEnabled() && message.woke_host) {
+    mMetricsReporter.logApWakeupOccurred(message.app_id);
+  }
 }
 
 void MultiClientContextHubBase::onMessageDeliveryStatus(
@@ -942,6 +946,10 @@ void MultiClientContextHubBase::writeToDebugFile(const char *str) {
 
 void MultiClientContextHubBase::onMetricLog(
     const ::chre::fbs::MetricLogT &metricMessage) {
+  if (!isMetricEnabled()) {
+    return;
+  }
+
   using ::android::chre::Atoms::ChrePalOpenFailed;
 
   const std::vector<int8_t> &encodedMetric = metricMessage.encoded_metric;
