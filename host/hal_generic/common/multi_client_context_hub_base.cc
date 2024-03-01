@@ -858,6 +858,7 @@ void MultiClientContextHubBase::onMessageDeliveryStatus(
   }
 
   HostEndpointId hostEndpointId = hostEndpointIdIter->second;
+  mReliableMessageMap.erase(hostEndpointIdIter);
   std::shared_ptr<IContextHubCallback> callback =
       mHalClientManager->getCallbackForEndpoint(hostEndpointId);
   if (callback == nullptr) {
