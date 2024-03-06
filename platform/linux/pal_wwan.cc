@@ -29,7 +29,7 @@
  */
 namespace {
 
-using chre::TaskManagerSingleton;
+using ::chre::TaskManagerSingleton;
 
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalWwanCallbacks *gCallbacks = nullptr;
@@ -63,6 +63,7 @@ void sendCellInfoResult() {
 void stopCellInfoTask() {
   if (gCellInfosTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(*gCellInfosTaskId);
+    gCellInfosTaskId.reset();
   }
 }
 

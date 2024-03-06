@@ -97,11 +97,17 @@ void AppTestBase::SetUp() {
   mClientLinkContext.linkEstablished = true;
   mServiceLinkContext.linkEstablished = true;
 
-  constexpr uint64_t kResetWaitTimeMs = 1500;
-  chppTransportWaitForResetComplete(&mClientTransportContext, kResetWaitTimeMs);
+  constexpr uint64_t kResetWaitTimeMs = 5000;
+  EXPECT_TRUE(chppTransportWaitForResetComplete(&mClientTransportContext,
+                                                kResetWaitTimeMs));
+  EXPECT_TRUE(chppTransportWaitForResetComplete(&mServiceTransportContext,
+                                                kResetWaitTimeMs));
 
   constexpr uint64_t kDiscoveryWaitTimeMs = 5000;
-  chppWaitForDiscoveryComplete(&mClientAppContext, kDiscoveryWaitTimeMs);
+  EXPECT_TRUE(
+      chppWaitForDiscoveryComplete(&mClientAppContext, kDiscoveryWaitTimeMs));
+  EXPECT_TRUE(
+      chppWaitForDiscoveryComplete(&mServiceAppContext, kDiscoveryWaitTimeMs));
 }
 
 void AppTestBase::TearDown() {

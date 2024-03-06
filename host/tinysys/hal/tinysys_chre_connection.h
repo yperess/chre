@@ -20,6 +20,7 @@
 #include "chre_connection.h"
 #include "chre_connection_callback.h"
 #include "chre_host/fragmented_load_transaction.h"
+#include "chre_host/host_protocol_host.h"
 #include "chre_host/log.h"
 #include "chre_host/log_message_parser.h"
 #include "chre_host/st_hal_lpma_handler.h"
@@ -35,6 +36,7 @@ using ::android::chre::StHalLpmaHandler;
 namespace aidl::android::hardware::contexthub {
 
 using namespace ::android::hardware::contexthub::common::implementation;
+using ::android::chre::HostProtocolHost;
 
 /** A class handling message transmission between context hub HAL and CHRE. */
 // TODO(b/267188769): We should add comments explaining how IPI works.
@@ -66,6 +68,27 @@ class TinysysChreConnection : public ChreConnection {
   bool init() override;
 
   bool sendMessage(void *data, size_t length) override;
+
+  void waitChreBackOnline(std::chrono::milliseconds timeoutMs) {
+    flatbuffers::FlatBufferBuilder builder(48);
+    HostProtocolHost::encodePulseRequest(builder);
+
+    std::unique_lock<std::mutex> lock(mChrePulseMutex);
+    // reset mIsChreRecovered before sending a PulseRequest message
+    mIsChreBackOnline = false;
+    sendMessage(builder.GetBufferPointer(), builder.GetSize());
+    mChrePulseCondition.wait_for(
+        lock, timeoutMs,
+        [&isChreBackOnline = mIsChreBackOnline] { return isChreBackOnline; });
+  }
+
+  void notifyChreBackOnline() {
+    {
+      std::unique_lock<std::mutex> lock(mChrePulseMutex);
+      mIsChreBackOnline = true;
+    }
+    mChrePulseCondition.notify_all();
+  }
 
   inline ChreConnectionCallback *getCallback() {
     return mCallback;
@@ -191,6 +214,12 @@ class TinysysChreConnection : public ChreConnection {
 
   // For messages sent to CHRE
   SynchronousMessageQueue mQueue;
+
+  // Mutex and CV are used to get PulseResponse from CHRE synchronously.
+  std::mutex mChrePulseMutex;
+  std::condition_variable mChrePulseCondition;
+  bool mIsChreBackOnline =
+      false;  // set to true after CHRE recovers from a restart
 };
 }  // namespace aidl::android::hardware::contexthub
 

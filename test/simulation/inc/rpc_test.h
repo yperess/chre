@@ -42,12 +42,21 @@ class RpcTestService final
                        chre_rpc_NumberMessage &response);
 };
 
-struct Env {
+class Env {
+ public:
   RpcTestService mRpcTestService;
   chre::RpcServer mServer;
   chre::RpcClient mClient{kPwRcpServerAppId};
   pw::rpc::NanopbUnaryReceiver<chre_rpc_NumberMessage> mIncrementCall;
   uint32_t mNumber;
+
+  void closeServer() {
+    mServer.close();
+  }
+
+  void closeClient() {
+    mClient.close();
+  }
 };
 
 typedef Singleton<Env> EnvSingleton;

@@ -35,6 +35,7 @@ namespace {
 
 using ::chre::ConditionVariable;
 using ::chre::createBleScanFilterForKnownBeacons;
+using ::chre::createBleScanFilterForKnownBeaconsV1_9;
 using ::chre::FixedSizeVector;
 using ::chre::gChrePalSystemApi;
 using ::chre::LockGuard;
@@ -53,6 +54,10 @@ constexpr uint32_t kBleBatchDurationMs = 0;
 
 class Callbacks {
  public:
+  Callbacks() = delete;
+
+  explicit Callbacks(const struct chrePalBleApi *api) : mApi(api) {}
+
   void requestStateResync() {}
 
   void scanStatusChangeCallback(bool enabled, uint8_t errorCode) {
@@ -71,6 +76,8 @@ class Callbacks {
       if (mEventData.full()) {
         mCondVarEvents.notify_one();
       }
+    } else {
+      mApi->releaseAdvertisingEvent(event);
     }
   }
 
@@ -83,6 +90,9 @@ class Callbacks {
   Mutex mMutex;
   ConditionVariable mCondVarStatus;
   ConditionVariable mCondVarEvents;
+
+  //! CHRE PAL implementation API.
+  const struct chrePalBleApi *mApi;
 };
 
 UniquePtr<Callbacks> gCallbacks = nullptr;
@@ -108,10 +118,10 @@ void advertisingEventCallback(struct chreBleAdvertisementEvent *event) {
 class PalBleTest : public testing::Test {
  protected:
   void SetUp() override {
-    gCallbacks = MakeUnique<Callbacks>();
     chre::TaskManagerSingleton::deinit();
     chre::TaskManagerSingleton::init();
     mApi = chrePalBleGetApi(CHRE_PAL_BLE_API_CURRENT_VERSION);
+    gCallbacks = MakeUnique<Callbacks>(mApi);
     ASSERT_NE(mApi, nullptr);
     EXPECT_EQ(mApi->moduleVersion, CHRE_PAL_BLE_API_CURRENT_VERSION);
     ASSERT_TRUE(mApi->open(&gChrePalSystemApi, &mPalCallbacks));
@@ -168,19 +178,21 @@ TEST_F(PalBleTest, Capabilities) {
 // advertising BLE beacons with service data for either the Google eddystone
 // or fastpair UUIDs.
 TEST_F(PalBleTest, FilteredScan) {
-  struct chreBleScanFilter filter;
+  struct chreBleScanFilterV1_9 filterV1_9;
   chreBleGenericFilter uuidFilters[kNumScanFilters];
-  createBleScanFilterForKnownBeacons(filter, uuidFilters, kNumScanFilters);
-
-  EXPECT_TRUE(mApi->startScan(CHRE_BLE_SCAN_MODE_BACKGROUND,
-                              kBleBatchDurationMs, &filter));
+  createBleScanFilterForKnownBeaconsV1_9(filterV1_9, uuidFilters,
+                                         kNumScanFilters);
 
   LockGuard<Mutex> lock(gCallbacks->mMutex);
+
+  EXPECT_TRUE(mApi->startScan(CHRE_BLE_SCAN_MODE_BACKGROUND,
+                              kBleBatchDurationMs, &filterV1_9));
+
+  EXPECT_TRUE(mApi->startScan(CHRE_BLE_SCAN_MODE_AGGRESSIVE,
+                              kBleBatchDurationMs, &filterV1_9));
   gCallbacks->mCondVarStatus.wait_for(gCallbacks->mMutex, kBleStatusTimeoutNs);
-  EXPECT_TRUE(gCallbacks->mEnabled.has_value());
-  if (gCallbacks->mEnabled.has_value()) {
-    EXPECT_TRUE(gCallbacks->mEnabled.value());
-  }
+  ASSERT_TRUE(gCallbacks->mEnabled.has_value());
+  EXPECT_TRUE(gCallbacks->mEnabled.value());
 
   gCallbacks->mCondVarEvents.wait_for(gCallbacks->mMutex, kBleEventTimeoutNs);
   EXPECT_TRUE(gCallbacks->mEventData.full());

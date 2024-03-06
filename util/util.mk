@@ -16,7 +16,9 @@ COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/audio.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/ble.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/callbacks.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/debug.cc
+COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/string.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/wifi.cc
+COMMON_SRCS += $(CHRE_PREFIX)/util/system/ble_util.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/system/event_callbacks.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/system/debug_dump.cc
 
@@ -43,6 +45,7 @@ GOOGLETEST_SRCS += $(CHRE_PREFIX)/util/tests/shared_ptr_test.cc
 GOOGLETEST_SRCS += $(CHRE_PREFIX)/util/tests/singleton_test.cc
 GOOGLETEST_SRCS += $(CHRE_PREFIX)/util/tests/stats_container_test.cc
 GOOGLETEST_SRCS += $(CHRE_PREFIX)/util/tests/synchronized_expandable_memory_pool_test.cc
+GOOGLETEST_SRCS += $(CHRE_PREFIX)/util/tests/synchronized_memory_pool_test.cc
 GOOGLETEST_SRCS += $(CHRE_PREFIX)/util/tests/time_test.cc
 GOOGLETEST_SRCS += $(CHRE_PREFIX)/util/tests/unique_ptr_test.cc
 

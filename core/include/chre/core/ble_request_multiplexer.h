@@ -43,12 +43,12 @@ class BleRequestMultiplexer : public RequestMultiplexer<BleRequest> {
 
   /**
    * Searches through the list of BLE requests for a request owned by the
-   * given nanoapp. The provided non-null index pointer is populated with the
-   * index of the request if it is found.
+   * given nanoapp. The provided index pointer is populated with the
+   * index of the request if it is found and the pointer is not null.
    *
    * @param instanceId The instance ID of the nanoapp whose request is being
    *        searched for.
-   * @param index A non-null pointer to an index that is populated if a
+   * @param index A pointer to an index that is populated if a
    *        request for this nanoapp is found.
    * @return A pointer to a BleRequest that is owned by the provided
    *         nanoapp if one is found otherwise nullptr.

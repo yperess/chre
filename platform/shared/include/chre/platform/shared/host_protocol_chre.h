@@ -70,6 +70,8 @@ class HostMessageHandlers {
 
   static void handleNanoappListRequest(uint16_t hostClientId);
 
+  static void handlePulseRequest();
+
   static void handleDebugConfiguration(
       const fbs::DebugConfiguration *debugConfiguration);
 
@@ -98,6 +100,9 @@ class HostMessageHandlers {
   static void sendFragmentResponse(uint16_t hostClientId,
                                    uint32_t transactionId, uint32_t fragmentId,
                                    bool success);
+
+  static void sendNanoappInstanceIdInfo(uint16_t hostClientId,
+                                        uint16_t instanceId, uint64_t appId);
 
   static void finishLoadingNanoappCallback(
       SystemCallbackType type, UniquePtr<LoadNanoappCallbackData> &&cbData);
@@ -200,6 +205,11 @@ class HostProtocolChre : public HostProtocolCommon {
       uint16_t hostClientId);
 
   /**
+   * Encodes a response to the host indicating CHRE is up running.
+   */
+  static void encodePulseResponse(ChreFlatBufferBuilder &builder);
+
+  /**
    * Encodes a response to the host communicating the result of dynamically
    * loading a nanoapp.
    */
@@ -215,6 +225,13 @@ class HostProtocolChre : public HostProtocolCommon {
   static void encodeUnloadNanoappResponse(ChreFlatBufferBuilder &builder,
                                           uint16_t hostClientId,
                                           uint32_t transactionId, bool success);
+
+  /**
+   * Encodes a nanoapp's instance ID and app ID to the host.
+   */
+  static void encodeNanoappInstanceIdInfo(ChreFlatBufferBuilder &builder,
+                                          uint16_t hostClientId,
+                                          uint16_t instanceId, uint64_t appId);
 
   /**
    * Encodes a buffer of log messages to the host.

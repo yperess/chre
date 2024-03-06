@@ -145,7 +145,10 @@ namespace ptest = ::chre::power_test;
 
 namespace {
 
-constexpr uint16_t kHostEndpoint = 0xfffd;
+//! The host endpoint we use when sending; Clients may use a value above
+//! 0x8000 to enable unicast messaging (currently requires internal coordination
+//! to avoid conflict).
+constexpr uint16_t kHostEndpoint = 0x8003;
 
 constexpr uint64_t kPowerTestAppId = 0x012345678900000f;
 constexpr uint64_t kPowerTestTcmAppId = 0x0123456789000010;

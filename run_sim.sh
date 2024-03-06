@@ -30,4 +30,9 @@ make clean && make google_x86_linux_debug -j$JOB_COUNT
 
 if [ "$BUILD_ONLY" = "false" ]; then
 ./out/google_x86_linux_debug/libchre ${@:1}
+else
+    if [ ! -f ./out/google_x86_linux_debug/libchre ]; then
+        echo  "./out/google_x86_linux_debug/libchre does not exist."
+        exit 1
+    fi
 fi

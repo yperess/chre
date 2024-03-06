@@ -21,6 +21,8 @@
 #include <cstdint>
 #include <thread>
 
+#include "chre/core/event_loop_manager.h"
+#include "chre/core/nanoapp.h"
 #include "chre/platform/system_timer.h"
 #include "chre/util/time.h"
 #include "test_event_queue.h"
@@ -72,6 +74,24 @@ class TestBase : public testing::Test {
   template <class T>
   void waitForEvent(uint16_t eventType, T *eventData) {
     TestEventQueueSingleton::get()->waitForEvent(eventType, eventData);
+  }
+
+  /**
+   * Retrieves the Nanoapp instance from its ID.
+   *
+   * @param id Nanoapp ID
+   * @return A pointer to the Nanoapp instance or nullptr if not found.
+   */
+  Nanoapp *getNanoappByAppId(uint64_t id) {
+    uint16_t instanceId;
+    EXPECT_TRUE(EventLoopManagerSingleton::get()
+                    ->getEventLoop()
+                    .findNanoappInstanceIdByAppId(id, &instanceId));
+    Nanoapp *nanoapp = EventLoopManagerSingleton::get()
+                           ->getEventLoop()
+                           .findNanoappByInstanceId(instanceId);
+    EXPECT_NE(nanoapp, nullptr);
+    return nanoapp;
   }
 
   std::thread mChreThread;

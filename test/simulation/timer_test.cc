@@ -46,18 +46,16 @@ TEST_F(TestTimer, SetupAndCancelPeriodicTimer) {
   CREATE_CHRE_TEST_EVENT(START_TIMER, 0);
   CREATE_CHRE_TEST_EVENT(STOP_TIMER, 1);
 
-  struct App : public TestNanoapp {
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
-      static const uint32_t cookie = 123;
+  class App : public TestNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
       switch (eventType) {
-        static int count = 0;
-
         case CHRE_EVENT_TIMER: {
           auto data = static_cast<const uint32_t *>(eventData);
-          if (*data == cookie) {
-            count++;
-            if (count == 3) {
+          if (*data == mCookie) {
+            mCount++;
+            if (mCount == 3) {
               TestEventQueueSingleton::get()->pushEvent(CHRE_EVENT_TIMER);
             }
           }
@@ -68,8 +66,8 @@ TEST_F(TestTimer, SetupAndCancelPeriodicTimer) {
           auto event = static_cast<const TestEvent *>(eventData);
           switch (event->type) {
             case START_TIMER: {
-              uint32_t handle = chreTimerSet(kOneMillisecondInNanoseconds,
-                                             &cookie, false /*oneShot*/);
+              uint32_t handle = chreTimerSet(10 * kOneMillisecondInNanoseconds,
+                                             &mCookie, false /*oneShot*/);
               TestEventQueueSingleton::get()->pushEvent(START_TIMER, handle);
               break;
             }
@@ -82,10 +80,14 @@ TEST_F(TestTimer, SetupAndCancelPeriodicTimer) {
           }
         }
       }
-    };
+    }
+
+   protected:
+    const uint32_t mCookie = 123;
+    int mCount = 0;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
 
   TimerPool &timerPool =
       EventLoopManagerSingleton::get()->getEventLoop().getTimerPool();
@@ -93,10 +95,10 @@ TEST_F(TestTimer, SetupAndCancelPeriodicTimer) {
   uint16_t instanceId;
   EXPECT_TRUE(EventLoopManagerSingleton::get()
                   ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(app.id, &instanceId));
+                  .findNanoappInstanceIdByAppId(appId, &instanceId));
 
   uint32_t handle;
-  sendEventToNanoapp(app, START_TIMER);
+  sendEventToNanoapp(appId, START_TIMER);
   waitForEvent(START_TIMER, &handle);
   EXPECT_NE(handle, CHRE_TIMER_INVALID);
   EXPECT_TRUE(hasNanoappTimers(timerPool, instanceId));
@@ -106,13 +108,13 @@ TEST_F(TestTimer, SetupAndCancelPeriodicTimer) {
   bool success;
 
   // Cancelling an active timer should be successful.
-  sendEventToNanoapp(app, STOP_TIMER, handle);
+  sendEventToNanoapp(appId, STOP_TIMER, handle);
   waitForEvent(STOP_TIMER, &success);
   EXPECT_TRUE(success);
   EXPECT_FALSE(hasNanoappTimers(timerPool, instanceId));
 
   // Cancelling an inactive time should return false.
-  sendEventToNanoapp(app, STOP_TIMER, handle);
+  sendEventToNanoapp(appId, STOP_TIMER, handle);
   waitForEvent(STOP_TIMER, &success);
   EXPECT_FALSE(success);
 }
@@ -120,18 +122,15 @@ TEST_F(TestTimer, SetupAndCancelPeriodicTimer) {
 TEST_F(TestTimer, CancelPeriodicTimerOnUnload) {
   CREATE_CHRE_TEST_EVENT(START_TIMER, 0);
 
-  struct App : public TestNanoapp {
-    decltype(nanoappHandleEvent) *handleEvent = [](uint32_t, uint16_t eventType,
-                                                   const void *eventData) {
-      static const uint32_t cookie = 123;
+  class App : public TestNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType, const void *eventData) {
       switch (eventType) {
-        static int count = 0;
-
         case CHRE_EVENT_TIMER: {
           auto data = static_cast<const uint32_t *>(eventData);
-          if (*data == cookie) {
-            count++;
-            if (count == 3) {
+          if (*data == mCookie) {
+            mCount++;
+            if (mCount == 3) {
               TestEventQueueSingleton::get()->pushEvent(CHRE_EVENT_TIMER);
             }
           }
@@ -142,18 +141,22 @@ TEST_F(TestTimer, CancelPeriodicTimerOnUnload) {
           auto event = static_cast<const TestEvent *>(eventData);
           switch (event->type) {
             case START_TIMER: {
-              uint32_t handle = chreTimerSet(kOneMillisecondInNanoseconds,
-                                             &cookie, false /*oneShot*/);
+              uint32_t handle = chreTimerSet(10 * kOneMillisecondInNanoseconds,
+                                             &mCookie, false /*oneShot*/);
               TestEventQueueSingleton::get()->pushEvent(START_TIMER, handle);
               break;
             }
           }
         }
       }
-    };
+    }
+
+   protected:
+    const uint32_t mCookie = 123;
+    int mCount = 0;
   };
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
 
   TimerPool &timerPool =
       EventLoopManagerSingleton::get()->getEventLoop().getTimerPool();
@@ -161,17 +164,17 @@ TEST_F(TestTimer, CancelPeriodicTimerOnUnload) {
   uint16_t instanceId;
   EXPECT_TRUE(EventLoopManagerSingleton::get()
                   ->getEventLoop()
-                  .findNanoappInstanceIdByAppId(app.id, &instanceId));
+                  .findNanoappInstanceIdByAppId(appId, &instanceId));
 
   uint32_t handle;
-  sendEventToNanoapp(app, START_TIMER);
+  sendEventToNanoapp(appId, START_TIMER);
   waitForEvent(START_TIMER, &handle);
   EXPECT_NE(handle, CHRE_TIMER_INVALID);
   EXPECT_TRUE(hasNanoappTimers(timerPool, instanceId));
 
   waitForEvent(CHRE_EVENT_TIMER);
 
-  unloadNanoapp(app);
+  unloadNanoapp(appId);
   EXPECT_FALSE(hasNanoappTimers(timerPool, instanceId));
 }
 

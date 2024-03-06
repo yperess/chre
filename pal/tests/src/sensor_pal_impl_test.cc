@@ -183,6 +183,8 @@ TEST_F(PalSensorTest, EnableAContinuousSensor) {
   ASSERT_TRUE(gCallbacks->mStatus.has_value());
   EXPECT_TRUE(gCallbacks->mStatus.value()->enabled);
   gApi->releaseSamplingStatusEvent(gCallbacks->mStatus.value());
+  gCallbacks->mStatus.reset();
+  gCallbacks->mStatusSensorIndex.reset();
 
   gCallbacks->mCondVarEvents.wait_for(
       gCallbacks->mMutex,
@@ -197,6 +199,22 @@ TEST_F(PalSensorTest, EnableAContinuousSensor) {
     EXPECT_EQ(threeAxisData->header.readingCount, 1);
     gApi->releaseSensorDataEvent(data);
   }
+  // Need to unlock this mutex because the following disable sensor request
+  // needs it.
+  gCallbacks->mMutex.unlock();
+
+  EXPECT_TRUE(gApi->configureSensor(
+      0 /* sensorInfoIndex */, CHRE_SENSOR_CONFIGURE_MODE_DONE,
+      kOneMillisecondInNanoseconds /* intervalNs */, 0 /* latencyNs */));
+  gCallbacks->mMutex.lock();
+  gCallbacks->mCondVarStatus.wait_for(
+      gCallbacks->mMutex,
+      Nanoseconds(kTimeoutMultiplier * kOneMillisecondInNanoseconds));
+  ASSERT_TRUE(gCallbacks->mStatusSensorIndex.has_value());
+  ASSERT_TRUE(gCallbacks->mStatus.has_value());
+  gApi->releaseSamplingStatusEvent(gCallbacks->mStatus.value());
+  gCallbacks->mStatus.reset();
+  gCallbacks->mStatusSensorIndex.reset();
 }
 
 TEST_F(PalSensorTest, DisableAContinuousSensor) {
@@ -208,11 +226,13 @@ TEST_F(PalSensorTest, DisableAContinuousSensor) {
   gCallbacks->mCondVarStatus.wait_for(
       gCallbacks->mMutex,
       Nanoseconds(kTimeoutMultiplier * kOneMillisecondInNanoseconds));
-  EXPECT_TRUE(gCallbacks->mStatusSensorIndex.has_value());
+  ASSERT_TRUE(gCallbacks->mStatusSensorIndex.has_value());
   EXPECT_EQ(gCallbacks->mStatusSensorIndex.value(), 0);
-  EXPECT_TRUE(gCallbacks->mStatus.has_value());
+  ASSERT_TRUE(gCallbacks->mStatus.has_value());
   EXPECT_FALSE(gCallbacks->mStatus.value()->enabled);
   gApi->releaseSamplingStatusEvent(gCallbacks->mStatus.value());
+  gCallbacks->mStatus.reset();
+  gCallbacks->mStatusSensorIndex.reset();
 }
 
 }  // namespace

@@ -23,8 +23,6 @@ import android.hardware.location.ContextHubIntentEvent;
 import android.hardware.location.ContextHubManager;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-
 import java.util.Objects;
 
 import dev.pigweed.pw_rpc.Client;
@@ -38,13 +36,13 @@ public class ChreIntentHandler {
     /**
      * Handles CHRE intents.
      *
-     * @param intent        the intent.
+     * @param intent        the intent, non null
      * @param nanoappId     ID of the RPC Server nanoapp
-     * @param rpcClient     The Pigweed RPC client
-     * @param channelOutput The ChannelOutput used by Pigweed
+     * @param rpcClient     The Pigweed RPC client, non null
+     * @param channelOutput The ChannelOutput used by Pigweed, non null
      */
-    public static void handle(@NonNull Intent intent, long nanoappId, @NonNull Client rpcClient,
-            @NonNull ChreChannelOutput channelOutput) {
+    public static void handle(Intent intent, long nanoappId, Client rpcClient,
+            ChreChannelOutput channelOutput) {
         Objects.requireNonNull(intent);
         Objects.requireNonNull(rpcClient);
         Objects.requireNonNull(channelOutput);

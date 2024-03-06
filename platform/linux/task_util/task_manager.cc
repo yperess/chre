@@ -46,7 +46,8 @@ TaskManager::~TaskManager() {
 }
 
 std::optional<uint32_t> TaskManager::addTask(
-    const Task::TaskFunction &func, std::chrono::milliseconds repeatInterval) {
+    const Task::TaskFunction &func, std::chrono::nanoseconds intervalOrDelay,
+    bool isOneShot) {
   std::lock_guard<std::mutex> lock(mMutex);
   bool success = false;
 
@@ -57,7 +58,7 @@ std::optional<uint32_t> TaskManager::addTask(
     // select the next ID
     assert(mCurrentId < std::numeric_limits<uint32_t>::max());
     returnId = mCurrentId++;
-    Task task(func, repeatInterval, returnId);
+    Task task(func, intervalOrDelay, returnId, isOneShot);
     success = mQueue.push(task);
   }
 

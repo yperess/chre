@@ -25,6 +25,8 @@ import android.hardware.location.NanoAppMessage;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.util.Log;
 
 import com.google.android.chre.nanoapp.proto.ChreAudioConcurrencyTest;
@@ -64,6 +66,8 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
     private CountDownLatch mCountDownLatch;
 
     private boolean mInitialized = false;
+
+    private boolean mVerifyAudioGaps = false;
 
     private final AtomicBoolean mChreAudioEnabled = new AtomicBoolean(false);
 
@@ -132,21 +136,24 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         Assert.assertFalse("init() must not be invoked when already initialized", mInitialized);
         ChreTestUtil.loadNanoAppAssertSuccess(mContextHubManager, mContextHubInfo, mNanoAppBinary);
 
+        mVerifyAudioGaps = shouldVerifyAudioGaps();
         mInitialized = true;
     }
 
     /**
      * Runs the test.
      */
-    public void run() {
+    public void run() throws InterruptedException {
         // Send a message to the nanoapp to enable CHRE audio
         mCountDownLatch = new CountDownLatch(1);
-        sendTestCommandMessage(ChreAudioConcurrencyTest.TestCommand.Step.ENABLE_AUDIO);
-        try {
-            mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
+        if (mVerifyAudioGaps) {
+            sendTestCommandMessage(
+                    ChreAudioConcurrencyTest.TestCommand.Step.ENABLE_AUDIO_WITH_GAP_VERIFICATION);
+        } else {
+            sendTestCommandMessage(ChreAudioConcurrencyTest.TestCommand.Step.ENABLE_AUDIO);
         }
+        boolean success = mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: ENABLE_AUDIO", success);
         Assert.assertTrue("Failed to enable CHRE audio",
                 mChreAudioEnabled.get() || mTestResult.get() != null);
 
@@ -155,11 +162,8 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         // Send a message to the nanoapp to verify that CHRE audio resumes
         mCountDownLatch = new CountDownLatch(1);
         sendTestCommandMessage(ChreAudioConcurrencyTest.TestCommand.Step.VERIFY_AUDIO_RESUME);
-        try {
-            mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
-        }
+        success = mCountDownLatch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assert.assertTrue("Timeout waiting for signal: VERIFY_AUDIO_RESUME", success);
 
         if (mTestResult.get() == null) {
             Assert.fail("No test result received");
@@ -230,5 +234,15 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         if (mCountDownLatch != null) {
             mCountDownLatch.countDown();
         }
+    }
+
+    /**
+     * Returns whether we should verify audio gaps. This is only supported on devices
+     * that are currently running Android U or later and were shipped with Android U
+     * or later.
+     */
+    private boolean shouldVerifyAudioGaps() {
+        return VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE &&
+               VERSION.DEVICE_INITIAL_SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE;
     }
 }

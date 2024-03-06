@@ -180,9 +180,11 @@ void Manager::compareAndSendResultToHost() {
     LOGE("AP and CHRE wifi scan result counts differ, AP = %" PRIu8
          ", CHRE = %" PRIu8,
          mApScanResultsSize, mChreScanResultsSize);
-  } else {
-    verifyScanResults(&testResult);
+
+    return;
   }
+
+  verifyScanResults(&testResult);
   test_shared::sendMessageToHost(
       mCrossValidatorState.hostEndpoint, &testResult,
       chre_test_common_TestResult_fields,

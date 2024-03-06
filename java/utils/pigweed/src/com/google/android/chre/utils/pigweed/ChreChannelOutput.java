@@ -30,10 +30,9 @@ import dev.pigweed.pw_rpc.ChannelOutputException;
  */
 public class ChreChannelOutput implements Channel.Output {
     /**
-     * Random value chosen not too close to max value to try to avoid conflicts with other messages
-     * in case pw rpc isn't the only way the client chooses to communicate.
+     * Message type to use for RPC messages.
      */
-    public static final int PW_RPC_CHRE_MESSAGE_TYPE = Integer.MAX_VALUE - 10;
+    public static final int CHRE_MESSAGE_TYPE_RPC = 0x7FFFFFF5;
 
     // 1 denotes that a host endpoint is the client that created the channel.
     private static final int CHANNEL_ID_HOST_CLIENT = (1 << 16);
@@ -55,7 +54,7 @@ public class ChreChannelOutput implements Channel.Output {
     @Override
     public void send(byte[] packet) throws ChannelOutputException {
         NanoAppMessage message = NanoAppMessage.createMessageToNanoApp(mNanoappId,
-                PW_RPC_CHRE_MESSAGE_TYPE, packet);
+                CHRE_MESSAGE_TYPE_RPC, packet);
         if (mAuthDenied.get()
                 || ContextHubTransaction.RESULT_SUCCESS != mClient.sendMessageToNanoApp(message)) {
             throw new ChannelOutputException();

@@ -20,6 +20,7 @@
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/host_comms_manager.h"
 #include "chre/platform/assert.h"
+#include "chre/platform/context.h"
 #include "chre/platform/host_link.h"
 #include "chre/util/macros.h"
 
@@ -67,13 +68,17 @@ bool HostCommsManager::sendMessageToHostFromNanoapp(
       success = HostLink::sendMessage(msgToHost);
       if (!success) {
         mMessagePool.deallocate(msgToHost);
-      } else if (wokeHost) {
-        // If message successfully sent and host was suspended before sending
-        EventLoopManagerSingleton::get()
-            ->getEventLoop()
-            .handleNanoappWakeupBuckets();
-        mIsNanoappBlamedForWakeup = true;
-        nanoapp->blameHostWakeup();
+      } else {
+        if (wokeHost) {
+          // If message successfully sent and host was suspended before sending
+          EventLoopManagerSingleton::get()
+              ->getEventLoop()
+              .handleNanoappWakeupBuckets();
+          mIsNanoappBlamedForWakeup = true;
+          nanoapp->blameHostWakeup();
+        }
+        // Record the nanoapp having sent a message to the host
+        nanoapp->blameHostMessageSent();
       }
     }
   }
@@ -196,6 +201,11 @@ void HostCommsManager::onMessageToHostComplete(const MessageToHost *message) {
   // EventLoop context.
   if (msgToHost->toHostData.nanoappFreeFunction == nullptr) {
     mMessagePool.deallocate(msgToHost);
+  } else if (inEventLoopThread()) {
+    // If we're already within the event pool context, it is safe to call the
+    // free callback synchronously.
+    EventLoopManagerSingleton::get()->getHostCommsManager().freeMessageToHost(
+        msgToHost);
   } else {
     auto freeMsgCallback = [](uint16_t /*type*/, void *data,
                               void * /*extraData*/) {

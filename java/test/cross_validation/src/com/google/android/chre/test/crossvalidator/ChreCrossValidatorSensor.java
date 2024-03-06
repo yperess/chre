@@ -150,7 +150,7 @@ public class ChreCrossValidatorSensor
     }
 
     @Override
-    public void validate() throws AssertionError {
+    public void validate() throws AssertionError, InterruptedException {
         HashSet<Integer> testedSensorIndices = new HashSet<>();
         for (int i = 0; i < mSensorList.size(); i++) {
             mApDatapointsQueue.clear();
@@ -453,12 +453,9 @@ public class ChreCrossValidatorSensor
      * @param samplingDurationInMs The amount of time to wait for AP and CHRE to collected data in
      *                             ms.
      */
-    private void waitForDataSampling() throws AssertionError {
-        try {
-            mAwaitDataLatch.await(getAwaitDataTimeoutInMs(), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail("await data latch interrupted");
-        }
+    private void waitForDataSampling() throws AssertionError, InterruptedException {
+        mAwaitDataLatch.await(getAwaitDataTimeoutInMs(), TimeUnit.MILLISECONDS);
+
         if (mErrorStr.get() != null) {
             Assert.fail(mErrorStr.get());
         }
@@ -543,21 +540,15 @@ public class ChreCrossValidatorSensor
     /**
      * Verify the CHRE sensor being evaluated is present on this device.
      */
-    private void verifyChreSensorIsPresent() {
+    private void verifyChreSensorIsPresent() throws InterruptedException {
         mCollectingData.set(true);
         sendMessageToNanoApp(makeInfoCommandMessage());
         waitForInfoResponse();
         mCollectingData.set(false);
     }
 
-    private void waitForInfoResponse() {
-        boolean success = false;
-        try {
-            success = mAwaitDataLatch.await(INFO_RESPONSE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Assert.fail("await data latch interrupted");
-        }
-
+    private void waitForInfoResponse() throws InterruptedException {
+        boolean success = mAwaitDataLatch.await(INFO_RESPONSE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         if (!success) {
             Assert.fail("Timed out waiting for sensor info response");
         }

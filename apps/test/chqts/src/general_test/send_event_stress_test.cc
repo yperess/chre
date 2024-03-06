@@ -84,8 +84,12 @@ void SendEventStressTest::setUp(uint32_t messageSize,
     sendFatalFailureToHost("Insufficient events available");
   }
 
-  // sCompleteCallbacksLeft may be 0 or 1 at this point.  We don't care.
-  // We just know we also expect all the sEventsLeft to have callbacks.
+  // If kMaxEventsToSend events are sent, we need to reset
+  // sCompleteCallbacksLeft because we only expect at most sEventsLeft to have
+  // callbacks.
+  if (sEventsLeft == kMaxEventsToSend) {
+    sCompleteCallbacksLeft = 0;
+  }
   sCompleteCallbacksLeft += sEventsLeft;
 
   sInMethod = false;

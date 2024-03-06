@@ -17,16 +17,15 @@
 #ifndef ANDROID_HARDWARE_CONTEXTHUB_COMMON_MULTICLIENTS_HAL_BASE_H_
 #define ANDROID_HARDWARE_CONTEXTHUB_COMMON_MULTICLIENTS_HAL_BASE_H_
 
-#ifndef LOG_TAG
-#define LOG_TAG "CHRE.HAL"
-#endif
-
 #include <aidl/android/hardware/contexthub/BnContextHub.h>
 #include <chre_host/generated/host_messages_generated.h>
 
 #include "chre_connection_callback.h"
 #include "chre_host/napp_header.h"
 #include "chre_host/preloaded_nanoapp_loader.h"
+#include "chre_host/time_syncer.h"
+#include "debug_dump_helper.h"
+#include "event_logger.h"
 #include "hal_client_id.h"
 #include "hal_client_manager.h"
 
@@ -37,28 +36,21 @@ using namespace android::chre;
 using ::ndk::ScopedAStatus;
 
 /**
- * The base class of multiclients HAL.
+ * The base class of multiclient HAL.
  *
  * A subclass should initiate mConnection, mHalClientManager and
  * mPreloadedNanoappLoader in its constructor.
- *
- * TODO(b/247124878): A few things are pending:
- *   - Some APIs of IContextHub are not implemented yet;
- *   - onHostEndpointConnected/Disconnected now returns an error if the endpoint
- *     id is illegal or already connected/disconnected. The doc of
- *     IContextHub.aidl should be updated accordingly.
- *   - registerCallback() can fail if mHalClientManager sees an error during
- *     registration. The doc of IContextHub.aidl should be updated accordingly.
- *   - Involve EventLogger to log API calls;
- *   - extends DebugDumpHelper to ease debugging
  */
 class MultiClientContextHubBase
     : public BnContextHub,
       public ::android::hardware::contexthub::common::implementation::
-          ChreConnectionCallback {
+          ChreConnectionCallback,
+      public ::android::hardware::contexthub::DebugDumpHelper {
  public:
   /** The entry point of death recipient for a disconnected client. */
   static void onClientDied(void *cookie);
+
+  MultiClientContextHubBase();
 
   // functions implementing IContextHub
   ScopedAStatus getContextHubs(
@@ -86,11 +78,19 @@ class MultiClientContextHubBase
   ScopedAStatus onNanSessionStateChanged(
       const NanSessionStateUpdate &in_update) override;
   ScopedAStatus setTestMode(bool enable) override;
+  ScopedAStatus sendMessageDeliveryStatusToHub(
+      int32_t contextHubId,
+      const MessageDeliveryStatus &messageDeliveryStatus) override;
 
   // The callback function implementing ChreConnectionCallback
   void handleMessageFromChre(const unsigned char *messageBuffer,
                              size_t messageLen) override;
   void onChreRestarted() override;
+
+  // The functions for dumping debug information
+  binder_status_t dump(int fd, const char **args, uint32_t numArgs) override;
+  bool requestDebugDump() override;
+  void writeToDebugFile(const char *str) override;
 
  protected:
   // The data needed by the death client to clear states of a client.
@@ -102,7 +102,15 @@ class MultiClientContextHubBase
       this->clientPid = pid;
     }
   };
-  MultiClientContextHubBase() = default;
+
+  static constexpr uint32_t kDefaultTestModeTransactionId = 0x80000000;
+
+  void tryTimeSync(size_t numOfRetries, useconds_t retryDelayUs) {
+    if (mConnection->isTimeSyncNeeded()) {
+      TimeSyncer::sendTimeSyncWithRetry(mConnection.get(), numOfRetries,
+                                        retryDelayUs);
+    }
+  }
 
   bool sendFragmentedLoadRequest(HalClientId clientId,
                                  FragmentedLoadRequest &fragmentedLoadRequest);
@@ -117,13 +125,20 @@ class MultiClientContextHubBase
       const ::chre::fbs::UnloadNanoappResponseT &response,
       HalClientId clientId);
   void onNanoappMessage(const ::chre::fbs::NanoappMessageT &message);
-
+  void onDebugDumpData(const ::chre::fbs::DebugDumpDataT &data);
+  void onDebugDumpComplete(
+      const ::chre::fbs::DebugDumpResponseT & /* response */);
   void handleClientDeath(pid_t pid);
+
+  bool enableTestMode();
+  bool disableTestMode();
 
   inline bool isSettingEnabled(Setting setting) {
     return mSettingEnabled.find(setting) != mSettingEnabled.end() &&
            mSettingEnabled[setting];
   }
+
+  HalClientManager::DeadClientUnlinker mDeadClientUnlinker;
 
   // HAL is the unique owner of the communication channel to CHRE.
   std::unique_ptr<ChreConnection> mConnection{};
@@ -151,6 +166,18 @@ class MultiClientContextHubBase
   // A mutex to synchronize access to the list of preloaded nanoapp IDs.
   std::mutex mPreloadedNanoappIdsMutex;
   std::optional<std::vector<uint64_t>> mPreloadedNanoappIds{};
+
+  // test mode settings
+  std::mutex mTestModeMutex;
+  std::condition_variable mEnableTestModeCv;
+  bool mIsTestModeEnabled = false;
+  std::optional<bool> mTestModeSyncUnloadResult = std::nullopt;
+  std::optional<std::unordered_set<uint64_t>> mTestModeNanoapps =
+      std::unordered_set<uint64_t>{};
+  int32_t mTestModeTransactionId =
+      static_cast<int32_t>(kDefaultTestModeTransactionId);
+
+  EventLogger mEventLogger;
 };
 }  // namespace android::hardware::contexthub::common::implementation
 #endif  // ANDROID_HARDWARE_CONTEXTHUB_COMMON_MULTICLIENTS_HAL_BASE_H_

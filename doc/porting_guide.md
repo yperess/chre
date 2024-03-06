@@ -51,7 +51,7 @@ Platform-specific code can be further subdivided into:
   `platform_sensor_base.h` respectively, or required macros
 
 * **Fully platform-specific headers**: these typically appear at
-  `platform/<platform_name>/include/chre/platform/<platform_name/<file_name>.h`
+  `platform/<platform_name>/include/chre/platform/<platform_name>/<file_name>.h`
   and may only be included by other platform-specific code
 
 ## Open Sourcing

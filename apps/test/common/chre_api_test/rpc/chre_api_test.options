@@ -7,3 +7,7 @@ chre.rpc.ChreGetHostEndpointInfoOutput.endpointName max_size:51 # CHRE_MAX_ENDPO
 chre.rpc.ChreGetHostEndpointInfoOutput.endpointTag max_size:51 # CHRE_MAX_ENDPOINT_TAG_LEN
 chre.rpc.ChreSensorThreeAxisData.readings max_count:10
 chre.rpc.GatherEventsInput.eventTypes max_count:10
+chre.rpc.ChreBleAdvertisingReport.address max_size:6 # CHRE_BLE_ADDRESS_LEN
+chre.rpc.ChreBleAdvertisingReport.directAddress max_size:6 # CHRE_BLE_ADDRESS_LEN
+chre.rpc.ChreBleAdvertisingReport.data max_size:255 # extended range is [0, 255]
+chre.rpc.ChreBleAdvertisementEvent.reports max_count:10

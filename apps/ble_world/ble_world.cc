@@ -213,6 +213,10 @@ void handleBatchCompleteEvent(const chreBatchCompleteEvent *event) {
        event->eventType);
 }
 
+void handleFlushCompleteEvent(const chreAsyncResult *event) {
+  LOGI("Received flush complete event with status 0x%" PRIx8, event->errorCode);
+}
+
 void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
                         const void *eventData) {
   LOGI("Received event 0x%" PRIx16 " from 0x%" PRIx32 " at time %" PRIu64 " ms",
@@ -230,7 +234,7 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
       handleTimerEvent(eventData);
       break;
     case CHRE_EVENT_BLE_FLUSH_COMPLETE:
-      LOGI("Received flush complete");
+      handleFlushCompleteEvent(static_cast<const chreAsyncResult *>(eventData));
       break;
     case CHRE_EVENT_BLE_RSSI_READ:
       handleRssiEvent(static_cast<const chreBleReadRssiEvent *>(eventData));

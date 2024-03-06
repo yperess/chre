@@ -34,7 +34,7 @@
  */
 namespace {
 
-using chre::TaskManagerSingleton;
+using ::chre::TaskManagerSingleton;
 
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalWifiCallbacks *gCallbacks = nullptr;
@@ -51,6 +51,9 @@ std::atomic_bool gEnableScanMonitorResponse(true);
 //! Whether PAL should respond to scan request.
 std::atomic_bool gEnableScanResponse(true);
 
+//! Thread sync variable for TaskIds.
+std::mutex gRequestScanMutex;
+
 //! Task IDs for the scanning tasks
 std::optional<uint32_t> gScanMonitorTaskId;
 std::optional<uint32_t> gRequestScanTaskId;
@@ -58,10 +61,19 @@ std::optional<uint32_t> gRequestRangingTaskId;
 
 //! How long should each the PAL hold before response.
 //! Use to mimic real world hardware process time.
-std::chrono::milliseconds gAsyncRequestDelayResponseTime[chre::asBaseType(
+std::chrono::nanoseconds gAsyncRequestDelayResponseTime[chre::asBaseType(
     PalWifiAsyncRequestTypes::NUM_WIFI_REQUEST_TYPE)];
 
 void sendScanResponse() {
+  {
+    std::lock_guard<std::mutex> lock(gRequestScanMutex);
+    if (!gRequestScanTaskId.has_value()) {
+      LOGE("Sending scan response with no pending task");
+      return;
+    }
+    gRequestScanTaskId.reset();
+  }
+
   if (gEnableScanResponse) {
     auto event = chre::MakeUniqueZeroFill<struct chreWifiScanEvent>();
     auto result = chre::MakeUniqueZeroFill<struct chreWifiScanResult>();
@@ -71,9 +83,6 @@ void sendScanResponse() {
     event->results = result.release();
     gCallbacks->scanEventCallback(event.release());
   }
-
-  // We just want to delay this task - only execute it once.
-  TaskManagerSingleton::get()->cancelTask(gRequestScanTaskId.value());
 }
 
 void sendScanMonitorResponse(bool enable) {
@@ -95,18 +104,21 @@ void sendRangingResponse() {
 void stopScanMonitorTask() {
   if (gScanMonitorTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gScanMonitorTaskId.value());
+    gScanMonitorTaskId.reset();
   }
 }
 
 void stopRequestScanTask() {
   if (gRequestScanTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gRequestScanTaskId.value());
+    gRequestScanTaskId.reset();
   }
 }
 
 void stopRequestRangingTask() {
   if (gRequestRangingTaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gRequestRangingTaskId.value());
+    gRequestRangingTaskId.reset();
   }
 }
 
@@ -125,7 +137,11 @@ bool chrePalWifiConfigureScanMonitor(bool enable) {
 }
 
 bool chrePalWifiApiRequestScan(const struct chreWifiScanParams * /* params */) {
-  stopRequestScanTask();
+  std::lock_guard<std::mutex> lock(gRequestScanMutex);
+  if (gRequestScanTaskId.has_value()) {
+    LOGE("Requesting scan when existing scan request still in process");
+    return false;
+  }
 
   std::optional<uint32_t> requestScanTaskCallbackId =
       TaskManagerSingleton::get()->addTask([]() {
@@ -135,8 +151,10 @@ bool chrePalWifiApiRequestScan(const struct chreWifiScanParams * /* params */) {
       });
   if (requestScanTaskCallbackId.has_value()) {
     gRequestScanTaskId = TaskManagerSingleton::get()->addTask(
-        sendScanResponse, gAsyncRequestDelayResponseTime[chre::asBaseType(
-                              PalWifiAsyncRequestTypes::SCAN)]);
+        sendScanResponse,
+        gAsyncRequestDelayResponseTime[chre::asBaseType(
+            PalWifiAsyncRequestTypes::SCAN)],
+        /* isOneShot= */ true);
     return gRequestScanTaskId.has_value();
   }
   return false;
@@ -257,7 +275,7 @@ bool chrePalWifiIsScanMonitoringActive() {
 void chrePalWifiDelayResponse(PalWifiAsyncRequestTypes requestType,
                               std::chrono::seconds seconds) {
   gAsyncRequestDelayResponseTime[chre::asBaseType(requestType)] =
-      std::chrono::duration_cast<std::chrono::milliseconds>(seconds);
+      std::chrono::duration_cast<std::chrono::nanoseconds>(seconds);
 }
 
 const struct chrePalWifiApi *chrePalWifiGetApi(uint32_t requestedApiVersion) {

@@ -35,8 +35,8 @@ namespace chre {
 
 namespace {
 
-int8_t gExpectedLocationSettingState = CHRE_USER_SETTING_STATE_DISABLED;
-int8_t gExpectedWifiSettingState = CHRE_USER_SETTING_STATE_DISABLED;
+int8_t gExpectedLocationSettingState;
+int8_t gExpectedWifiSettingState;
 
 bool start() {
   bool success = chreGnssLocationSessionStartAsync(50, 50, nullptr);
@@ -119,6 +119,9 @@ void startTestNanoapp() {
   constexpr uint32_t kAppVersion = 0;
   constexpr uint32_t kAppPerms =
       NanoappPermissions::CHRE_PERMS_GNSS | NanoappPermissions::CHRE_PERMS_WIFI;
+
+  gExpectedLocationSettingState = CHRE_USER_SETTING_STATE_DISABLED;
+  gExpectedWifiSettingState = CHRE_USER_SETTING_STATE_DISABLED;
 
   UniquePtr<Nanoapp> nanoapp = createStaticNanoapp(
       "Test nanoapp", kAppId, kAppVersion, kAppPerms, start, handleEvent, end);

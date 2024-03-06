@@ -58,7 +58,6 @@ class RpcServer : public NonCopyable {
   };
 
   RpcServer() : mHostOutput(mPermission), mNanoappOutput(mPermission) {}
-  ~RpcServer();
 
   /**
    * Registers services to the server and to CHRE.
@@ -101,7 +100,7 @@ class RpcServer : public NonCopyable {
    *
    * Handles the following events:
    * - CHRE_EVENT_MESSAGE_FROM_HOST: respond to host RPC requests,
-   * - PW_RPC_CHRE_NAPP_REQUEST_EVENT_TYPE: respond to nanoapp RPC requests,
+   * - CHRE_EVENT_RPC_REQUEST: respond to nanoapp RPC requests,
    * - CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION: close the channel when the host
    *   terminates,
    * - CHRE_EVENT_NANOAPP_STOPPED: close the channel when a nanoapp
@@ -115,6 +114,13 @@ class RpcServer : public NonCopyable {
    */
   bool handleEvent(uint32_t senderInstanceId, uint16_t eventType,
                    const void *eventData);
+
+  /**
+   * Close all connections to the server.
+   *
+   * Must be called from the nanoapp end.
+   */
+  void close();
 
  private:
   /**
@@ -131,8 +137,8 @@ class RpcServer : public NonCopyable {
   /**
    * Handles messages from nanoapp clients.
    *
-   * This method must be called when nanoapps receive a
-   * PW_RPC_CHRE_NAPP_REQUEST_EVENT_TYPE event.
+   * This method must be called when nanoapps receive a CHRE_EVENT_RPC_REQUEST
+   * event.
    *
    * @param eventData  The associated data, if any.
    * @return whether the RPC was handled successfully.

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// IWYU pragma: private, include "chre_api/chre.h"
+// IWYU pragma: friend chre/.*\.h
+
 #ifndef _CHRE_RE_H_
 #define _CHRE_RE_H_
 
@@ -363,7 +366,7 @@ bool chreTimerCancel(uint32_t timerId);
  * @return Never.  This method does not return, as the CHRE stops nanoapp
  *    execution immediately.
  */
-void chreAbort(uint32_t abortCode);
+void chreAbort(uint32_t abortCode) CHRE_NO_RETURN;
 
 /**
  * Allocate a given number of bytes from the system heap.

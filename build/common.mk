@@ -52,3 +52,6 @@ include $(CHRE_PREFIX)/build/nanopb.mk
 
 # TFLM Sources
 include $(CHRE_PREFIX)/external/tflm/tflm.mk
+
+# Rust config
+include $(CHRE_PREFIX)/build/rust/common_rust_config.mk

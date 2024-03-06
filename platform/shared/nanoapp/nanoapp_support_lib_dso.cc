@@ -304,9 +304,35 @@ bool chreBleStartScanAsync(chreBleScanMode mode, uint32_t reportDelayMs,
 }
 
 WEAK_SYMBOL
+bool chreBleStartScanAsyncV1_9(chreBleScanMode mode, uint32_t reportDelayMs,
+                               const struct chreBleScanFilterV1_9 *filter,
+                               const void *cookie) {
+  if (chreGetApiVersion() < CHRE_API_VERSION_1_9) {
+    return false;
+  }
+  auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleStartScanAsyncV1_9);
+  if (fptr == nullptr) {
+    return false;
+  }
+  return fptr(mode, reportDelayMs, filter, cookie);
+}
+
+WEAK_SYMBOL
 bool chreBleStopScanAsync() {
   auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleStopScanAsync);
   return (fptr != nullptr) ? fptr() : false;
+}
+
+WEAK_SYMBOL
+bool chreBleStopScanAsyncV1_9(const void *cookie) {
+  if (chreGetApiVersion() < CHRE_API_VERSION_1_9) {
+    return false;
+  }
+  auto *fptr = CHRE_NSL_LAZY_LOOKUP(chreBleStopScanAsyncV1_9);
+  if (fptr == nullptr) {
+    return false;
+  }
+  return fptr(cookie);
 }
 
 WEAK_SYMBOL

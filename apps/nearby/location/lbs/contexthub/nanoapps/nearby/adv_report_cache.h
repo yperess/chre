@@ -89,6 +89,10 @@ class AdvReportCache {
   // Removes cached elements older than the cache timeout.
   void Refresh();
 
+  // Removes cached elements older than the cache timeout if cache count is
+  // larger than threshold.
+  void RefreshIfNeeded();
+
  private:
   // Weight for a current data point in moving average.
   static constexpr float kMovingAverageWeight = 0.3f;
@@ -97,6 +101,11 @@ class AdvReportCache {
   // Uses large enough value that it won't end soon.
   static constexpr uint64_t kMaxExpireTimeNanoSec =
       std::numeric_limits<uint64_t>::max();
+
+  // Default value for threshold cache count to trigger refresh.
+  // At the worst case, roughly 2KB ( = 255 byte * 8) could be allocated for the
+  // cache elements exired.
+  static constexpr size_t kRefreshCacheCountThreshold = 8;
 
   chre::DynamicVector<chreBleAdvertisingReport> cache_reports_;
   // Current cache timeout value.

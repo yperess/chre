@@ -31,7 +31,7 @@
  */
 namespace {
 
-using chre::TaskManagerSingleton;
+using ::chre::TaskManagerSingleton;
 
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalSensorCallbacks *gCallbacks = nullptr;
@@ -57,6 +57,7 @@ bool gIsSensor0Enabled = false;
 void stopSensor0Task() {
   if (gSensor0TaskId.has_value()) {
     TaskManagerSingleton::get()->cancelTask(gSensor0TaskId.value());
+    gSensor0TaskId.reset();
   }
 }
 
@@ -127,9 +128,7 @@ bool chrePalSensorApiConfigureSensor(uint32_t sensorInfoIndex,
     gIsSensor0Enabled = true;
     sendSensor0StatusUpdate(intervalNs, true /*enabled*/);
     gSensor0TaskId = TaskManagerSingleton::get()->addTask(
-        sendSensor0Events,
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::nanoseconds(intervalNs)));
+        sendSensor0Events, std::chrono::nanoseconds(intervalNs));
     return gSensor0TaskId.has_value();
   }
 

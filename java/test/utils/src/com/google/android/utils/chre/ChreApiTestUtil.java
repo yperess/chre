@@ -19,6 +19,7 @@ package com.google.android.utils.chre;
 import androidx.annotation.NonNull;
 
 import com.google.android.chre.utils.pigweed.ChreRpcClient;
+import com.google.protobuf.Empty;
 import com.google.protobuf.MessageLite;
 
 import java.util.ArrayList;
@@ -53,6 +54,11 @@ public class ChreApiTestUtil {
      * The default timeout for an RPC call in milliseconds.
      */
     public static final int RPC_TIMEOUT_IN_MS = RPC_TIMEOUT_IN_SECONDS * 1000;
+
+    /**
+     * The default timeout for an RPC call in nanosecond.
+     */
+    public static final long RPC_TIMEOUT_IN_NS = RPC_TIMEOUT_IN_SECONDS * 1000000000L;
 
     /**
      * The number of threads for the executor that executes the futures.
@@ -140,7 +146,7 @@ public class ChreApiTestUtil {
 
     /**
      * Calls a server streaming RPC method with RPC_TIMEOUT_IN_SECONDS seconds of
-     * timeout with a void request.
+     * timeout with an empty request.
      *
      * @param <ResponseType>  the type of the response (proto generated type).
      * @param rpcClient       the RPC client.
@@ -155,7 +161,7 @@ public class ChreApiTestUtil {
         Objects.requireNonNull(rpcClient);
         Objects.requireNonNull(method);
 
-        ChreApiTest.Void request = ChreApiTest.Void.newBuilder().build();
+        Empty request = Empty.newBuilder().build();
         return callServerStreamingRpcMethodSync(rpcClient, method, request);
     }
 
@@ -266,7 +272,7 @@ public class ChreApiTestUtil {
     }
 
     /**
-     * Calls an RPC method with RPC_TIMEOUT_IN_SECONDS seconds of timeout with a void request.
+     * Calls an RPC method with RPC_TIMEOUT_IN_SECONDS seconds of timeout with an empty request.
      *
      * @param <ResponseType>  the type of the response (proto generated type).
      * @param rpcClient       the RPC client.
@@ -280,7 +286,7 @@ public class ChreApiTestUtil {
         Objects.requireNonNull(rpcClient);
         Objects.requireNonNull(method);
 
-        ChreApiTest.Void request = ChreApiTest.Void.newBuilder().build();
+        Empty request = Empty.newBuilder().build();
         return callUnaryRpcMethodSync(rpcClient, method, request);
     }
 
@@ -303,7 +309,6 @@ public class ChreApiTestUtil {
 
         ChreApiTest.GatherEventsInput input = ChreApiTest.GatherEventsInput.newBuilder()
                 .addAllEventTypes(eventTypes)
-                .setEventTypeCount(eventTypes.size())
                 .setEventCount(eventCount)
                 .setTimeoutInNs(timeoutInNs)
                 .build();
@@ -385,69 +390,56 @@ public class ChreApiTestUtil {
         return new Service("chre.rpc.ChreApiTestService",
                 Service.unaryMethod(
                         "ChreBleGetCapabilities",
-                        ChreApiTest.Void.class,
-                        ChreApiTest.Capabilities.class),
+                        Empty.parser(),
+                        ChreApiTest.Capabilities.parser()),
                 Service.unaryMethod(
                         "ChreBleGetFilterCapabilities",
-                        ChreApiTest.Void.class,
-                        ChreApiTest.Capabilities.class),
-                Service.unaryMethod(
-                        "ChreBleStartScanAsync",
-                        ChreApiTest.ChreBleStartScanAsyncInput.class,
-                        ChreApiTest.Status.class),
+                        Empty.parser(),
+                        ChreApiTest.Capabilities.parser()),
                 Service.serverStreamingMethod(
                         "ChreBleStartScanSync",
-                        ChreApiTest.ChreBleStartScanAsyncInput.class,
-                        ChreApiTest.GeneralSyncMessage.class),
-                Service.unaryMethod(
-                        "ChreBleStopScanAsync",
-                        ChreApiTest.Void.class,
-                        ChreApiTest.Status.class),
+                        ChreApiTest.ChreBleStartScanAsyncInput.parser(),
+                        ChreApiTest.GeneralSyncMessage.parser()),
                 Service.serverStreamingMethod(
                         "ChreBleStopScanSync",
-                        ChreApiTest.Void.class,
-                        ChreApiTest.GeneralSyncMessage.class),
+                        Empty.parser(),
+                        ChreApiTest.GeneralSyncMessage.parser()),
                 Service.unaryMethod(
                         "ChreSensorFindDefault",
-                        ChreApiTest.ChreSensorFindDefaultInput.class,
-                        ChreApiTest.ChreSensorFindDefaultOutput.class),
+                        ChreApiTest.ChreSensorFindDefaultInput.parser(),
+                        ChreApiTest.ChreSensorFindDefaultOutput.parser()),
                 Service.unaryMethod(
                         "ChreGetSensorInfo",
-                        ChreApiTest.ChreHandleInput.class,
-                        ChreApiTest.ChreGetSensorInfoOutput.class),
+                        ChreApiTest.ChreHandleInput.parser(),
+                        ChreApiTest.ChreGetSensorInfoOutput.parser()),
                 Service.unaryMethod(
                         "ChreGetSensorSamplingStatus",
-                        ChreApiTest.ChreHandleInput.class,
-                        ChreApiTest.ChreGetSensorSamplingStatusOutput.class),
+                        ChreApiTest.ChreHandleInput.parser(),
+                        ChreApiTest.ChreGetSensorSamplingStatusOutput.parser()),
                 Service.unaryMethod(
                         "ChreSensorConfigure",
-                        ChreApiTest.ChreSensorConfigureInput.class,
-                        ChreApiTest.Status.class),
+                        ChreApiTest.ChreSensorConfigureInput.parser(),
+                        ChreApiTest.Status.parser()),
                 Service.unaryMethod(
                         "ChreSensorConfigureModeOnly",
-                        ChreApiTest.ChreSensorConfigureModeOnlyInput.class,
-                        ChreApiTest.Status.class),
+                        ChreApiTest.ChreSensorConfigureModeOnlyInput.parser(),
+                        ChreApiTest.Status.parser()),
                 Service.unaryMethod(
                         "ChreAudioGetSource",
-                        ChreApiTest.ChreHandleInput.class,
-                        ChreApiTest.ChreAudioGetSourceOutput.class),
+                        ChreApiTest.ChreHandleInput.parser(),
+                        ChreApiTest.ChreAudioGetSourceOutput.parser()),
                 Service.unaryMethod(
                         "ChreConfigureHostEndpointNotifications",
-                        ChreApiTest.ChreConfigureHostEndpointNotificationsInput.class,
-                        ChreApiTest.Status.class),
-                Service.unaryMethod(
-                        "RetrieveLatestDisconnectedHostEndpointEvent",
-                        ChreApiTest.Void.class,
-                        ChreApiTest.RetrieveLatestDisconnectedHostEndpointEventOutput
-                                .class),
+                        ChreApiTest.ChreConfigureHostEndpointNotificationsInput.parser(),
+                        ChreApiTest.Status.parser()),
                 Service.unaryMethod(
                         "ChreGetHostEndpointInfo",
-                        ChreApiTest.ChreGetHostEndpointInfoInput.class,
-                        ChreApiTest.ChreGetHostEndpointInfoOutput.class),
+                        ChreApiTest.ChreGetHostEndpointInfoInput.parser(),
+                        ChreApiTest.ChreGetHostEndpointInfoOutput.parser()),
                 Service.serverStreamingMethod(
                         "GatherEvents",
-                        ChreApiTest.GatherEventsInput.class,
-                        ChreApiTest.GeneralEventsMessage.class));
+                        ChreApiTest.GatherEventsInput.parser(),
+                        ChreApiTest.GeneralEventsMessage.parser()));
     }
 
     /**

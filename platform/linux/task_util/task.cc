@@ -19,16 +19,14 @@
 namespace chre {
 namespace task_manager_internal {
 
-Task::Task(const TaskFunction &func, std::chrono::milliseconds repeatInterval,
-           uint32_t id)
-    : mExecutionTimestamp(std::chrono::steady_clock::now() + repeatInterval),
-      mRepeatInterval(repeatInterval),
+Task::Task(const TaskFunction &func, std::chrono::nanoseconds intervalOrDelay,
+           uint32_t id, bool isOneShot)
+    : mExecutionTimestamp(std::chrono::steady_clock::now() + intervalOrDelay),
+      mRepeatInterval(isOneShot ? std::chrono::nanoseconds(0)
+                                : intervalOrDelay),
+      mFunc(func),
       mId(id),
-      mHasExecuted(false) {
-  if (func != nullptr) {
-    mFunc = func;
-  }
-}
+      mHasExecuted(false) {}
 
 Task::Task(const Task &rhs)
     : mExecutionTimestamp(rhs.mExecutionTimestamp),
@@ -56,7 +54,7 @@ Task &Task::operator=(const Task &rhs) {
 
 void Task::cancel() {
   std::lock_guard lock(mExecutionMutex);
-  mRepeatInterval = std::chrono::milliseconds(0);
+  mRepeatInterval = std::chrono::nanoseconds(0);
   mFunc.reset();
 }
 

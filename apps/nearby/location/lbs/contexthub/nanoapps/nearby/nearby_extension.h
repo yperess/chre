@@ -13,6 +13,12 @@ struct chrexNearbyExtendedFilterConfig {
   const uint8_t *data;  //!< Vendor-defined payload
 };
 
+//! Contains vendor-defined data for configuring vendor service in library
+struct chrexNearbyExtendedServiceConfig {
+  size_t data_length;   //!< Number of bytes in data
+  const uint8_t *data;  //!< Vendor-defined payload
+};
+
 enum chrexNearbyResult {
   //! Operation completed successfully
   CHREX_NEARBY_RESULT_OK = 0,
@@ -73,6 +79,32 @@ uint32_t chrexNearbySetExtendedFilterConfig(
     const struct chrexNearbyExtendedFilterConfig *config,
     uint32_t *vendorStatusCode);
 
+/**
+ * Configures vendor-defined service data sent by a vendor/OEM service on the
+ * host. This is called by the Nearby nanoapp when it receives a
+ * ChreNearbyExtendedService message, and the result is sent back to the host
+ * endpoint that made the request. The pointers supplied for the
+ * parameters are not guaranteed to be valid after this call. The OEM library
+ * should perform a deep copy of the structure if we want to store them in the
+ * library.
+ *
+ * @param host_info The meta data for a host end point that sent the message,
+ *     obtained from chreHostEndpointInfo. The implementation must ensure that
+ *     messages from a given host end point are only provided to the vendor
+ *     library explicitly associated with that host end point.
+ * @param config Configuration data in a vendor-defined format.
+ * @param[out] vendorStatusCode Optional vendor-defined status code that will be
+ *     returned to the vendor service regardless of the return value of this
+ *     function. The value 0 is reserved to indicate that a vendor status code
+ * was not provided or is not relevant. All other values have a vendor-defined
+ *     meaning.
+ * @return A value from enum chrexNearbyResult.
+ */
+uint32_t chrexNearbySetExtendedServiceConfig(
+    const struct chreHostEndpointInfo *host_info,
+    const struct chrexNearbyExtendedServiceConfig *config,
+    uint32_t *vendorStatusCode);
+
 enum chrexNearbyFilterAction {
   //! Ignore/drop this advertising report
   CHREX_NEARBY_FILTER_ACTION_IGNORE = 0,
@@ -111,6 +143,7 @@ enum chrexNearbyFilterAction {
  * @param report Contains data for a BLE advertisement.
  * @return A value from enum chrexNearbyFilterAction.
  */
+// TODO(b/305277310): Pass OEM extension API version to OEM library
 uint32_t chrexNearbyMatchExtendedFilter(
     const struct chreHostEndpointInfo *host_info,
     const struct chreBleAdvertisingReport *report);

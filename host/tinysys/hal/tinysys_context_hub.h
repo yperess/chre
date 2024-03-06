@@ -36,6 +36,8 @@ class TinysysContextHub : public MultiClientContextHubBase {
   void onChreRestarted() override;
   const std::string kPreloadedNanoappsConfigPath =
       "/vendor/etc/chre/preloaded_nanoapps.json";
+  const std::string kClientIdMappingFilePath =
+      "/data/vendor/chre/chre_hal_clients.json";
 };
 }  // namespace aidl::android::hardware::contexthub
 #endif  // ANDROID_HARDWARE_CONTEXTHUB_AIDL_CONTEXTHUB_H

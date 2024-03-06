@@ -47,6 +47,9 @@ class ConditionVariableBase {
   /** semaphore implementing the condition variable */
   SemaphoreHandle_t semaphoreHandle;
 
+  /** Buffer used to store state used by the semaphore */
+  StaticSemaphore_t mSemaphoreBuffer;
+
   /** True if wait_for() times out before semaphoreHandle is given */
   bool isTimedOut = false;
 

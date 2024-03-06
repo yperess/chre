@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// IWYU pragma: private, include "chre_api/chre.h"
+// IWYU pragma: friend chre/.*\.h
+
 #ifndef CHRE_TOOLCHAIN_H_
 #define CHRE_TOOLCHAIN_H_
 
@@ -27,6 +30,9 @@
 
 #define CHRE_DEPRECATED(message) \
   __attribute__((deprecated(message)))
+
+// Indicates that the function does not return (i.e. abort).
+#define CHRE_NO_RETURN __attribute__((noreturn))
 
 // Enable printf-style compiler warnings for mismatched format string and args
 #define CHRE_PRINTF_ATTR(formatPos, argStart) \

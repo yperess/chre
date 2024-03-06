@@ -23,9 +23,6 @@ import android.hardware.location.ContextHubManager;
 import android.hardware.location.NanoAppRpcService;
 import android.hardware.location.NanoAppState;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -40,14 +37,15 @@ import dev.pigweed.pw_rpc.Service;
  * See https://g3doc.corp.google.com/location/lbs/contexthub/g3doc/nanoapps/pw_rpc_host.md
  */
 public class ChreRpcClient {
-    @NonNull
+
+    // Non null.
     private final Client mRpcClient;
-    @NonNull
+    // Non null.
     private final Channel mChannel;
-    @NonNull
+    // Non null.
     private final ChreChannelOutput mChannelOutput;
     private final long mServerNanoappId;
-    @NonNull
+    // Non null.
     private final ContextHubClient mContextHubClient;
     private ChreIntentHandler mIntentHandler;
 
@@ -56,14 +54,16 @@ public class ChreRpcClient {
      *
      * Use this constructor for persistent clients using callbacks.
      *
-     * @param manager         The context manager used to create a client
+     * @param manager         The context manager used to create a client, non null
+     * @param info            Context hub info, non null
      * @param serverNanoappId The ID of the RPC server nanoapp
-     * @param services        The list of services provided by the server
-     * @param callback        The callbacks receiving messages and life-cycle events from nanoapps
+     * @param services        The list of services provided by the server, non null
+     * @param callback        The callbacks receiving messages and life-cycle events from nanoapps,
+     *                        nullable
      */
-    public ChreRpcClient(@NonNull ContextHubManager manager, @NonNull ContextHubInfo info,
-            long serverNanoappId, @NonNull List<Service> services,
-            @Nullable ContextHubClientCallback callback) {
+    public ChreRpcClient(ContextHubManager manager, ContextHubInfo info,
+            long serverNanoappId, List<Service> services,
+            ContextHubClientCallback callback) {
         Objects.requireNonNull(manager);
         Objects.requireNonNull(info);
         Objects.requireNonNull(services);
@@ -83,12 +83,12 @@ public class ChreRpcClient {
      *
      * handleIntent() must be called with any CHRE intent received by the BroadcastReceiver.
      *
-     * @param contextHubClient The context hub client providing the RPC server nanoapp
+     * @param contextHubClient The context hub client providing the RPC server nanoapp, non null
      * @param serverNanoappId  The ID of the RPC server nanoapp
-     * @param services         The list of services provided by the server
+     * @param services         The list of services provided by the server, non null
      */
-    public ChreRpcClient(@NonNull ContextHubClient contextHubClient, long serverNanoappId,
-            @NonNull List<Service> services) {
+    public ChreRpcClient(ContextHubClient contextHubClient, long serverNanoappId,
+            List<Service> services) {
         mContextHubClient = Objects.requireNonNull(contextHubClient);
         Objects.requireNonNull(services);
         mServerNanoappId = serverNanoappId;
@@ -124,9 +124,9 @@ public class ChreRpcClient {
     /**
      * Handles CHRE intents.
      *
-     * @param intent The CHRE intent.
+     * @param intent The CHRE intent, non null
      */
-    public void handleIntent(@NonNull Intent intent) {
+    public void handleIntent(Intent intent) {
         ChreIntentHandler.handle(intent, mServerNanoappId, mRpcClient, mChannelOutput);
     }
 

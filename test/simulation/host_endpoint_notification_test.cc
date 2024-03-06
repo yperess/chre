@@ -52,31 +52,31 @@ TEST_F(TestBase, HostEndpointDisconnectedTest) {
     uint16_t endpointId;
   };
 
-  struct App : public TestNanoapp {
-    decltype(nanoappHandleEvent) *handleEvent =
-        [](uint32_t, uint16_t eventType, const void *eventData) {
-          switch (eventType) {
-            case CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION: {
-              auto notification =
-                  *(struct chreHostEndpointNotification *)eventData;
-              TestEventQueueSingleton::get()->pushEvent(
-                  CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION, notification);
-            } break;
+  class App : public TestNanoapp {
+   public:
+    void handleEvent(uint32_t, uint16_t eventType,
+                     const void *eventData) override {
+      switch (eventType) {
+        case CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION: {
+          auto notification = *(struct chreHostEndpointNotification *)eventData;
+          TestEventQueueSingleton::get()->pushEvent(
+              CHRE_EVENT_HOST_ENDPOINT_NOTIFICATION, notification);
+        } break;
 
-            case CHRE_EVENT_TEST_EVENT: {
-              auto event = static_cast<const TestEvent *>(eventData);
-              switch (event->type) {
-                case SETUP_NOTIFICATION: {
-                  auto config = static_cast<const Config *>(event->data);
-                  const bool success = chreConfigureHostEndpointNotifications(
-                      config->endpointId, config->enable);
-                  TestEventQueueSingleton::get()->pushEvent(SETUP_NOTIFICATION,
-                                                            success);
-                }
-              }
+        case CHRE_EVENT_TEST_EVENT: {
+          auto event = static_cast<const TestEvent *>(eventData);
+          switch (event->type) {
+            case SETUP_NOTIFICATION: {
+              auto config = static_cast<const Config *>(event->data);
+              const bool success = chreConfigureHostEndpointNotifications(
+                  config->endpointId, config->enable);
+              TestEventQueueSingleton::get()->pushEvent(SETUP_NOTIFICATION,
+                                                        success);
             }
           }
-        };
+        }
+      }
+    }
   };
 
   struct chreHostEndpointInfo info;
@@ -88,10 +88,11 @@ TEST_F(TestBase, HostEndpointDisconnectedTest) {
   strcpy(&info.endpointTag[0], "Test tag");
   getHostEndpointManager().postHostEndpointConnected(info);
 
-  auto app = loadNanoapp<App>();
+  uint64_t appId = loadNanoapp(MakeUnique<App>());
+
   Config config = {.enable = true, .endpointId = kHostEndpointId};
 
-  sendEventToNanoapp(app, SETUP_NOTIFICATION, config);
+  sendEventToNanoapp(appId, SETUP_NOTIFICATION, config);
   bool success;
   waitForEvent(SETUP_NOTIFICATION, &success);
   EXPECT_TRUE(success);

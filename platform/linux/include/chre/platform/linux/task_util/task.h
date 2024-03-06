@@ -28,7 +28,7 @@ namespace task_manager_internal {
 
 /**
  * Represents a task to execute (a function to call) that can be executed once
- * or repeatedly with interval: repeatInterval in milliseconds until
+ * or repeatedly with interval: intervalOrDelay in nanoseconds until
  * cancel() is called.
  *
  * Note: The Task class is not thread-safe nor synchronized properly. It is
@@ -51,12 +51,14 @@ class Task {
    * Construct a new Task object.
    *
    * @param func              the function to execute.
-   * @param repeatInterval    the interval in which to repeat execution in
-   *                          milliseconds.
+   * @param intervalOrDelay   the interval in which to repeat execution or the
+   * delay for a one-shot Task.
    * @param id                the unique ID for use with the Task Manager.
+   * @param isOneShot         if true, the task should only be executed once
+   * after a delay of intervalOrDelay.
    */
-  Task(const TaskFunction &func, std::chrono::milliseconds repeatInterval,
-       uint32_t id);
+  Task(const TaskFunction &func, std::chrono::nanoseconds intervalOrDelay,
+       uint32_t id, bool isOneShot = false);
 
   /**
    * Construct a new Task object.
@@ -68,8 +70,8 @@ class Task {
   /**
    * Assignment operator.
    *
-   * @param rhs              rhs arg.
-   * @return                 this.
+   * @param rhs               rhs arg.
+   * @return                  this.
    */
   Task &operator=(const Task &rhs);
 
@@ -101,8 +103,8 @@ class Task {
   /**
    * Returns true if the task has executed at least once, false if otherwise.
    *
-   * @return true         if the task has executed at least once.
-   * @return false        if the task has not executed at least once.
+   * @return true             if the task has executed at least once.
+   * @return false            if the task has not executed at least once.
    */
   inline bool hasExecuted() const {
     return mHasExecuted;
@@ -112,8 +114,8 @@ class Task {
    * Returns true if the task is ready to execute (time now is >= task
    * timestamp).
    *
-   * @return true         the task can be executed.
-   * @return false        do not yet execute the task.
+   * @return true             the task can be executed.
+   * @return false            do not yet execute the task.
    */
   inline bool isReadyToExecute() const {
     return mExecutionTimestamp <= std::chrono::steady_clock::now();
@@ -121,10 +123,10 @@ class Task {
 
   /**
    * Returns true if the task is a repeating task - if it has has a
-   * repeatInterval > 0.
+   * intervalOrDelay > 0.
    *
-   * @return true         if the task is a repeating task.
-   * @return false        otherwise.
+   * @return true             if the task is a repeating task.
+   * @return false            otherwise.
    */
   inline bool isRepeating() const {
     return mRepeatInterval.count() > 0;
@@ -158,7 +160,7 @@ class Task {
   /**
    * The amount of time to wait in between repeating the task.
    */
-  std::chrono::milliseconds mRepeatInterval;
+  std::chrono::nanoseconds mRepeatInterval;
 
   /**
    * The function to execute.

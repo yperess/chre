@@ -34,5 +34,5 @@ java_library {
         "chre-test-utils",
     ],
 
-    sdk_version: "system_current",
+    sdk_version: "test_current",
 }

@@ -154,6 +154,12 @@ bool MatchSubsequentPair(const uint8_t *account_key,
          kFastPairUuid);
     return false;
   }
+  if (service_data.length == kFastPairModelIdLength) {
+    LOGD(
+        "Initial Pair advertisements, not proceed to subsequent pair "
+        "filtering.");
+    return false;
+  }
   FastPairAccountData account_data = FastPairAccountData::Parse(
       ByteArray(const_cast<uint8_t *>(service_data.data), service_data.length));
   if (!account_data.is_valid) {

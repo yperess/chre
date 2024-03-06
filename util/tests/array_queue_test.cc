@@ -103,6 +103,15 @@ TEST(ArrayQueueTest, SimplePushPopBackPush) {
   EXPECT_EQ(5, q[0]);
   EXPECT_EQ(6, q[1]);
   EXPECT_EQ(7, q[2]);
+
+  q.pop_back();
+
+  EXPECT_EQ(5, q[0]);
+  EXPECT_EQ(6, q[1]);
+
+  q.pop();
+
+  EXPECT_EQ(6, q[0]);
 }
 
 TEST(ArrayQueueTest, TestSize) {
@@ -192,12 +201,19 @@ TEST(ArrayQueueTest, TestFront) {
 TEST(ArrayQueueTest, TestBack) {
   ArrayQueue<int, 3> q;
   q.push(1);
-  EXPECT_EQ(1, q.back());
-  q.pop();
+  EXPECT_EQ(1, q.back());  // 1 x x
   q.push(2);
-  EXPECT_EQ(2, q.back());
+  EXPECT_EQ(2, q.back());  // 1 2 x
+  q.pop();
+  EXPECT_EQ(2, q.back());  // x 2 x
   q.push(3);
-  EXPECT_EQ(3, q.back());
+  EXPECT_EQ(3, q.back());  // x 2 3
+  q.push(4);
+  EXPECT_EQ(4, q.back());  // 4 2 3 (forward wrap-around)
+  q.pop_back();
+  EXPECT_EQ(3, q.back());  // x 2 3 (backwards wrap-around)
+  q.pop();
+  EXPECT_EQ(3, q.back());  // x x 3
 }
 
 TEST(ArrayQueueDeathTest, InvalidSubscript) {

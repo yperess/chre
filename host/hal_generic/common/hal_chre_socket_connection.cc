@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// TODO(b/298459533): remove_ap_wakeup_metric_report_limit ramp up -> remove old
+// code
+
 #define LOG_TAG "ContextHubHal"
 #define LOG_NDEBUG 1
 
@@ -22,8 +25,13 @@
 #include <log/log.h>
 
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
+// TODO(b/298459533): Remove these when the flag_log_nanoapp_load_metrics flag
+// is cleaned up
 #include <aidl/android/frameworks/stats/IStats.h>
 #include <android/binder_manager.h>
+#include <android_chre_flags.h>
+// TODO(b/298459533): Remove end
+
 #include <chre_atoms_log.h>
 #include <utils/SystemClock.h>
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
@@ -34,15 +42,25 @@ namespace contexthub {
 namespace common {
 namespace implementation {
 
-using chre::FragmentedLoadRequest;
-using chre::FragmentedLoadTransaction;
-using chre::HostProtocolHost;
-using flatbuffers::FlatBufferBuilder;
+using ::android::chre::FragmentedLoadRequest;
+using ::android::chre::FragmentedLoadTransaction;
+using ::android::chre::HostProtocolHost;
+using ::flatbuffers::FlatBufferBuilder;
 
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
+// TODO(b/298459533): Remove these when the flag_log_nanoapp_load_metrics flag
+// is cleaned up
 using ::aidl::android::frameworks::stats::IStats;
 using ::aidl::android::frameworks::stats::VendorAtom;
 using ::aidl::android::frameworks::stats::VendorAtomValue;
+using ::android::chre::Atoms::CHRE_AP_WAKE_UP_OCCURRED;
+using ::android::chre::Atoms::CHRE_HAL_NANOAPP_LOAD_FAILED;
+using ::android::chre::flags::flag_log_nanoapp_load_metrics;
+using ::android::chre::flags::remove_ap_wakeup_metric_report_limit;
+// TODO(b/298459533): Remove end
+
+using ::android::chre::MetricsReporter;
+using ::android::chre::Atoms::ChreHalNanoappLoadFailed;
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 
 HalChreSocketConnection::HalChreSocketConnection(
@@ -182,7 +200,9 @@ HalChreSocketConnection::SocketCallbacks::SocketCallbacks(
     HalChreSocketConnection &parent, IChreSocketCallback *callback)
     : mParent(parent), mCallback(callback) {
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
-  mLastClearedTimestamp = elapsedRealtime();
+  if (!remove_ap_wakeup_metric_report_limit()) {
+    mLastClearedTimestamp = elapsedRealtime();
+  }
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 }
 
@@ -217,25 +237,35 @@ void HalChreSocketConnection::SocketCallbacks::handleNanoappMessage(
     // check and update the 24hour timer
     std::lock_guard<std::mutex> lock(mNanoappWokeApCountMutex);
     long nanoappId = message.app_id;
-    long timeElapsed = elapsedRealtime() - mLastClearedTimestamp;
-    if (timeElapsed > kOneDayinMillis) {
-      mNanoappWokeUpCount = 0;
-      mLastClearedTimestamp = elapsedRealtime();
+
+    if (!remove_ap_wakeup_metric_report_limit()) {
+      long timeElapsed = elapsedRealtime() - mLastClearedTimestamp;
+      if (timeElapsed > kOneDayinMillis) {
+        mNanoappWokeUpCount = 0;
+        mLastClearedTimestamp = elapsedRealtime();
+      }
+
+      mNanoappWokeUpCount++;
     }
 
-    // update and report the AP woke up metric
-    mNanoappWokeUpCount++;
-    if (mNanoappWokeUpCount < kMaxDailyReportedApWakeUp) {
-      // create and report the vendor atom
-      std::vector<VendorAtomValue> values(1);
-      values[0].set<VendorAtomValue::longValue>(nanoappId);
+    if (remove_ap_wakeup_metric_report_limit() ||
+        mNanoappWokeUpCount < kMaxDailyReportedApWakeUp) {
+      if (flag_log_nanoapp_load_metrics()) {
+        if (!mParent.mMetricsReporter.logApWakeupOccurred(nanoappId)) {
+          ALOGE("Could not log AP Wakeup metric");
+        }
+      } else {
+        // create and report the vendor atom
+        std::vector<VendorAtomValue> values(1);
+        values[0].set<VendorAtomValue::longValue>(nanoappId);
 
-      const VendorAtom atom{
-          .atomId = chre::Atoms::CHRE_AP_WAKE_UP_OCCURRED,
-          .values{std::move(values)},
-      };
+        const VendorAtom atom{
+            .atomId = CHRE_AP_WAKE_UP_OCCURRED,
+            .values{std::move(values)},
+        };
 
-      mParent.reportMetric(atom);
+        mParent.reportMetric(atom);
+      }
     }
   }
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
@@ -293,6 +323,19 @@ void HalChreSocketConnection::SocketCallbacks::handleLoadNanoappResponse(
         }
       } else {
         success = response.success;
+
+#ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
+        if (!success) {
+          if (flag_log_nanoapp_load_metrics()) {
+            if (!mParent.mMetricsReporter.logNanoappLoadFailed(
+                    transaction.getNanoappId(),
+                    ChreHalNanoappLoadFailed::TYPE_DYNAMIC,
+                    ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC)) {
+              ALOGE("Could not log the nanoapp load failed metric");
+            }
+          }
+        }
+#endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
       }
 
       if (!continueLoadRequest) {
@@ -347,19 +390,27 @@ bool HalChreSocketConnection::sendFragmentedLoadNanoAppRequest(
           request.fragmentId);
 
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
-    // create and report the vendor atom
-    std::vector<VendorAtomValue> values(3);
-    values[0].set<VendorAtomValue::longValue>(request.appId);
-    values[1].set<VendorAtomValue::intValue>(
-        chre::Atoms::ChreHalNanoappLoadFailed::TYPE_DYNAMIC);
-    values[2].set<VendorAtomValue::intValue>(
-        chre::Atoms::ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC);
+    if (flag_log_nanoapp_load_metrics()) {
+      if (!mMetricsReporter.logNanoappLoadFailed(
+              request.appId, ChreHalNanoappLoadFailed::TYPE_DYNAMIC,
+              ChreHalNanoappLoadFailed::REASON_CONNECTION_ERROR)) {
+        ALOGE("Could not log the nanoapp load failed metric");
+      }
+    } else {
+      // create and report the vendor atom
+      std::vector<VendorAtomValue> values(3);
+      values[0].set<VendorAtomValue::longValue>(request.appId);
+      values[1].set<VendorAtomValue::intValue>(
+          ChreHalNanoappLoadFailed::TYPE_DYNAMIC);
+      values[2].set<VendorAtomValue::intValue>(
+          ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC);
 
-    const VendorAtom atom{
-        .atomId = chre::Atoms::CHRE_HAL_NANOAPP_LOAD_FAILED,
-        .values{std::move(values)},
-    };
-    reportMetric(atom);
+      const VendorAtom atom{
+          .atomId = CHRE_HAL_NANOAPP_LOAD_FAILED,
+          .values{std::move(values)},
+      };
+      reportMetric(atom);
+    }
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 
   } else {
@@ -371,6 +422,8 @@ bool HalChreSocketConnection::sendFragmentedLoadNanoAppRequest(
 }
 
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
+// TODO(b/298459533): Remove this the flag_log_nanoapp_load_metrics flag is
+// cleaned up
 void HalChreSocketConnection::reportMetric(const VendorAtom atom) {
   const std::string statsServiceName =
       std::string(IStats::descriptor).append("/default");
@@ -391,6 +444,7 @@ void HalChreSocketConnection::reportMetric(const VendorAtom atom) {
     ALOGE("Failed to report vendor atom");
   }
 }
+// TODO(b/298459533): Remove end
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 
 }  // namespace implementation

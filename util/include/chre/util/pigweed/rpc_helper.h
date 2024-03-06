@@ -19,18 +19,10 @@
 
 #include <cstdint>
 
+#include "chre/util/pigweed/rpc_common.h"
 #include "chre_api/chre.h"
 
 namespace chre {
-
-/** The upper 16b of a channel ID are set to 1 for host clients. */
-constexpr uint32_t kChannelIdHostClient = 1 << 16;
-
-/** Mask to extract the host ID / nanoapp ID from a channel ID. */
-constexpr uint32_t kRpcClientIdMask = 0xffff;
-
-/** Maximum ID for a nanoapp as the value is encoded on 16b. */
-constexpr uint32_t kRpcNanoappMaxId = 0xffff;
 
 /**
  * Returns whether the endpoint matches.

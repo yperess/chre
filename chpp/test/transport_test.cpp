@@ -83,7 +83,7 @@ class TransportTests : public testing::TestWithParam<int> {
     mTransportContext.resetState = CHPP_RESET_STATE_NONE;
 
     // Make sure CHPP has a correct count of the number of registered services
-    // on this platform, (in this case, 1,) as registered in the function
+    // on this platform as registered in the function
     // chppRegisterCommonServices().
     ASSERT_EQ(mAppContext.registeredServiceCount, kServiceCount);
   }
@@ -108,7 +108,7 @@ void WaitForTransport(struct ChppTransportState *transportContext) {
   // Start sending data out.
   cycleSendThread();
   // Wait for data to be received and processed.
-  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
   // Should have reset loc and length for next packet / datagram
   EXPECT_EQ(transportContext->rxStatus.locInDatagram, 0);

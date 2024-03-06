@@ -18,6 +18,7 @@
 
 #include <cinttypes>
 
+#include "chre/core/event_loop_manager.h"
 #include "chre/platform/assert.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
@@ -77,7 +78,7 @@ void DramVoteClient::decrementDramVoteCount() {
   }
 }
 
-Milliseconds DramVoteClient::checkDramDuration() const {
+Milliseconds DramVoteClient::checkDramDuration() {
   Milliseconds duration(0);
   if (mDramVoteCount > 0) {
     duration = Milliseconds(SystemTime::getMonotonicTime()) - mVoteCountStart;
@@ -87,8 +88,18 @@ Milliseconds DramVoteClient::checkDramDuration() const {
   // requests. If there's a prolonged period of memory fallback, this might
   // indicate a memory leak or inadequate SRAM heap size.
   if (duration > kMaxDramDuration) {
-    FATAL_ERROR("Forced into DRAM for %" PRIu64 " msec",
-                duration.getMilliseconds());
+    if (EventLoopManagerSingleton::isInitialized() &&
+        !EventLoopManagerSingleton::get()
+             ->getEventLoop()
+             .getPowerControlManager()
+             .hostIsAwake()) {
+      // AP is asleep
+      FATAL_ERROR("Forced into DRAM for %" PRIu64 " msec",
+                  duration.getMilliseconds());
+    } else {
+      // AP is awake, don't report error, just reset the starting time
+      mVoteCountStart = Milliseconds(SystemTime::getMonotonicTime());
+    }
   }
   return duration;
 }

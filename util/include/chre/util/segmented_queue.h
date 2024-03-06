@@ -92,7 +92,7 @@ class SegmentedQueue : public NonCopyable {
    */
   bool empty() const {
     return mSize == 0;
-  };
+  }
 
   /**
    * Push a element to the end of the segmented queue.
