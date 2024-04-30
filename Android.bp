@@ -1066,6 +1066,7 @@ cc_library_static {
 aconfig_declarations {
     name: "chre_flags",
     package: "android.chre.flags",
+    container: "system",
     srcs: ["chre_flags.aconfig"],
 }
 

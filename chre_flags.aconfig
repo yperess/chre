@@ -1,4 +1,5 @@
 package: "android.chre.flags"
+container: "system"
 
 flag {
   name: "flag_log_nanoapp_load_metrics"
