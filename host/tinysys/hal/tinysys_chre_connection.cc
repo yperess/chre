@@ -80,7 +80,6 @@ bool TinysysChreConnection::init() {
          errno);
     return false;
   }
-  mLogger.init();
   // launch the tasks
   mMessageListener = std::thread(messageListenerTask, this);
   mMessageSender = std::thread(messageSenderTask, this);
@@ -192,16 +191,6 @@ void TinysysChreConnection::handleMessageFromChre(
        messageType, messageLen, hostClientId);
 
   switch (messageType) {
-    case fbs::ChreMessage::LogMessageV2: {
-      std::unique_ptr<fbs::MessageContainerT> container =
-          fbs::UnPackMessageContainer(messageBuffer);
-      const auto *logMessage = container->message.AsLogMessageV2();
-      const std::vector<int8_t> &buffer = logMessage->buffer;
-      const auto *logData = reinterpret_cast<const uint8_t *>(buffer.data());
-      uint32_t numLogsDropped = logMessage->num_logs_dropped;
-      chreConnection->mLogger.logV2(logData, buffer.size(), numLogsDropped);
-      break;
-    }
     case fbs::ChreMessage::LowPowerMicAccessRequest: {
       chreConnection->getLpmaHandler()->enable(/* enabled= */ true);
       break;

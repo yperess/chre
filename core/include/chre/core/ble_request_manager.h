@@ -231,6 +231,8 @@ class BleRequestManager : public NonCopyable {
   void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
  private:
+  friend class BleRequestManagerTest;
+
   //! An internal structure to store incoming sensor flush requests
   struct FlushRequest {
     FlushRequest(uint16_t id, const void *cookiePtr)

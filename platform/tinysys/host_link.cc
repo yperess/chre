@@ -182,7 +182,7 @@ DRAM_REGION_FUNCTION bool generateMessageToHost(const HostMessage *message) {
   LOGV("%s: message size %zu", __func__, message->message.size());
   // TODO(b/285219398): ideally we'd construct our flatbuffer directly in the
   // host-supplied buffer
-  constexpr size_t kFixedReserveSize = 80;
+  constexpr size_t kFixedReserveSize = 88;
   ChreFlatBufferBuilder builder(message->message.size() + kFixedReserveSize);
   HostProtocolChre::encodeNanoappMessage(
       builder, message->appId, message->toHostData.messageType,
@@ -789,6 +789,21 @@ DRAM_REGION_FUNCTION void HostMessageHandlers::handleUnloadNanoappRequest(
     EventLoopManagerSingleton::get()->deferCallback(
         SystemCallbackType::HandleUnloadNanoapp, cbData,
         handleUnloadNanoappCallback);
+  }
+}
+
+DRAM_REGION_FUNCTION void HostMessageHandlers::sendNanoappInstanceIdInfo(
+    uint16_t hostClientId, uint16_t instanceId, uint64_t appId) {
+  constexpr size_t kInitialBufferSize = 56;
+  ChreFlatBufferBuilder builder(kInitialBufferSize);
+  HostProtocolChre::encodeNanoappInstanceIdInfo(builder, hostClientId,
+                                                instanceId, appId);
+
+  if (!getHostCommsManager().send(builder.GetBufferPointer(),
+                                  builder.GetSize())) {
+    LOGE("Failed to send instance ID for HostClientID: %" PRIu16
+         " AppID: 0x%016" PRIx64 " InstanceID: %" PRIu16,
+         hostClientId, appId, instanceId);
   }
 }
 

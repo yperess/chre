@@ -15,7 +15,7 @@ CORTEXM_ARCH := m4_hardfp
 TARGET_CFLAGS += -I$(EMBOS_V422_INCLUDE_DIR)
 
 # Sized based on the buffer allocated in the host daemon (4096 bytes), minus
-# FlatBuffer overhead (max 80 bytes), minus some extra space to make a nice
+# FlatBuffer overhead (max 88 bytes), minus some extra space to make a nice
 # round number and allow for addition of new fields to the FlatBuffer
 TARGET_CFLAGS += -DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4000
 

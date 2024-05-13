@@ -155,6 +155,9 @@ void SendEventStressTest::completeCallback(uint16_t eventType, void *data) {
     // It's too late for the Host to catch this failure, but perhaps
     // the abort will screw up our unload, and trigger a failure that way.
     sendFatalFailureToHost("completeCallback called too many times");
+  } else if (sEventsLeft <= 0 && sCompleteCallbacksLeft > 0) {
+    sendFatalFailureToHost(
+        "completeCallback called less times than events sent");
   }
 }
 

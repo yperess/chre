@@ -72,7 +72,6 @@ extern "C" {
  */
 #define CHRE_ASYNC_RESULT_TIMEOUT_NS  (5 * CHRE_NSEC_PER_SEC)
 
-
 /**
  * A generic listing of error codes for use in {@link #chreAsyncResult} and
  * elsewhere. In general, module-specific error codes may be added to this enum,
@@ -119,7 +118,20 @@ enum chreError {
 
     //! This request is no longer valid. It may have been replaced by a newer
     //! request before taking effect.
+    //! @since v1.6
     CHRE_ERROR_OBSOLETE_REQUEST = 10,
+
+    //! A transient error occurred. The request can be retried.
+    //! @since v1.10
+    CHRE_ERROR_TRANSIENT = 11,
+
+    //! Unable to satisfy request because of missing permissions.
+    //! @since v1.10
+    CHRE_ERROR_PERMISSION_DENIED = 12,
+
+    //! Unable to satisfy request because the destination is not found.
+    //! @since v1.10
+    CHRE_ERROR_DESTINATION_NOT_FOUND = 13,
 
     //!< Do not exceed this value when adding new error codes
     CHRE_ERROR_LAST = UINT8_MAX,

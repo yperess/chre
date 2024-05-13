@@ -37,6 +37,7 @@ COMMON_SRCS += $(NANOAPP_PATH)/src/chre_cross_validator_wifi.cc
 COMMON_SRCS += $(NANOAPP_PATH)/src/chre_cross_validator_wifi_manager.cc
 COMMON_SRCS += $(NANOAPP_PATH)/src/wifi_scan_result.cc
 COMMON_SRCS += $(TEST_SHARED_PATH)/src/send_message.cc
+COMMON_SRCS += $(CHRE_PREFIX)/util/dynamic_vector_base.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/callbacks.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/wifi.cc
 

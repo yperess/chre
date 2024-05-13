@@ -41,15 +41,30 @@
 #define CHRE_BUILD_ERROR(message) CHRE_DO_PRAGMA(GCC error message)
 #define CHRE_DO_PRAGMA(message) _Pragma(#message)
 
+// Marks a function as malloc-like, for optimizations with the return pointer
+#define CHRE_MALLOC_ATTR __attribute__((__malloc__))
+
 #elif defined(__ICCARM__) || defined(__CC_ARM)
 // For IAR ARM and Keil MDK-ARM compilers
 
 #define CHRE_PRINTF_ATTR(formatPos, argStart)
 
+#define CHRE_DEPRECATED(message)
+
+#define CHRE_NO_RETURN
+
+#define CHRE_MALLOC_ATTR
+
 #elif defined(_MSC_VER)
 // For Microsoft Visual Studio
 
 #define CHRE_PRINTF_ATTR(formatPos, argStart)
+
+#define CHRE_DEPRECATED(message)
+
+#define CHRE_NO_RETURN
+
+#define CHRE_MALLOC_ATTR
 
 #else  // if !defined(__GNUC__) && !defined(__clang__)
 

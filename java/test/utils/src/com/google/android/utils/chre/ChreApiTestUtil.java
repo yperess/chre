@@ -16,12 +16,19 @@
 
 package com.google.android.utils.chre;
 
+import android.content.Context;
+
 import androidx.annotation.NonNull;
 
 import com.google.android.chre.utils.pigweed.ChreRpcClient;
+import com.google.common.io.ByteSink;
+import com.google.common.io.Files;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.protobuf.MessageLite;
 
+import java.io.File;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -384,6 +391,71 @@ public class ChreApiTestUtil {
     }
 
     /**
+     * Gather and re-merge a single CHRE audio data event.
+     */
+    public ChreApiTest.ChreAudioDataEvent gatherAudioDataEvent(
+            @NonNull ChreRpcClient rpcClient, int audioEventType,
+                    int eventCount, long timeoutInNs) throws Exception {
+        Objects.requireNonNull(rpcClient);
+
+        Future<List<ChreApiTest.GeneralEventsMessage>> audioEventsFuture =
+                gatherEvents(rpcClient, audioEventType, eventCount,
+                             timeoutInNs);
+        List<ChreApiTest.GeneralEventsMessage> audioEvents =
+                audioEventsFuture.get(2 * timeoutInNs, TimeUnit.NANOSECONDS);
+        return processAudioDataEvents(audioEvents);
+    }
+
+    /**
+     * Re-merge a single CHRE audio data event.
+     */
+    public ChreApiTest.ChreAudioDataEvent processAudioDataEvents(
+            @NonNull List<ChreApiTest.GeneralEventsMessage> audioEvents) throws Exception {
+        Objects.requireNonNull(audioEvents);
+        // Assert audioEvents isn't empty
+        if (audioEvents.size() == 0) {
+            return null;
+        }
+
+        ChreApiTest.ChreAudioDataMetadata metadata =
+                audioEvents.get(0).getChreAudioDataMetadata();
+        // 8-bit format == 0
+        // 16-bit format == 1
+        int bufferSize = metadata.getSampleCount() * (metadata.getFormat() + 1);
+        ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+        ByteString sampleBytes;
+        boolean status = true;
+
+        for (int i = 1; i < audioEvents.size() && status; i++) {
+            ChreApiTest.ChreAudioDataSamples samples = audioEvents.get(i).getChreAudioDataSamples();
+            // assert samples sent/received in order
+            if (samples.getId() != (i - 1)) {
+                status = false;
+            } else {
+                buffer.put(samples.getSamples().toByteArray());
+            }
+        }
+
+        buffer.rewind();
+        sampleBytes = ByteString.copyFrom(buffer);
+
+        ChreApiTest.ChreAudioDataEvent audioEvent =
+                ChreApiTest.ChreAudioDataEvent.newBuilder()
+                        .setStatus(status)
+                        .setVersion(metadata.getVersion())
+                        .setReserved(metadata.getReserved())
+                        .setHandle(metadata.getHandle())
+                        .setTimestamp(metadata.getTimestamp())
+                        .setSampleRate(metadata.getSampleRate())
+                        .setSampleCount(metadata.getSampleCount())
+                        .setFormat(metadata.getFormat())
+                        .setSamples(sampleBytes)
+                        .build();
+
+        return audioEvent;
+    }
+
+    /**
      * Gets the RPC service for the CHRE API Test nanoapp.
      */
     public static Service getChreApiService() {
@@ -429,6 +501,14 @@ public class ChreApiTestUtil {
                         ChreApiTest.ChreHandleInput.parser(),
                         ChreApiTest.ChreAudioGetSourceOutput.parser()),
                 Service.unaryMethod(
+                        "ChreAudioConfigureSource",
+                        ChreApiTest.ChreHandleInput.parser(),
+                        ChreApiTest.Status.parser()),
+                Service.unaryMethod(
+                        "ChreAudioGetStatus",
+                        ChreApiTest.ChreHandleInput.parser(),
+                        ChreApiTest.ChreAudioGetStatusOutput.parser()),
+                Service.unaryMethod(
                         "ChreConfigureHostEndpointNotifications",
                         ChreApiTest.ChreConfigureHostEndpointNotificationsInput.parser(),
                         ChreApiTest.Status.parser()),
@@ -440,6 +520,20 @@ public class ChreApiTestUtil {
                         "GatherEvents",
                         ChreApiTest.GatherEventsInput.parser(),
                         ChreApiTest.GeneralEventsMessage.parser()));
+    }
+
+    /**
+     * Writes data out to permanent storage.
+     *
+     * @param data      Byte array holding the data to write out to file
+     * @param filename  Filename for the created file
+     * @param context   Current target context
+     */
+    public static void writeDataToFile(byte[] data, String filename,
+                Context context) throws Exception {
+        File file = new File(context.getExternalFilesDir(null), filename);
+        ByteSink sink = Files.asByteSink(file);
+        sink.write(data);
     }
 
     /**

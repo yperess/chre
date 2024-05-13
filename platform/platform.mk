@@ -105,6 +105,7 @@ SLPI_SRCS += platform/shared/host_link.cc
 SLPI_SRCS += platform/shared/host_protocol_chre.cc
 SLPI_SRCS += platform/shared/host_protocol_common.cc
 SLPI_SRCS += platform/shared/memory_manager.cc
+SLPI_SRCS += platform/shared/nanoapp_abort.cc
 SLPI_SRCS += platform/shared/nanoapp_load_manager.cc
 SLPI_SRCS += platform/shared/nanoapp/nanoapp_dso_util.cc
 SLPI_SRCS += platform/shared/pal_system_api.cc
@@ -223,6 +224,7 @@ SIM_SRCS += platform/shared/chre_api_version.cc
 SIM_SRCS += platform/shared/chre_api_wifi.cc
 SIM_SRCS += platform/shared/chre_api_wwan.cc
 SIM_SRCS += platform/shared/memory_manager.cc
+SIM_SRCS += platform/shared/nanoapp_abort.cc
 SIM_SRCS += platform/shared/nanoapp/nanoapp_dso_util.cc
 SIM_SRCS += platform/shared/pal_system_api.cc
 SIM_SRCS += platform/shared/system_time.cc
@@ -279,6 +281,7 @@ GOOGLE_X86_LINUX_SRCS += platform/linux/init.cc
 GOOGLE_X86_LINUX_SRCS += platform/linux/assert.cc
 GOOGLE_X86_LINUX_SRCS += platform/linux/task_util/task.cc
 GOOGLE_X86_LINUX_SRCS += platform/linux/task_util/task_manager.cc
+GOOGLE_X86_LINUX_SRCS += platform/shared/nanoapp_abort.cc
 
 # Optional audio support.
 ifeq ($(CHRE_AUDIO_SUPPORT_ENABLED), true)
@@ -324,6 +327,7 @@ GOOGLE_ARM64_ANDROID_SRCS += $(ANDROID_LOG_TOP)/logd_reader.c
 GOOGLE_ARM64_ANDROID_SRCS += platform/android/init.cc
 GOOGLE_ARM64_ANDROID_SRCS += platform/android/host_link.cc
 GOOGLE_ARM64_ANDROID_SRCS += platform/shared/host_protocol_common.cc
+GOOGLE_ARM64_ANDROID_SRCS += platform/shared/nanoapp_abort.cc
 GOOGLE_ARM64_ANDROID_SRCS += host/common/host_protocol_host.cc
 GOOGLE_ARM64_ANDROID_SRCS += host/common/socket_server.cc
 
@@ -353,6 +357,7 @@ GOOGLETEST_COMMON_SRCS += platform/linux/tests/task_manager_test.cc
 GOOGLETEST_COMMON_SRCS += platform/tests/log_buffer_test.cc
 GOOGLETEST_COMMON_SRCS += platform/tests/trace_test.cc
 GOOGLETEST_COMMON_SRCS += platform/shared/log_buffer.cc
+GOOGLETEST_COMMON_SRCS += platform/shared/nanoapp_abort.cc
 ifeq ($(CHRE_WIFI_NAN_SUPPORT_ENABLED), true)
 GOOGLETEST_COMMON_SRCS += platform/linux/pal_nan.cc
 endif
@@ -394,6 +399,7 @@ EMBOS_SRCS += $(CHRE_PREFIX)/platform/shared/pal_sensor_stub.cc
 EMBOS_SRCS += $(CHRE_PREFIX)/platform/shared/platform_debug_dump_manager.cc
 EMBOS_SRCS += $(CHRE_PREFIX)/platform/shared/system_time.cc
 EMBOS_SRCS += $(CHRE_PREFIX)/platform/shared/version.cc
+EMBOS_SRCS += $(CHRE_PREFIX)/platform/shared/nanoapp_abort.cc
 EMBOS_SRCS += $(CHRE_PREFIX)/platform/shared/nanoapp/nanoapp_dso_util.cc
 EMBOS_SRCS += $(CHRE_PREFIX)/platform/shared/nanoapp_loader.cc
 
@@ -410,6 +416,7 @@ EXYNOS_SRCS += $(CHRE_PREFIX)/platform/exynos/platform_nanoapp.cc
 EXYNOS_SRCS += $(CHRE_PREFIX)/platform/exynos/platform_pal.cc
 EXYNOS_SRCS += $(CHRE_PREFIX)/platform/exynos/power_control_manager.cc
 EXYNOS_SRCS += $(CHRE_PREFIX)/platform/exynos/system_time.cc
+EXYNOS_SRCS += $(CHRE_PREFIX)/platform/shared/nanoapp_abort.cc
 EXYNOS_SRCS += $(CHRE_PREFIX)/platform/shared/nanoapp_load_manager.cc
 
 EXYNOS_SRCS += $(FLATBUFFERS_SRCS)
@@ -477,6 +484,7 @@ TINYSYS_SRCS += $(CHRE_PREFIX)/platform/shared/host_protocol_common.cc
 TINYSYS_SRCS += $(CHRE_PREFIX)/platform/shared/log_buffer.cc
 TINYSYS_SRCS += $(CHRE_PREFIX)/platform/shared/log_buffer_manager.cc
 TINYSYS_SRCS += $(CHRE_PREFIX)/platform/shared/memory_manager.cc
+TINYSYS_SRCS += $(CHRE_PREFIX)/platform/shared/nanoapp_abort.cc
 TINYSYS_SRCS += $(CHRE_PREFIX)/platform/shared/nanoapp_load_manager.cc
 TINYSYS_SRCS += $(CHRE_PREFIX)/platform/shared/nanoapp_loader.cc
 TINYSYS_SRCS += $(CHRE_PREFIX)/platform/shared/pal_system_api.cc

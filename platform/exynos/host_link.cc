@@ -92,7 +92,7 @@ void HostLinkBase::receive(void *cookie, void *message, int messageLen) {
 bool HostLink::sendMessage(const MessageToHost *message) {
   bool success = false;
   if (isInitialized()) {
-    constexpr size_t kFixedReserveSize = 80;
+    constexpr size_t kFixedReserveSize = 88;
     ChreFlatBufferBuilder builder(message->message.size() + kFixedReserveSize);
     HostProtocolChre::encodeNanoappMessage(
         builder, message->appId, message->toHostData.messageType,

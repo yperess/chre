@@ -400,7 +400,7 @@ static void chppGnssGetCapabilitiesResult(
                 CHPP_GNSS_DEFAULT_CAPABILITIES);
     if (result->capabilities != CHPP_GNSS_DEFAULT_CAPABILITIES) {
       CHPP_LOGE("GNSS capabilities 0x%" PRIx32 " != 0x%" PRIx32,
-                result->capabilities, CHPP_GNSS_DEFAULT_CAPABILITIES);
+                result->capabilities, (uint32_t)CHPP_GNSS_DEFAULT_CAPABILITIES);
     }
 
     clientContext->capabilitiesValid = true;

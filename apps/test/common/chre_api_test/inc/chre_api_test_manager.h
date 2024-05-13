@@ -88,6 +88,19 @@ class ChreApiTestService final
                                 chre_rpc_ChreAudioGetSourceOutput &response);
 
   /**
+   * Configures delivery of audio data to the current nanoapp.
+   */
+  pw::Status ChreAudioConfigureSource(
+      const chre_rpc_ChreAudioConfigureSourceInput &request,
+      chre_rpc_Status &response);
+
+  /**
+   * Gets the current chreAudioSourceStatus struct for a given audio handle.
+   */
+  pw::Status ChreAudioGetStatus(const chre_rpc_ChreHandleInput &request,
+                                chre_rpc_ChreAudioGetStatusOutput &response);
+
+  /**
    * Configures host endpoint notification.
    */
   pw::Status ChreConfigureHostEndpointNotifications(
@@ -206,6 +219,14 @@ class ChreApiTestService final
       const chre_rpc_ChreHandleInput &request,
       chre_rpc_ChreAudioGetSourceOutput &response);
 
+  bool validateInputAndCallChreAudioConfigureSource(
+      const chre_rpc_ChreAudioConfigureSourceInput &request,
+      chre_rpc_Status &response);
+
+  bool validateInputAndCallChreAudioGetStatus(
+      const chre_rpc_ChreHandleInput &request,
+      chre_rpc_ChreAudioGetStatusOutput &response);
+
   bool validateInputAndCallChreConfigureHostEndpointNotifications(
       const chre_rpc_ChreConfigureHostEndpointNotificationsInput &request,
       chre_rpc_Status &response);
@@ -213,6 +234,42 @@ class ChreApiTestService final
   bool validateInputAndCallChreGetHostEndpointInfo(
       const chre_rpc_ChreGetHostEndpointInfoInput &request,
       chre_rpc_ChreGetHostEndpointInfoOutput &response);
+
+  /**
+   * Handle assigning the data to the GeneralEventsMessage proto received from
+   * a CHRE_AUDIO_DATA_EVENT event.
+   *
+   * @param message     The message proto to fill in.
+   * @param data        The data received in the event.
+   */
+  bool handleChreAudioDataEvent(const chreAudioDataEvent *data);
+
+  /**
+   * Handle sending a single message to host. Asserts success on event write.
+   *
+   * @param message     The message proto to send.
+   * @return            False if we have written the number of expected events.
+   */
+  bool sendGeneralEventToHost(const chre_rpc_GeneralEventsMessage &message);
+
+  /**
+   * Handle sending part of a single message to host.
+   * Used for sending events larger than CHRE_MESSAGE_TO_HOST_MAX_SIZE.
+   * Asserts success on event write.
+   *
+   * @param message     The message proto to send.
+   */
+  void sendPartialGeneralEventToHost(
+      const chre_rpc_GeneralEventsMessage &message);
+
+  /**
+   * Handles checking if we need to finish sending events.
+   * Must be used after calls to sendPartialGeneralEventToHost.
+   *
+   * @param message     The message proto to send.
+   * @return            False if we have written the number of expected events.
+   */
+  bool closePartialGeneralEventToHost();
 
   /**
    * Validates the BLE scan filters and creates a generic filter in the

@@ -12,6 +12,9 @@ namespace fbs {
 struct NanoappMessage;
 struct NanoappMessageBuilder;
 
+struct MessageDeliveryStatus;
+struct MessageDeliveryStatusBuilder;
+
 struct HubInfoRequest;
 struct HubInfoRequestBuilder;
 
@@ -36,8 +39,8 @@ struct LoadNanoappRequestBuilder;
 struct LoadNanoappResponse;
 struct LoadNanoappResponseBuilder;
 
-struct NanoappInstanceIdInfo;
-struct NanoappInstanceIdInfoBuilder;
+struct NanoappTokenDatabaseInfo;
+struct NanoappTokenDatabaseInfoBuilder;
 
 struct UnloadNanoappRequest;
 struct UnloadNanoappRequestBuilder;
@@ -227,31 +230,34 @@ enum class LogType : int8_t {
   STRING = 0,
   TOKENIZED = 1,
   BLUETOOTH = 2,
+  NANOAPP_TOKENIZED = 3,
   MIN = STRING,
-  MAX = BLUETOOTH
+  MAX = NANOAPP_TOKENIZED
 };
 
-inline const LogType (&EnumValuesLogType())[3] {
+inline const LogType (&EnumValuesLogType())[4] {
   static const LogType values[] = {
     LogType::STRING,
     LogType::TOKENIZED,
-    LogType::BLUETOOTH
+    LogType::BLUETOOTH,
+    LogType::NANOAPP_TOKENIZED
   };
   return values;
 }
 
 inline const char * const *EnumNamesLogType() {
-  static const char * const names[4] = {
+  static const char * const names[5] = {
     "STRING",
     "TOKENIZED",
     "BLUETOOTH",
+    "NANOAPP_TOKENIZED",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameLogType(LogType e) {
-  if (flatbuffers::IsOutRange(e, LogType::STRING, LogType::BLUETOOTH)) return "";
+  if (flatbuffers::IsOutRange(e, LogType::STRING, LogType::NANOAPP_TOKENIZED)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesLogType()[index];
 }
@@ -320,12 +326,13 @@ enum class ChreMessage : uint8_t {
   DebugConfiguration = 28,
   PulseRequest = 29,
   PulseResponse = 30,
-  NanoappInstanceIdInfo = 31,
+  NanoappTokenDatabaseInfo = 31,
+  MessageDeliveryStatus = 32,
   MIN = NONE,
-  MAX = NanoappInstanceIdInfo
+  MAX = MessageDeliveryStatus
 };
 
-inline const ChreMessage (&EnumValuesChreMessage())[32] {
+inline const ChreMessage (&EnumValuesChreMessage())[33] {
   static const ChreMessage values[] = {
     ChreMessage::NONE,
     ChreMessage::NanoappMessage,
@@ -358,13 +365,14 @@ inline const ChreMessage (&EnumValuesChreMessage())[32] {
     ChreMessage::DebugConfiguration,
     ChreMessage::PulseRequest,
     ChreMessage::PulseResponse,
-    ChreMessage::NanoappInstanceIdInfo
+    ChreMessage::NanoappTokenDatabaseInfo,
+    ChreMessage::MessageDeliveryStatus
   };
   return values;
 }
 
 inline const char * const *EnumNamesChreMessage() {
-  static const char * const names[33] = {
+  static const char * const names[34] = {
     "NONE",
     "NanoappMessage",
     "HubInfoRequest",
@@ -396,14 +404,15 @@ inline const char * const *EnumNamesChreMessage() {
     "DebugConfiguration",
     "PulseRequest",
     "PulseResponse",
-    "NanoappInstanceIdInfo",
+    "NanoappTokenDatabaseInfo",
+    "MessageDeliveryStatus",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameChreMessage(ChreMessage e) {
-  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::NanoappInstanceIdInfo)) return "";
+  if (flatbuffers::IsOutRange(e, ChreMessage::NONE, ChreMessage::MessageDeliveryStatus)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesChreMessage()[index];
 }
@@ -532,8 +541,12 @@ template<> struct ChreMessageTraits<chre::fbs::PulseResponse> {
   static const ChreMessage enum_value = ChreMessage::PulseResponse;
 };
 
-template<> struct ChreMessageTraits<chre::fbs::NanoappInstanceIdInfo> {
-  static const ChreMessage enum_value = ChreMessage::NanoappInstanceIdInfo;
+template<> struct ChreMessageTraits<chre::fbs::NanoappTokenDatabaseInfo> {
+  static const ChreMessage enum_value = ChreMessage::NanoappTokenDatabaseInfo;
+};
+
+template<> struct ChreMessageTraits<chre::fbs::MessageDeliveryStatus> {
+  static const ChreMessage enum_value = ChreMessage::MessageDeliveryStatus;
 };
 
 bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, ChreMessage type);
@@ -566,7 +579,9 @@ struct NanoappMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_MESSAGE = 10,
     VT_MESSAGE_PERMISSIONS = 12,
     VT_PERMISSIONS = 14,
-    VT_WOKE_HOST = 16
+    VT_WOKE_HOST = 16,
+    VT_IS_RELIABLE = 18,
+    VT_MESSAGE_SEQUENCE_NUMBER = 20
   };
   uint64_t app_id() const {
     return GetField<uint64_t>(VT_APP_ID, 0);
@@ -600,6 +615,12 @@ struct NanoappMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool woke_host() const {
     return GetField<uint8_t>(VT_WOKE_HOST, 0) != 0;
   }
+  bool is_reliable() const {
+    return GetField<uint8_t>(VT_IS_RELIABLE, 0) != 0;
+  }
+  uint32_t message_sequence_number() const {
+    return GetField<uint32_t>(VT_MESSAGE_SEQUENCE_NUMBER, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_APP_ID) &&
@@ -610,6 +631,8 @@ struct NanoappMessage FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_MESSAGE_PERMISSIONS) &&
            VerifyField<uint32_t>(verifier, VT_PERMISSIONS) &&
            VerifyField<uint8_t>(verifier, VT_WOKE_HOST) &&
+           VerifyField<uint8_t>(verifier, VT_IS_RELIABLE) &&
+           VerifyField<uint32_t>(verifier, VT_MESSAGE_SEQUENCE_NUMBER) &&
            verifier.EndTable();
   }
 };
@@ -639,6 +662,12 @@ struct NanoappMessageBuilder {
   void add_woke_host(bool woke_host) {
     fbb_.AddElement<uint8_t>(NanoappMessage::VT_WOKE_HOST, static_cast<uint8_t>(woke_host), 0);
   }
+  void add_is_reliable(bool is_reliable) {
+    fbb_.AddElement<uint8_t>(NanoappMessage::VT_IS_RELIABLE, static_cast<uint8_t>(is_reliable), 0);
+  }
+  void add_message_sequence_number(uint32_t message_sequence_number) {
+    fbb_.AddElement<uint32_t>(NanoappMessage::VT_MESSAGE_SEQUENCE_NUMBER, message_sequence_number, 0);
+  }
   explicit NanoappMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -660,14 +689,18 @@ inline flatbuffers::Offset<NanoappMessage> CreateNanoappMessage(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> message = 0,
     uint32_t message_permissions = 0,
     uint32_t permissions = 0,
-    bool woke_host = false) {
+    bool woke_host = false,
+    bool is_reliable = false,
+    uint32_t message_sequence_number = 0) {
   NanoappMessageBuilder builder_(_fbb);
   builder_.add_app_id(app_id);
+  builder_.add_message_sequence_number(message_sequence_number);
   builder_.add_permissions(permissions);
   builder_.add_message_permissions(message_permissions);
   builder_.add_message(message);
   builder_.add_message_type(message_type);
   builder_.add_host_endpoint(host_endpoint);
+  builder_.add_is_reliable(is_reliable);
   builder_.add_woke_host(woke_host);
   return builder_.Finish();
 }
@@ -680,7 +713,9 @@ inline flatbuffers::Offset<NanoappMessage> CreateNanoappMessageDirect(
     const std::vector<uint8_t> *message = nullptr,
     uint32_t message_permissions = 0,
     uint32_t permissions = 0,
-    bool woke_host = false) {
+    bool woke_host = false,
+    bool is_reliable = false,
+    uint32_t message_sequence_number = 0) {
   auto message__ = message ? _fbb.CreateVector<uint8_t>(*message) : 0;
   return chre::fbs::CreateNanoappMessage(
       _fbb,
@@ -690,7 +725,61 @@ inline flatbuffers::Offset<NanoappMessage> CreateNanoappMessageDirect(
       message__,
       message_permissions,
       permissions,
-      woke_host);
+      woke_host,
+      is_reliable,
+      message_sequence_number);
+}
+
+struct MessageDeliveryStatus FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef MessageDeliveryStatusBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_MESSAGE_SEQUENCE_NUMBER = 4,
+    VT_ERROR_CODE = 6
+  };
+  uint32_t message_sequence_number() const {
+    return GetField<uint32_t>(VT_MESSAGE_SEQUENCE_NUMBER, 0);
+  }
+  int8_t error_code() const {
+    return GetField<int8_t>(VT_ERROR_CODE, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_MESSAGE_SEQUENCE_NUMBER) &&
+           VerifyField<int8_t>(verifier, VT_ERROR_CODE) &&
+           verifier.EndTable();
+  }
+};
+
+struct MessageDeliveryStatusBuilder {
+  typedef MessageDeliveryStatus Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_message_sequence_number(uint32_t message_sequence_number) {
+    fbb_.AddElement<uint32_t>(MessageDeliveryStatus::VT_MESSAGE_SEQUENCE_NUMBER, message_sequence_number, 0);
+  }
+  void add_error_code(int8_t error_code) {
+    fbb_.AddElement<int8_t>(MessageDeliveryStatus::VT_ERROR_CODE, error_code, 0);
+  }
+  explicit MessageDeliveryStatusBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  MessageDeliveryStatusBuilder &operator=(const MessageDeliveryStatusBuilder &);
+  flatbuffers::Offset<MessageDeliveryStatus> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<MessageDeliveryStatus>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<MessageDeliveryStatus> CreateMessageDeliveryStatus(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t message_sequence_number = 0,
+    int8_t error_code = 0) {
+  MessageDeliveryStatusBuilder builder_(_fbb);
+  builder_.add_message_sequence_number(message_sequence_number);
+  builder_.add_error_code(error_code);
+  return builder_.Finish();
 }
 
 struct HubInfoRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -737,7 +826,8 @@ struct HubInfoResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_PEAK_POWER = 20,
     VT_MAX_MSG_LEN = 22,
     VT_PLATFORM_ID = 24,
-    VT_CHRE_PLATFORM_VERSION = 26
+    VT_CHRE_PLATFORM_VERSION = 26,
+    VT_SUPPORTS_RELIABLE_MESSAGES = 28
   };
   /// The name of the hub. Nominally a UTF-8 string, but note that we're not
   /// using the built-in "string" data type from FlatBuffers here, because the
@@ -773,7 +863,7 @@ struct HubInfoResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   float peak_power() const {
     return GetField<float>(VT_PEAK_POWER, 0.0f);
   }
-  /// Maximum size message that can be sent to a nanoapp
+  /// Maximum size regular message that can be sent to a nanoapp
   uint32_t max_msg_len() const {
     return GetField<uint32_t>(VT_MAX_MSG_LEN, 0);
   }
@@ -784,6 +874,10 @@ struct HubInfoResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   /// @see chreGetVersion()
   uint32_t chre_platform_version() const {
     return GetField<uint32_t>(VT_CHRE_PLATFORM_VERSION, 0);
+  }
+  /// Whether reliable messages are supported
+  bool supports_reliable_messages() const {
+    return GetField<uint8_t>(VT_SUPPORTS_RELIABLE_MESSAGES, 0) != 0;
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -802,6 +896,7 @@ struct HubInfoResponse FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_MAX_MSG_LEN) &&
            VerifyField<uint64_t>(verifier, VT_PLATFORM_ID) &&
            VerifyField<uint32_t>(verifier, VT_CHRE_PLATFORM_VERSION) &&
+           VerifyField<uint8_t>(verifier, VT_SUPPORTS_RELIABLE_MESSAGES) &&
            verifier.EndTable();
   }
 };
@@ -846,6 +941,9 @@ struct HubInfoResponseBuilder {
   void add_chre_platform_version(uint32_t chre_platform_version) {
     fbb_.AddElement<uint32_t>(HubInfoResponse::VT_CHRE_PLATFORM_VERSION, chre_platform_version, 0);
   }
+  void add_supports_reliable_messages(bool supports_reliable_messages) {
+    fbb_.AddElement<uint8_t>(HubInfoResponse::VT_SUPPORTS_RELIABLE_MESSAGES, static_cast<uint8_t>(supports_reliable_messages), 0);
+  }
   explicit HubInfoResponseBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -871,7 +969,8 @@ inline flatbuffers::Offset<HubInfoResponse> CreateHubInfoResponse(
     float peak_power = 0.0f,
     uint32_t max_msg_len = 0,
     uint64_t platform_id = 0,
-    uint32_t chre_platform_version = 0) {
+    uint32_t chre_platform_version = 0,
+    bool supports_reliable_messages = false) {
   HubInfoResponseBuilder builder_(_fbb);
   builder_.add_platform_id(platform_id);
   builder_.add_chre_platform_version(chre_platform_version);
@@ -885,6 +984,7 @@ inline flatbuffers::Offset<HubInfoResponse> CreateHubInfoResponse(
   builder_.add_toolchain(toolchain);
   builder_.add_vendor(vendor);
   builder_.add_name(name);
+  builder_.add_supports_reliable_messages(supports_reliable_messages);
   return builder_.Finish();
 }
 
@@ -901,7 +1001,8 @@ inline flatbuffers::Offset<HubInfoResponse> CreateHubInfoResponseDirect(
     float peak_power = 0.0f,
     uint32_t max_msg_len = 0,
     uint64_t platform_id = 0,
-    uint32_t chre_platform_version = 0) {
+    uint32_t chre_platform_version = 0,
+    bool supports_reliable_messages = false) {
   auto name__ = name ? _fbb.CreateVector<int8_t>(*name) : 0;
   auto vendor__ = vendor ? _fbb.CreateVector<int8_t>(*vendor) : 0;
   auto toolchain__ = toolchain ? _fbb.CreateVector<int8_t>(*toolchain) : 0;
@@ -918,7 +1019,8 @@ inline flatbuffers::Offset<HubInfoResponse> CreateHubInfoResponseDirect(
       peak_power,
       max_msg_len,
       platform_id,
-      chre_platform_version);
+      chre_platform_version,
+      supports_reliable_messages);
 }
 
 struct NanoappListRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -1459,11 +1561,16 @@ inline flatbuffers::Offset<LoadNanoappResponse> CreateLoadNanoappResponse(
   return builder_.Finish();
 }
 
-struct NanoappInstanceIdInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef NanoappInstanceIdInfoBuilder Builder;
+/// Contains information needed for the host to load the token database for the
+/// nanoapp. This message is only sent if a token database section is found in
+/// the nanoapp elf binary.
+struct NanoappTokenDatabaseInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef NanoappTokenDatabaseInfoBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INSTANCE_ID = 4,
-    VT_APP_ID = 6
+    VT_APP_ID = 6,
+    VT_DATABASE_OFFSET_BYTES = 8,
+    VT_DATABASE_SIZE_BYTES = 10
   };
   uint32_t instance_id() const {
     return GetField<uint32_t>(VT_INSTANCE_ID, 0);
@@ -1471,42 +1578,63 @@ struct NanoappInstanceIdInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   uint64_t app_id() const {
     return GetField<uint64_t>(VT_APP_ID, 0);
   }
+  /// The size offset of the token database from the start of the address of
+  /// the ELF binary in bytes.
+  uint32_t database_offset_bytes() const {
+    return GetField<uint32_t>(VT_DATABASE_OFFSET_BYTES, 0);
+  }
+  /// The size of the token database section in the ELF binary in bytes.
+  uint32_t database_size_bytes() const {
+    return GetField<uint32_t>(VT_DATABASE_SIZE_BYTES, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_INSTANCE_ID) &&
            VerifyField<uint64_t>(verifier, VT_APP_ID) &&
+           VerifyField<uint32_t>(verifier, VT_DATABASE_OFFSET_BYTES) &&
+           VerifyField<uint32_t>(verifier, VT_DATABASE_SIZE_BYTES) &&
            verifier.EndTable();
   }
 };
 
-struct NanoappInstanceIdInfoBuilder {
-  typedef NanoappInstanceIdInfo Table;
+struct NanoappTokenDatabaseInfoBuilder {
+  typedef NanoappTokenDatabaseInfo Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_instance_id(uint32_t instance_id) {
-    fbb_.AddElement<uint32_t>(NanoappInstanceIdInfo::VT_INSTANCE_ID, instance_id, 0);
+    fbb_.AddElement<uint32_t>(NanoappTokenDatabaseInfo::VT_INSTANCE_ID, instance_id, 0);
   }
   void add_app_id(uint64_t app_id) {
-    fbb_.AddElement<uint64_t>(NanoappInstanceIdInfo::VT_APP_ID, app_id, 0);
+    fbb_.AddElement<uint64_t>(NanoappTokenDatabaseInfo::VT_APP_ID, app_id, 0);
   }
-  explicit NanoappInstanceIdInfoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  void add_database_offset_bytes(uint32_t database_offset_bytes) {
+    fbb_.AddElement<uint32_t>(NanoappTokenDatabaseInfo::VT_DATABASE_OFFSET_BYTES, database_offset_bytes, 0);
+  }
+  void add_database_size_bytes(uint32_t database_size_bytes) {
+    fbb_.AddElement<uint32_t>(NanoappTokenDatabaseInfo::VT_DATABASE_SIZE_BYTES, database_size_bytes, 0);
+  }
+  explicit NanoappTokenDatabaseInfoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  NanoappInstanceIdInfoBuilder &operator=(const NanoappInstanceIdInfoBuilder &);
-  flatbuffers::Offset<NanoappInstanceIdInfo> Finish() {
+  NanoappTokenDatabaseInfoBuilder &operator=(const NanoappTokenDatabaseInfoBuilder &);
+  flatbuffers::Offset<NanoappTokenDatabaseInfo> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<NanoappInstanceIdInfo>(end);
+    auto o = flatbuffers::Offset<NanoappTokenDatabaseInfo>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<NanoappInstanceIdInfo> CreateNanoappInstanceIdInfo(
+inline flatbuffers::Offset<NanoappTokenDatabaseInfo> CreateNanoappTokenDatabaseInfo(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t instance_id = 0,
-    uint64_t app_id = 0) {
-  NanoappInstanceIdInfoBuilder builder_(_fbb);
+    uint64_t app_id = 0,
+    uint32_t database_offset_bytes = 0,
+    uint32_t database_size_bytes = 0) {
+  NanoappTokenDatabaseInfoBuilder builder_(_fbb);
   builder_.add_app_id(app_id);
+  builder_.add_database_size_bytes(database_size_bytes);
+  builder_.add_database_offset_bytes(database_offset_bytes);
   builder_.add_instance_id(instance_id);
   return builder_.Finish();
 }
@@ -2073,13 +2201,13 @@ struct LogMessageV2 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   ///   be needed to encode this as: [Direction(1B) | Size(1B) | Data(24B)].
   ///
   /// * Tokenized nanoapp logs: This log type is specifically for nanoapps with
-  ///   tokenized logs enabled. Similar to tokenized logs, the first byte is the
-  ///   size of the tokenized log data at the end. The next two bytes is the instance
-  ///   ID of the nanoapp which sends this tokenized log message. This instance ID
-  ///   will be used to map to the corresponding detokenizer in the log message parser.
-  ///   For example, if a nanoapp tokenized log of size 24 bytes were to be sent,
-  ///   a buffer of size 27 bytes would be needed to encode this as:
-  ///   [Size(1B) | InstanceId (2B) | Data(24B)].
+  ///   tokenized logs enabled. The first two bytes is the instance ID of the
+  ///   nanoapp which sends this tokenized log message. This instance ID will be
+  ///   used to map to the corresponding detokenizer in the log message parser.
+  ///   The rest is similar to tokenized logs with one byte of the size followed
+  ///   by the payload. For example, if a nanoapp tokenized log of size 24 bytes
+  ///   were to be sent, a buffer of size 27 bytes would be to encoded as:
+  ///   [InstanceId (2B) | Size(1B) | Data(24B)].
   ///
   /// This pattern repeats until the end of the buffer for multiple log
   /// messages. The last byte will always be a null-terminator. There are no
@@ -2766,8 +2894,11 @@ struct MessageContainer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const chre::fbs::PulseResponse *message_as_PulseResponse() const {
     return message_type() == chre::fbs::ChreMessage::PulseResponse ? static_cast<const chre::fbs::PulseResponse *>(message()) : nullptr;
   }
-  const chre::fbs::NanoappInstanceIdInfo *message_as_NanoappInstanceIdInfo() const {
-    return message_type() == chre::fbs::ChreMessage::NanoappInstanceIdInfo ? static_cast<const chre::fbs::NanoappInstanceIdInfo *>(message()) : nullptr;
+  const chre::fbs::NanoappTokenDatabaseInfo *message_as_NanoappTokenDatabaseInfo() const {
+    return message_type() == chre::fbs::ChreMessage::NanoappTokenDatabaseInfo ? static_cast<const chre::fbs::NanoappTokenDatabaseInfo *>(message()) : nullptr;
+  }
+  const chre::fbs::MessageDeliveryStatus *message_as_MessageDeliveryStatus() const {
+    return message_type() == chre::fbs::ChreMessage::MessageDeliveryStatus ? static_cast<const chre::fbs::MessageDeliveryStatus *>(message()) : nullptr;
   }
   /// The originating or destination client ID on the host side, used to direct
   /// responses only to the client that sent the request. Although initially
@@ -2908,8 +3039,12 @@ template<> inline const chre::fbs::PulseResponse *MessageContainer::message_as<c
   return message_as_PulseResponse();
 }
 
-template<> inline const chre::fbs::NanoappInstanceIdInfo *MessageContainer::message_as<chre::fbs::NanoappInstanceIdInfo>() const {
-  return message_as_NanoappInstanceIdInfo();
+template<> inline const chre::fbs::NanoappTokenDatabaseInfo *MessageContainer::message_as<chre::fbs::NanoappTokenDatabaseInfo>() const {
+  return message_as_NanoappTokenDatabaseInfo();
+}
+
+template<> inline const chre::fbs::MessageDeliveryStatus *MessageContainer::message_as<chre::fbs::MessageDeliveryStatus>() const {
+  return message_as_MessageDeliveryStatus();
 }
 
 struct MessageContainerBuilder {
@@ -3076,8 +3211,12 @@ inline bool VerifyChreMessage(flatbuffers::Verifier &verifier, const void *obj, 
       auto ptr = reinterpret_cast<const chre::fbs::PulseResponse *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case ChreMessage::NanoappInstanceIdInfo: {
-      auto ptr = reinterpret_cast<const chre::fbs::NanoappInstanceIdInfo *>(obj);
+    case ChreMessage::NanoappTokenDatabaseInfo: {
+      auto ptr = reinterpret_cast<const chre::fbs::NanoappTokenDatabaseInfo *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ChreMessage::MessageDeliveryStatus: {
+      auto ptr = reinterpret_cast<const chre::fbs::MessageDeliveryStatus *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

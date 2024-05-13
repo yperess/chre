@@ -48,14 +48,14 @@ namespace {
 constexpr chre::Nanoseconds kWifiScanInterval = chre::Seconds(5);
 constexpr chre::Nanoseconds kSensorRequestInterval = chre::Seconds(5);
 constexpr chre::Nanoseconds kAudioRequestInterval = chre::Seconds(5);
-constexpr chre::Nanoseconds kBleRequestInterval = chre::Seconds(5);
+constexpr chre::Nanoseconds kBleRequestInterval = chre::Milliseconds(50);
 constexpr uint64_t kSensorSamplingDelayNs = 0;
 constexpr uint8_t kAccelSensorIndex = 0;
 constexpr uint8_t kGyroSensorIndex = 1;
 constexpr uint8_t kInstantMotionSensorIndex = 1;
 
 //! Report delay for BLE scans.
-constexpr uint32_t gBleBatchDurationMs = 0;
+constexpr uint32_t kBleBatchDurationMs = 0;
 
 bool isRequestTypeForLocation(uint8_t requestType) {
   return (requestType == CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_START) ||
@@ -65,18 +65,6 @@ bool isRequestTypeForLocation(uint8_t requestType) {
 bool isRequestTypeForMeasurement(uint8_t requestType) {
   return (requestType == CHRE_GNSS_REQUEST_TYPE_MEASUREMENT_SESSION_START) ||
          (requestType == CHRE_GNSS_REQUEST_TYPE_MEASUREMENT_SESSION_STOP);
-}
-
-bool enableBleScans() {
-  struct chreBleScanFilter filter;
-  chreBleGenericFilter uuidFilters[kNumScanFilters];
-  createBleScanFilterForKnownBeacons(filter, uuidFilters, kNumScanFilters);
-  return chreBleStartScanAsync(CHRE_BLE_SCAN_MODE_BACKGROUND,
-                               gBleBatchDurationMs, &filter);
-}
-
-bool disableBleScans() {
-  return chreBleStopScanAsync();
 }
 
 }  // anonymous namespace
@@ -402,12 +390,17 @@ void Manager::handleBleAsyncResult(const chreAsyncResult *result) {
   const char *requestType =
       result->requestType == CHRE_BLE_REQUEST_TYPE_START_SCAN ? "start"
                                                               : "stop";
-  if (result->success) {
-    LOGI("BLE %s scan success", requestType);
-    mBleEnabled = (result->requestType == CHRE_BLE_REQUEST_TYPE_START_SCAN);
+  if (!mBleScanAsyncRequest.has_value()) {
+    sendFailure("Received BLE async result with no pending request");
+  } else if (!result->success) {
+    LOGE("BLE %s scan failure: %" PRIu8, requestType, result->errorCode);
+    sendFailure("Async BLE failure");
+  } else if (result->cookie != mBleScanAsyncRequest->cookie) {
+    sendFailure("BLE async cookie mismatch");
   } else {
-    LOGW("BLE %s scan failure: %" PRIu8, requestType, result->errorCode);
+    LOGI("BLE %s scan success", requestType);
   }
+  mBleScanAsyncRequest.reset();
 }
 
 void Manager::checkTimestamp(uint64_t timestamp, uint64_t pastTimestamp) {
@@ -766,18 +759,47 @@ void Manager::stopSensorRequests() {
   }
 }
 
+bool Manager::enableBleScan() {
+  chreBleScanMode mode = mBleScanMode;
+  switch (mBleScanMode) {
+    case CHRE_BLE_SCAN_MODE_BACKGROUND:
+      mBleScanMode = CHRE_BLE_SCAN_MODE_FOREGROUND;
+      break;
+    case CHRE_BLE_SCAN_MODE_FOREGROUND:
+      mBleScanMode = CHRE_BLE_SCAN_MODE_AGGRESSIVE;
+      break;
+    case CHRE_BLE_SCAN_MODE_AGGRESSIVE:
+      mBleScanMode = CHRE_BLE_SCAN_MODE_BACKGROUND;
+      mShouldEnableBleScan = false;
+      break;
+    default:
+      sendFailure("Invalid scan mode");
+      break;
+  }
+  struct chreBleScanFilterV1_9 filter;
+  chreBleGenericFilter uuidFilters[kNumScanFilters];
+  createBleScanFilterForKnownBeaconsV1_9(filter, uuidFilters, kNumScanFilters);
+  return chreBleStartScanAsyncV1_9(mode, kBleBatchDurationMs, &filter,
+                                   &kBleScanCookie);
+}
+
+bool Manager::disableBleScan() {
+  mShouldEnableBleScan = true;
+  return chreBleStopScanAsyncV1_9(&kBleScanCookie);
+}
+
 void Manager::makeBleScanRequest() {
   bool success = false;
-
-  if (!mBleEnabled) {
-    success = enableBleScans();
+  if (mShouldEnableBleScan) {
+    success = enableBleScan();
   } else {
-    success = disableBleScans();
+    success = disableBleScan();
   }
 
   if (!success) {
-    LOGE("Failed to send BLE %s scan request", !mBleEnabled ? "start" : "stop");
+    LOGE("Failed to send BLE scan request");
   } else {
+    mBleScanAsyncRequest = AsyncRequest(&kBleScanCookie);
     setTimer(kBleRequestInterval.toRawNanoseconds(), true /* oneShot */,
              &mBleScanTimerHandle);
   }

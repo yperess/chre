@@ -68,8 +68,28 @@ class LogBufferManager : public LogBufferCallbackInterface {
    */
   void log(chreLogLevel logLevel, const char *formatStr, ...);
 
+  /**
+   * Similar as log() but with a log buffer and a log size argument instead
+   * of a printf-style arguments.
+   *
+   * @param logs Pointer to the buffer containing the encoded log message.
+   * @param logSize Size of the encoded logs.
+   */
   void logEncoded(chreLogLevel logLevel, const uint8_t *encodedLog,
                   size_t encodedLogSize);
+
+  /**
+   * Log via the pigweed tokenized logging format for nanoapps. The log message
+   * message is tokenized and will be decoded into printf style strings at the
+   * receiver.
+   *
+   * @param level Logging level.
+   * @param instanceId The instance ID of the nanoapp which sends the log.
+   * @param msg A byte buffer containing the tokenized log message.
+   * @param msgSize Size of the tokenized log message buffer.
+   */
+  void logNanoappTokenized(chreLogLevel logLevel, uint16_t instanceID,
+                           const uint8_t *msg, size_t msgSize);
 
   /**
    * Logs message with printf-style arguments. No trailing newline is required

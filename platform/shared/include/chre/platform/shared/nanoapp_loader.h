@@ -71,11 +71,6 @@ class NanoappLoader {
  public:
   NanoappLoader() = delete;
 
-  explicit NanoappLoader(void *elfInput, bool mapIntoTcm) {
-    mBinary = static_cast<uint8_t *>(elfInput);
-    mIsTcmBinary = mapIntoTcm;
-  }
-
   /**
    * Factory method to create a NanoappLoader Instance after loading
    * the buffer containing the ELF binary.
@@ -86,7 +81,7 @@ class NanoappLoader {
    * @return Class instance on successful load and verification,
    *     nullptr otherwise.
    */
-  static void *create(void *elfInput, bool mapIntoTcm);
+  static NanoappLoader *create(void *elfInput, bool mapIntoTcm);
 
   /**
    * Closes and destroys the NanoappLoader instance.
@@ -140,10 +135,28 @@ class NanoappLoader {
    */
   static uintptr_t roundDownToAlign(uintptr_t virtualAddr, size_t alignment);
 
+  /**
+   * Returns true if a token database is found in the nanoapp ELF binary and
+   * pass the database offset and database size to the caller.
+   *
+   * @param offset Pointer to the size offset of the token database from the
+   * start of the address of the ELF binary in bytes.
+   * @param size Pointer to the size of the token database section in the ELF
+   * binary in bytes.
+   */
+  bool getTokenDatabaseSectionInfo(uint32_t *offset, size_t *size);
+
  private:
+  explicit NanoappLoader(void *elfInput, bool mapIntoTcm) {
+    mBinary = static_cast<uint8_t *>(elfInput);
+    mIsTcmBinary = mapIntoTcm;
+  }
+
   /**
    * Opens the ELF binary. This maps the binary into memory, resolves symbols,
    * and invokes any static initializers.
+   *
+   * <p>This function must be called before any symbol-finding functions.
    *
    * @return true if all required opening steps were completed.
    */
@@ -168,23 +181,24 @@ class NanoappLoader {
   using SectionHeader = ElfW(Shdr);
 
   //! Name of various segments in the ELF that need to be looked up
-  static constexpr const char *kSymTableName = ".symtab";
-  static constexpr const char *kStrTableName = ".strtab";
+  static constexpr const char *kDynsymTableName = ".dynsym";
+  static constexpr const char *kDynstrTableName = ".dynstr";
   static constexpr const char *kInitArrayName = ".init_array";
   static constexpr const char *kFiniArrayName = ".fini_array";
+  static constexpr const char *kTokenTableName = ".pw_tokenizer.entries";
 
   //! Pointer to the table of all the section names.
   char *mSectionNamesPtr = nullptr;
-  //! Pointer to the table of symbol names of defined symbols.
-  char *mStringTablePtr = nullptr;
-  //! Pointer to the table of symbol information for defined symbols.
-  uint8_t *mSymbolTablePtr = nullptr;
+  //! Pointer to the table of dynamic symbol names for defined symbols.
+  char *mDynamicStringTablePtr = nullptr;
+  //! Pointer to the table of dynamic symbol information for defined symbols.
+  uint8_t *mDynamicSymbolTablePtr = nullptr;
   //! Pointer to the array of section header entries.
   SectionHeader *mSectionHeadersPtr = nullptr;
   //! Number of SectionHeaders pointed to by mSectionHeadersPtr.
   size_t mNumSectionHeaders = 0;
-  //! Size of the data pointed to by mSymbolTablePtr.
-  size_t mSymbolTableSize = 0;
+  //! Size of the data pointed to by mDynamicSymbolTablePtr.
+  size_t mDynamicSymbolTableSize = 0;
 
   //! The ELF that is being mapped into the system. This pointer will be invalid
   //! after open returns.
@@ -355,7 +369,9 @@ class NanoappLoader {
    * @return The ELF header for the binary being loaded. nullptr if it doesn't
    *    exist or no binary is being loaded.
    */
-  ElfHeader *getElfHeader();
+  ElfHeader *getElfHeader() {
+    return reinterpret_cast<ElfHeader *>(mBinary);
+  }
 
   /**
    * @return The array of program headers for the binary being loaded. nullptr
@@ -370,23 +386,11 @@ class NanoappLoader {
   size_t getProgramHeaderArraySize();
 
   /**
-   * @return An array of characters containing the symbol names for dynamic
-   *    symbols inside the binary being loaded. nullptr if it doesn't exist or
-   *    no binary is being loaded.
+   * Verifies dynamic tables that must exist in the ELF header.
+   *
+   * @return true if all the required tables exist, otherwise false.
    */
-  char *getDynamicStringTable();
-
-  /**
-   * @return An array of dynamic symbol information for the binary being loaded.
-   *     nullptr if it doesn't exist or no binary is being loaded.
-   */
-  uint8_t *getDynamicSymbolTable();
-
-  /**
-   * @return The size of the array of dynamic symbol information for the binary
-   *     being loaded. 0 if it doesn't exist or no binary is being loaded.
-   */
-  size_t getDynamicSymbolTableSize();
+  bool verifyDynamicTables();
 
   /**
    * Returns the first entry in the dynamic header that has a tag that matches
@@ -399,7 +403,10 @@ class NanoappLoader {
   static ElfWord getDynEntry(DynamicHeader *dyn, int field);
 
   /**
-   * Handle reolcation for entries in the specified table.
+   * Handle relocation for entries in the specified table.
+   *
+   * <p> this function must return true if the table is not required or is
+   * empty. If the entry is present when not expected, it must return false.
    *
    * @param dyn The dynamic header for the binary.
    * @param tableTag The dynamic tag (DT_x) of the relocation table.

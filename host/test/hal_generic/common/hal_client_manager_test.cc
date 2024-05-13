@@ -49,7 +49,7 @@ using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 
-using HalClient = HalClientManager::HalClient;
+using HalClient = HalClientManager::Client;
 
 constexpr pid_t kSystemServerPid = 1000;
 // The uuid assigned to ContextHubService
@@ -127,7 +127,7 @@ class HalClientManagerForTest : public HalClientManager {
       : HalClientManager(std::move(deadClientUnlinker), clientIdMappingFilePath,
                          reservedClientIds) {}
 
-  const std::vector<HalClient> getClients() {
+  const std::vector<Client> getClients() {
     return mClients;
   }
 
@@ -136,8 +136,8 @@ class HalClientManagerForTest : public HalClientManager {
     std::shared_ptr<ContextHubCallbackForTest> callback =
         ContextHubCallbackForTest::make<ContextHubCallbackForTest>(
             kSystemServerUuid);
-    return createClientLocked(uuid, pid, callback,
-                              /* deathRecipientCookie= */ nullptr);
+    return createClient(uuid, pid, callback,
+                        /* deathRecipientCookie= */ nullptr);
   }
 
   HalClientId getNextClientId() {
@@ -515,7 +515,7 @@ TEST_F(HalClientManagerTest, handleDeathClient) {
   EXPECT_THAT(clients, SizeIs(1));
   const HalClient &client = clients.front();
   EXPECT_EQ(client.callback, nullptr);
-  EXPECT_EQ(client.pid, HalClient::PID_UNSET);
+  EXPECT_EQ(client.pid, HalClient::kPidUnset);
   EXPECT_EQ(client.uuid, kSystemServerUuid);
   EXPECT_NE(client.clientId, ::chre::kHostClientIdUnspecified);
   EXPECT_THAT(client.endpointIds, IsEmpty());

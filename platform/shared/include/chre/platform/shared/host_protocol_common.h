@@ -70,6 +70,9 @@ class HostProtocolCommon {
    *        message. These permissions are used to record and attribute access
    *        to permissions-controlled resources.
    * @param wokeHost true if this message results in waking up the host.
+   * @param isReliable Whether the message is reliable.
+   * @param messageSequenceNumber The message sequence number to use for the
+   *        reliable message status.
    */
   static void encodeNanoappMessage(
       flatbuffers::FlatBufferBuilder &builder, uint64_t appId,
@@ -79,7 +82,21 @@ class HostProtocolCommon {
           static_cast<uint32_t>(chre::NanoappPermissions::CHRE_PERMS_ALL),
       uint32_t messagePermissions =
           static_cast<uint32_t>(chre::NanoappPermissions::CHRE_PERMS_ALL),
-      bool wokeHost = false);
+      bool wokeHost = false, bool isReliable = false,
+      uint32_t messageSequenceNumber = 0);
+
+  /**
+   * Encodes a message delivery status for use with reliable messages.
+   *
+   * @param builder A newly constructed FlatBufferBuilder that will be used to
+   *        encode the message. It will be finalized before returning from this
+   *        function.
+   * @param messageSequenceNumber The message sequence number.
+   * @param errorCode The error code.
+   */
+  static void encodeMessageDeliveryStatus(
+      flatbuffers::FlatBufferBuilder &builder, uint32_t messageSequenceNumber,
+      uint8_t errorCode);
 
   /**
    * Adds a string to the provided builder as a byte vector.

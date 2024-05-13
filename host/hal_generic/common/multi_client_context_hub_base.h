@@ -19,6 +19,8 @@
 
 #include <aidl/android/hardware/contexthub/BnContextHub.h>
 #include <chre_host/generated/host_messages_generated.h>
+#include <chre_host/log_message_parser.h>
+#include <chre_host/metrics_reporter.h>
 
 #include "chre_connection_callback.h"
 #include "chre_host/napp_header.h"
@@ -103,8 +105,6 @@ class MultiClientContextHubBase
     }
   };
 
-  static constexpr uint32_t kDefaultTestModeTransactionId = 0x80000000;
-
   void tryTimeSync(size_t numOfRetries, useconds_t retryDelayUs) {
     if (mConnection->isTimeSyncNeeded()) {
       TimeSyncer::sendTimeSyncWithRetry(mConnection.get(), numOfRetries,
@@ -125,13 +125,39 @@ class MultiClientContextHubBase
       const ::chre::fbs::UnloadNanoappResponseT &response,
       HalClientId clientId);
   void onNanoappMessage(const ::chre::fbs::NanoappMessageT &message);
+  void onMessageDeliveryStatus(
+      const ::chre::fbs::MessageDeliveryStatusT &status);
   void onDebugDumpData(const ::chre::fbs::DebugDumpDataT &data);
   void onDebugDumpComplete(
       const ::chre::fbs::DebugDumpResponseT & /* response */);
+  void onMetricLog(const ::chre::fbs::MetricLogT &metricMessage);
   void handleClientDeath(pid_t pid);
 
+  /**
+   * Returns true to allow metrics to be reported to stats service.
+   *
+   * <p>Subclasses can override to turn it off.
+   */
+  virtual bool isMetricEnabled() {
+    return true;
+  }
+
+  /**
+   * Enables test mode by unloading all the nanoapps except the system nanoapps.
+   *
+   * @return true as long as we have a list of nanoapps to unload.
+   */
   bool enableTestMode();
-  bool disableTestMode();
+
+  /**
+   * Disables test mode by reloading all the <b>preloaded</b> nanoapps except
+   * system nanoapps.
+   *
+   * <p>Note that dynamically loaded nanoapps that are unloaded during
+   * enableTestMode() are not reloaded back because HAL doesn't track the
+   * location of their binaries.
+   */
+  void disableTestMode();
 
   inline bool isSettingEnabled(Setting setting) {
     return mSettingEnabled.find(setting) != mSettingEnabled.end() &&
@@ -172,12 +198,23 @@ class MultiClientContextHubBase
   std::condition_variable mEnableTestModeCv;
   bool mIsTestModeEnabled = false;
   std::optional<bool> mTestModeSyncUnloadResult = std::nullopt;
-  std::optional<std::unordered_set<uint64_t>> mTestModeNanoapps =
-      std::unordered_set<uint64_t>{};
-  int32_t mTestModeTransactionId =
-      static_cast<int32_t>(kDefaultTestModeTransactionId);
+  // mTestModeNanoapps records the nanoapps that will be unloaded in
+  // enableTestMode(). it is initialized to an empty vector to prevent it from
+  // unintended population in onNanoappListResponse().
+  std::optional<std::vector<uint64_t>> mTestModeNanoapps{{}};
+  // mTestModeSystemNanoapps records system nanoapps that won't be reloaded in
+  // disableTestMode().
+  std::optional<std::vector<uint64_t>> mTestModeSystemNanoapps;
 
   EventLogger mEventLogger;
+
+  // The parser of buffered logs from CHRE
+  LogMessageParser mLogger;
+
+  MetricsReporter mMetricsReporter;
+
+  // Used to map message sequence number to host endpoint ID
+  std::unordered_map<int32_t, HostEndpointId> mReliableMessageMap;
 };
 }  // namespace android::hardware::contexthub::common::implementation
 #endif  // ANDROID_HARDWARE_CONTEXTHUB_COMMON_MULTICLIENTS_HAL_BASE_H_

@@ -92,11 +92,6 @@ ifneq ($(CHRE_NANOAPP_USES_WWAN),)
 COMMON_CFLAGS += -DCHRE_NANOAPP_USES_WWAN
 endif
 
-ifneq ($(CHRE_NANOAPP_USES_TOKENIZED_LOGGING),)
-COMMON_CFLAGS += -DCHRE_TOKENIZED_LOGGING_ENABLED
-include $(CHRE_PREFIX)/external/pigweed/pw_tokenizer.mk
-endif
-
 # Common Compiler Flags ########################################################
 
 # Add the CHRE API to the include search path.
@@ -127,6 +122,13 @@ COMMIT_HASH_DIRTY_SUFFIX = $(shell git diff --quiet || echo -dirty)
 COMMIT_HASH = $(shell git log -1 --pretty="format:%h" .)$(COMMIT_HASH_DIRTY_SUFFIX)
 NANOAPP_UNSTABLE_ID = "nanoapp=$(NANOAPP_NAME)@$(BUILD_ID)"
 COMMON_CFLAGS += -DNANOAPP_UNSTABLE_ID="\"$(NANOAPP_UNSTABLE_ID)\""
+
+# Optional tokenized logging support for nanoapps ##############################
+
+ifneq ($(CHRE_NANOAPP_TOKENIZED_LOGGING_ENABLED),)
+COMMON_CFLAGS += -DCHRE_NANOAPP_TOKENIZED_LOGGING_ENABLED
+include $(CHRE_PREFIX)/external/pigweed/pw_tokenizer.mk
+endif
 
 # Variant-specific Nanoapp Support Source Files ################################
 
@@ -186,6 +188,7 @@ include $(CHRE_TARGET_EXTENSION)
 endif
 include $(CHRE_PREFIX)/build/variant/aosp_cm4_exynos-embos.mk
 include $(CHRE_PREFIX)/build/variant/aosp_riscv55e03_tinysys.mk
+include $(CHRE_PREFIX)/build/variant/aosp_riscv55e300_tinysys.mk
 include $(CHRE_PREFIX)/build/variant/google_arm64_android.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv62_slpi.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv62_slpi-uimg.mk

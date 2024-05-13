@@ -639,22 +639,18 @@ bool BleRequestManager::processFlushRequests() {
   return false;
 }
 
-// TODO(b/290860901): require data & ~mask == 0
 bool BleRequestManager::validateParams(const BleRequest &request) {
-  bool valid = true;
   if (request.isEnabled()) {
     for (const chreBleGenericFilter &filter : request.getGenericFilters()) {
-      if (!isValidAdType(filter.type)) {
-        valid = false;
-        break;
-      }
-      if (filter.len == 0 || filter.len > CHRE_BLE_DATA_LEN_MAX) {
-        valid = false;
-        break;
+      if (!isValidAdType(filter.type)) return false;
+      if (filter.len == 0 || filter.len > CHRE_BLE_DATA_LEN_MAX) return false;
+      // Check that the filter is not matching against masked-out data.
+      for (int i = 0; i < filter.len; ++i) {
+        if (filter.data[i] & ~filter.dataMask[i]) return false;
       }
     }
   }
-  return valid;
+  return true;
 }
 
 void BleRequestManager::postAsyncResultEventFatal(uint16_t instanceId,
@@ -678,7 +674,8 @@ void BleRequestManager::postAsyncResultEventFatal(uint16_t instanceId,
 }
 
 bool BleRequestManager::isValidAdType(uint8_t adType) {
-  return adType == CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
+  return adType == CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE ||
+         adType == CHRE_BLE_AD_TYPE_MANUFACTURER_DATA;
 }
 
 bool BleRequestManager::bleSettingEnabled() {

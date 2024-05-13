@@ -242,6 +242,27 @@ bool ChreApiTestService::validateInputAndCallChreAudioGetSource(
   return true;
 }
 
+bool ChreApiTestService::validateInputAndCallChreAudioConfigureSource(
+    const chre_rpc_ChreAudioConfigureSourceInput &request,
+    chre_rpc_Status &response) {
+  response.status = chreAudioConfigureSource(request.handle, request.enable,
+                                             request.bufferDuration,
+                                             request.deliveryInterval);
+  LOGD("ChreAudioConfigureSource: status: %s",
+       response.status ? "true" : "false");
+
+  return true;
+}
+
+bool ChreApiTestService::validateInputAndCallChreAudioGetStatus(
+    const chre_rpc_ChreHandleInput &request,
+    chre_rpc_ChreAudioGetStatusOutput &response) {
+  UNUSED_VAR(request);
+  UNUSED_VAR(response);
+  // TODO(b/174590023): Fill in when chreAudioGetStatus is implemented
+  return false;
+}
+
 bool ChreApiTestService::
     validateInputAndCallChreConfigureHostEndpointNotifications(
         const chre_rpc_ChreConfigureHostEndpointNotificationsInput &request,

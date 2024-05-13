@@ -250,6 +250,20 @@ class Manager {
   void makeBleScanRequest();
 
   /**
+   * Enables a BLE scan.
+   *
+   * @return true if scan was enabled successfully.
+   */
+  bool enableBleScan();
+
+  /**
+   * Disables a BLE scan.
+   *
+   * @return true if scan was disabled successfully.
+   */
+  bool disableBleScan();
+
+  /**
    * @param scanRequestType The current BLE scan request type.
    *
    * @return The pointer to a chreBleScanFilter that corresponds to the scan
@@ -288,20 +302,19 @@ class Manager {
   //! True if audio is enabled for the nanoapp.
   bool mAudioEnabled = false;
 
-  //! True if ble is enabled for the nanoapp.
-  bool mBleEnabled = false;
-
   //! The cookie to use for requests.
   const uint32_t kOnDemandWifiScanCookie = 0xface;
   const uint32_t kGnssLocationCookie = 0xbeef;
   const uint32_t kGnssMeasurementCookie = 0xbead;
   const uint32_t kWwanCellInfoCookie = 0x1337;
+  const uint32_t kBleScanCookie = 0x1234;
 
   //! The pending requests.
   Optional<AsyncRequest> mWifiScanAsyncRequest;
   Optional<AsyncRequest> mGnssLocationAsyncRequest;
   Optional<AsyncRequest> mGnssMeasurementAsyncRequest;
   Optional<AsyncRequest> mWwanCellInfoAsyncRequest;
+  Optional<AsyncRequest> mBleScanAsyncRequest;
 
   //! The previous timestamp of events.
   uint64_t mPrevGnssLocationEventTimestampMs = 0;
@@ -313,14 +326,6 @@ class Manager {
   uint64_t mPrevInstantMotionEventTimestampNs = 0;
   uint64_t mPrevAudioEventTimestampMs = 0;
   uint64_t mPrevBleAdTimestampMs = 0;
-
-  //! Number of ble scan mode.
-  static constexpr uint32_t kNumBleScanModes = 3;
-
-  //! List of all ble scan mode.
-  const chreBleScanMode kScanModes[kNumBleScanModes] = {
-      CHRE_BLE_SCAN_MODE_BACKGROUND, CHRE_BLE_SCAN_MODE_FOREGROUND,
-      CHRE_BLE_SCAN_MODE_AGGRESSIVE};
 
   //! Current number of sensors tested.
   static constexpr uint32_t kNumSensors = 3;
@@ -348,6 +353,10 @@ class Manager {
           .enabled = true,
           .info = {},
       }};
+
+  //! Controls BLE scan testing stage
+  bool mShouldEnableBleScan = true;
+  chreBleScanMode mBleScanMode = CHRE_BLE_SCAN_MODE_BACKGROUND;
 };
 
 // The stress test manager singleton.

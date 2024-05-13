@@ -46,7 +46,7 @@ class HalChannelOutput : public ::chre::NonCopyable,
 
  private:
   // Padding used to encode nanoapp messages.
-  static constexpr size_t kFlatBufferPadding = 80;
+  static constexpr size_t kFlatBufferPadding = 88;
 
   const uint64_t mServerNanoappId;
   const uint32_t mHostEndpointId;

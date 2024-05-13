@@ -153,7 +153,7 @@ void FbsDaemonBase::onMessageReceived(const unsigned char *messageBuffer,
         fbs::UnPackMessageContainer(messageBuffer);
     handleNanConfigurationRequest(
         container->message.AsNanConfigurationRequest());
-  } else if (messageType == fbs::ChreMessage::NanoappInstanceIdInfo) {
+  } else if (messageType == fbs::ChreMessage::NanoappTokenDatabaseInfo) {
     // TODO(b/242760291): Use this info to map nanoapp log detokenizers with
     // instance ID in log message parser.
   } else if (hostClientId == kHostClientIdDaemon) {

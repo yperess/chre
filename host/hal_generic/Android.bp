@@ -31,7 +31,10 @@ cc_binary {
     defaults: ["chre_aidl_hal_generic_defaults"],
     vendor: true,
     relative_install_path: "hw",
-    srcs: [":hal_aidl_generic_srcs", "aidl/service.cc"],
+    srcs: [
+        ":hal_aidl_generic_srcs",
+        "aidl/service.cc",
+    ],
     init_rc: ["aidl/android.hardware.contexthub-service.generic.rc"],
     vintf_fragments: ["aidl/android.hardware.contexthub-service.generic.xml"],
     visibility: ["//visibility:public"],
@@ -64,7 +67,7 @@ cc_defaults {
         "chre_api",
     ],
     shared_libs: [
-        "android.frameworks.stats-V1-ndk",
+        "android.frameworks.stats-V2-ndk",
         "libcutils",
         "libjsoncpp",
         "liblog",
