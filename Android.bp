@@ -33,12 +33,12 @@ license {
 
 filegroup {
     name: "contexthub_hal_socket",
-    srcs: ["host/common/socket_server.cc"]
+    srcs: ["host/common/socket_server.cc"],
 }
 
 filegroup {
     name: "contexthub_hal_wifi",
-    srcs: ["host/common/wifi_ext_hal_handler.cc"]
+    srcs: ["host/common/wifi_ext_hal_handler.cc"],
 }
 
 filegroup {
@@ -82,6 +82,7 @@ cc_library_static {
     export_header_lib_headers: ["chre_flatbuffers"],
     shared_libs: [
         "android.hardware.contexthub-V3-ndk",
+        "libbase",
         "libbinder_ndk",
         "libcutils",
         "liblog",
@@ -110,7 +111,7 @@ cc_library {
         "host/common/log.cc",
     ],
     shared_libs: [
-        "android.frameworks.stats-V1-ndk",
+        "android.frameworks.stats-V2-ndk",
         "chremetrics-cpp",
         "chre_atoms_log",
         "libbinder_ndk",
@@ -119,7 +120,10 @@ cc_library {
         "libutils",
     ],
     vendor: true,
-    cflags: ["-Wall", "-Werror"]
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
 }
 
 cc_binary {
@@ -132,7 +136,10 @@ cc_binary {
     srcs: [
         "host/common/test/chre_test_client.cc",
     ],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libcutils",
         "liblog",
@@ -140,7 +147,7 @@ cc_binary {
     ],
     static_libs: [
         "chre_client",
-        "chre_host_common"
+        "chre_host_common",
     ],
 }
 
@@ -187,7 +194,10 @@ cc_binary {
     srcs: [
         "host/common/test/chre_test_rpc.cc",
     ],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libcutils",
         "liblog",
@@ -221,7 +231,10 @@ cc_binary {
     srcs: [
         "host/common/test/power_test/chre_power_test_client.cc",
     ],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libcutils",
         "liblog",
@@ -277,7 +290,10 @@ cc_test {
     srcs: [
         "host/common/audio_stress_test/audio_stress_test.cc",
     ],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libcutils",
         "liblog",
@@ -291,7 +307,10 @@ cc_library_headers {
     name: "android.hardware.contexthub@1.X-shared-impl",
     vendor: true,
     export_include_dirs: ["host/hal_generic/common/"],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libcutils",
         "liblog",
@@ -311,7 +330,10 @@ cc_library_shared {
         "host/hal_generic/common/hal_chre_socket_connection.cc",
         "host/hal_generic/common/permissions_util.cc",
     ],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     header_libs: [
         "android.hardware.contexthub@1.X-shared-impl",
         "android.hardware.contexthub@1.X-common-utils",
@@ -337,7 +359,10 @@ cc_library_static {
         "host/hal_generic/common/hal_chre_socket_connection.cc",
         "host/hal_generic/common/permissions_util.cc",
     ],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     export_header_lib_headers: [
         "android.hardware.contexthub@1.X-shared-impl",
         "android.hardware.contexthub@1.X-common-utils",
@@ -371,7 +396,10 @@ cc_binary {
         "host/hal_generic/V1_1/service.cc",
     ],
     init_rc: ["host/hal_generic/V1_1/android.hardware.contexthub@1.1-service-generic.rc"],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libcutils",
         "liblog",
@@ -401,7 +429,10 @@ cc_binary {
         "host/hal_generic/common/permissions_util.cc",
     ],
     init_rc: ["host/hal_generic/V1_2/android.hardware.contexthub@1.2-service-generic.rc"],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     header_libs: [
         "android.hardware.contexthub@1.X-shared-impl",
         "android.hardware.contexthub@1.X-common-utils",
@@ -429,6 +460,8 @@ cc_library_static {
     local_include_dirs: [
         "util/include",
         "host/common/include",
+        "platform/android/include",
+        "platform/include",
     ],
     shared_libs: [
         "android.hardware.contexthub-V3-ndk",
@@ -436,12 +469,14 @@ cc_library_static {
         "libutils",
     ],
     header_libs: [
+        "chre_api",
         "chre_flatbuffers",
     ],
     cflags: [
         "-Wall",
         "-Werror",
         "-DCHRE_IS_HOST_BUILD",
+        "-DCHRE_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG",
     ],
 }
 
@@ -483,6 +518,8 @@ cc_test_host {
         "host/hal_generic/common/",
         "util/include/",
         "host/hal_generic/aidl/",
+        "platform/android/include",
+        "platform/include",
         "platform/shared/include/",
     ],
     static_libs: [
@@ -493,6 +530,7 @@ cc_test_host {
         "libgmock",
     ],
     shared_libs: [
+        "libbase",
         "libcutils",
         "libutils",
         "android.hardware.contexthub-V3-ndk",
@@ -882,6 +920,7 @@ cc_library_static {
         "platform/shared/chre_api_wifi.cc",
         "platform/shared/log_buffer.cc",
         "platform/shared/memory_manager.cc",
+        "platform/shared/nanoapp_abort.cc",
         "platform/shared/pal_system_api.cc",
         "platform/shared/platform_ble.cc",
         "platform/shared/platform_gnss.cc",
@@ -926,8 +965,8 @@ cc_library_static {
 }
 
 cc_defaults {
-   name: "chre_linux_cflags",
-   cflags: [
+    name: "chre_linux_cflags",
+    cflags: [
         "-DCHRE_MESSAGE_TO_HOST_MAX_SIZE=4096",
         "-DCHRE_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG",
         "-DCHRE_ASSERTIONS_ENABLED=true",
@@ -985,7 +1024,7 @@ cc_defaults {
     static_libs: [
         "chre_config_util",
         "chre_flags_c_lib",
-    ]
+    ],
 }
 
 cc_library_static {
@@ -1001,7 +1040,7 @@ cc_library_static {
     shared_libs: [
         "libjsoncpp",
         "liblog",
-    ]
+    ],
 }
 
 cc_binary {
@@ -1012,7 +1051,7 @@ cc_binary {
     local_include_dirs: [
         "host/exynos",
     ],
-    cflags: [ "-DCHRE_LPMA_REQUEST_START_RECOGNITION" ],
+    cflags: ["-DCHRE_LPMA_REQUEST_START_RECOGNITION"],
     srcs: [
         "host/exynos/exynos_daemon.cc",
         "host/exynos/main.cc",
@@ -1057,10 +1096,13 @@ cc_library_static {
     srcs: [
         "host/common/file_stream.cc",
     ],
-    shared_libs:[
+    shared_libs: [
         "liblog",
     ],
-    cflags: ["-Wall", "-Werror"]
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
 }
 
 aconfig_declarations {

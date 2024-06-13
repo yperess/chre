@@ -15,6 +15,11 @@
  */
 package com.google.android.chre.test.stress;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+import static android.Manifest.permission.BLUETOOTH_SCAN;
+import static android.Manifest.permission.BLUETOOTH_PRIVILEGED;
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+
 import android.app.Instrumentation;
 import android.content.Context;
 import android.hardware.location.ContextHubClient;
@@ -31,6 +36,7 @@ import androidx.test.InstrumentationRegistry;
 
 import com.google.android.chre.nanoapp.proto.ChreStressTest;
 import com.google.android.chre.nanoapp.proto.ChreTestCommon;
+import com.google.android.utils.chre.BleHostClientUtil;
 import com.google.android.utils.chre.ChreTestUtil;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -271,6 +277,25 @@ public class ContextHubStressTestExecutor extends ContextHubClientCallback {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
             Assert.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * Tests concurrent BLE scans from the AP and from CHRE.
+     */
+    public void runBleScanConcurrencyStressTest() throws InterruptedException {
+        sendTestMessage(ChreStressTest.TestCommand.Feature.BLE, true /* start */);
+
+        mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(BLUETOOTH_SCAN,
+                BLUETOOTH_CONNECT, BLUETOOTH_PRIVILEGED, ACCESS_FINE_LOCATION);
+        BleHostClientUtil bleClient = new BleHostClientUtil(mInstrumentation.getContext());
+        Assert.assertTrue("BLE capabilities are available", bleClient.isBleAvailable());
+
+        while (true) {
+            mCountDownLatch = new CountDownLatch(1);
+            bleClient.start();
+            mCountDownLatch.await(100, TimeUnit.MILLISECONDS);
+            bleClient.stop();
         }
     }
 

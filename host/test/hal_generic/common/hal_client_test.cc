@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "chre_host/hal_client.h"
-#include "host/hal_generic/common/hal_error.h"
+#include "chre_host/hal_error.h"
 
 #include <unordered_set>
 
@@ -208,5 +208,15 @@ TEST(HalClientTest, HandleChreRestart) {
       AsyncEventType::RESTARTED);
   EXPECT_THAT(halClient->getConnectedEndpointIds(),
               UnorderedElementsAre(kEndpointId, kEndpointId + 1));
+}
+
+TEST(HalClientTest, IsConnected) {
+  auto mockContextHub = ndk::SharedRefBase::make<MockContextHub>();
+
+  auto halClient = std::make_unique<HalClientForTest>(
+      mockContextHub,
+      std::vector<HostEndpointId>{kEndpointId, kEndpointId + 1});
+
+  EXPECT_THAT(halClient->isConnected(), true);
 }
 }  // namespace android::chre

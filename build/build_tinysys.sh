@@ -22,8 +22,10 @@ fi
 
 pushd $ANDROID_BUILD_TOP/system/chre > /dev/null
 
+target=${1:-aosp_riscv55e03_tinysys}
+
 CHRE_VARIANT_MK_INCLUDES=variant/tinysys/variant.mk \
  IS_ARCHIVE_ONLY_BUILD=true \
- make aosp_riscv55e03_tinysys
+ make $target
 
 popd > /dev/null

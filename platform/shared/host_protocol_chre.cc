@@ -272,12 +272,13 @@ void HostProtocolChre::encodeLoadNanoappResponse(ChreFlatBufferBuilder &builder,
            hostClientId);
 }
 
-void HostProtocolChre::encodeNanoappInstanceIdInfo(
-    ChreFlatBufferBuilder &builder, uint16_t hostClientId, uint16_t instanceId,
-    uint64_t appId) {
-  auto response = fbs::CreateNanoappInstanceIdInfo(builder, instanceId, appId);
-  finalize(builder, fbs::ChreMessage::NanoappInstanceIdInfo, response.Union(),
-           hostClientId);
+void HostProtocolChre::encodeNanoappTokenDatabaseInfo(
+    ChreFlatBufferBuilder &builder, uint16_t instanceId, uint64_t appId,
+    uint32_t tokenDatabaseOffset, size_t tokenDatabaseSize) {
+  auto response = fbs::CreateNanoappTokenDatabaseInfo(
+      builder, instanceId, appId, tokenDatabaseOffset, tokenDatabaseSize);
+  finalize(builder, fbs::ChreMessage::NanoappTokenDatabaseInfo,
+           response.Union());
 }
 
 void HostProtocolChre::encodeUnloadNanoappResponse(

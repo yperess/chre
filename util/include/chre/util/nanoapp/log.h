@@ -34,12 +34,30 @@
 #error "NANOAPP_MINIMUM_LOG_LEVEL must be defined"
 #endif  // NANOAPP_MINIMUM_LOG_LEVEL
 
-
 /*
  * Supply a stub implementation of the LOGx macros when the build is
  * configured with a minimum logging level that is above the requested level.
- * Otherwise just map into the chreLog function with the appropriate level.
+ * Use CHRE with pigweed tokenized logging if enabled, otherwise just map into
+ * the chreLog function with the appropriate level.
  */
+
+#ifdef CHRE_NANOAPP_TOKENIZED_LOGGING_ENABLED
+#include "chre/platform/shared/nanoapp/tokenized_log.h"
+#include "pw_tokenizer/encode_args.h"
+#include "pw_tokenizer/tokenize.h"
+
+#define CHRE_LOG_TAG(level, tag, fmt, ...)                             \
+  do {                                                                 \
+    CHRE_LOG_PREAMBLE                                                  \
+    PW_TOKENIZE_FORMAT_STRING(PW_TOKENIZER_DEFAULT_DOMAIN, UINT32_MAX, \
+                              tag " " fmt, __VA_ARGS__);               \
+    platform_chrePwTokenizedLog(level, _pw_tokenizer_token,            \
+                                PW_TOKENIZER_ARG_TYPES(__VA_ARGS__)    \
+                                    PW_COMMA_ARGS(__VA_ARGS__));       \
+    CHRE_LOG_EPILOGUE                                                  \
+  } while (0)
+
+#else
 
 #define CHRE_LOG_TAG(level, tag, fmt, ...)         \
   do {                                             \
@@ -47,6 +65,8 @@
     chreLog(level, "%s " fmt, tag, ##__VA_ARGS__); \
     CHRE_LOG_EPILOGUE                              \
   } while (0)
+
+#endif  // CHRE_NANOAPP_TOKENIZED_LOGGING_ENABLED
 
 #if NANOAPP_MINIMUM_LOG_LEVEL >= CHRE_LOG_LEVEL_ERROR
 #define LOGE_TAG(tag, fmt, ...) \

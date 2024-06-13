@@ -127,6 +127,18 @@ class LogMessageParser {
    */
   size_t parseAndEmitTokenizedLogMessageAndGetSize(const LogMessageV2 *message);
 
+  /**
+   * Similar to parseAndEmitTokenizedLogMessageAndGetSize, but used for encoded
+   * log message from nanoapps.
+   *
+   * @return Size of the encoded log message payload. Note that the size
+   * includes the 1 byte header that we use for encoded log messages to track
+   * message size, and the 2 byte instance ID that the host uses to find the
+   * correct detokenizer.
+   */
+  size_t parseAndEmitNanoappTokenizedLogMessageAndGetSize(
+      const LogMessageV2 *message);
+
   void emitLogMessage(uint8_t level, uint32_t timestampMillis,
                       const char *logMessage);
 
@@ -171,6 +183,17 @@ class LogMessageParser {
    * @return true if the log message type is BT Snoop log.
    */
   bool isBtSnoopLogMessage(uint8_t metadata);
+
+  /**
+   * Helper function to check the metadata whether the log message is tokenized
+   * and sent from a nanoapp
+   *
+   * @param metadata A byte from the log message payload containing the
+   *        log level and log type information.
+   *
+   * @return true if the log message is tokenzied and sent from a nanoapp.
+   */
+  bool isNanoappTokenizedLogMessage(uint8_t metadata);
 };
 
 }  // namespace chre

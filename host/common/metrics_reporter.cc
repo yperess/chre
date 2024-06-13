@@ -15,12 +15,14 @@
  */
 
 #include "chre_host/metrics_reporter.h"
-
-#include <android/binder_manager.h>
 #include <chre_atoms_log.h>
-#include <chre_host/log.h>
+#include "chre_host/log.h"
+
+#include <cinttypes>
 #include <limits>
 #include <mutex>
+
+#include <android/binder_manager.h>
 
 namespace android::chre {
 
@@ -51,8 +53,7 @@ std::shared_ptr<IStats> MetricsReporter::getStatsService() {
 
   binder_status_t status = AIBinder_linkToDeath(
       statsServiceBinder.get(), AIBinder_DeathRecipient_new([](void *cookie) {
-        MetricsReporter *metricsReporter =
-            static_cast<MetricsReporter *>(cookie);
+        auto *metricsReporter = static_cast<MetricsReporter *>(cookie);
         metricsReporter->onBinderDied();
       }),
       this);
@@ -84,7 +85,7 @@ bool MetricsReporter::reportMetric(const VendorAtom &atom) {
   }
 
   if (!ret.isOk()) {
-    LOGE("Failed to report vendor atom");
+    LOGE("Failed to report vendor atom with ID %" PRIi32, atom.atomId);
   }
   return ret.isOk();
 }

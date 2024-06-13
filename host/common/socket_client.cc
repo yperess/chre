@@ -138,9 +138,6 @@ bool SocketClient::inReceiveThread() const {
 }
 
 void SocketClient::receiveThread() {
-  constexpr size_t kReceiveBufferSize = 4096;
-  uint8_t buffer[kReceiveBufferSize];
-
   LOGV("Receive thread started");
   while (!mGracefulShutdown && (mSockFd != INVALID_SOCKET || reconnect())) {
     struct epoll_event requestedEvent;
@@ -174,7 +171,9 @@ void SocketClient::receiveThread() {
         break;
       }
 
-      ssize_t bytesReceived = recv(mSockFd, buffer, sizeof(buffer), 0);
+      ssize_t bytesReceived =
+          recv(mSockFd, mRecvBuffer.data(), mRecvBuffer.size(), 0);
+
       if (bytesReceived < 0) {
         LOG_ERROR("Exiting RX thread", errno);
         if (!mGracefulShutdown) {
@@ -190,7 +189,7 @@ void SocketClient::receiveThread() {
         break;
       }
 
-      mCallbacks->onMessageReceived(buffer, bytesReceived);
+      mCallbacks->onMessageReceived(mRecvBuffer.data(), bytesReceived);
     }
 
     if (close(mSockFd) != 0) {

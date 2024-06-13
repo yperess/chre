@@ -238,6 +238,31 @@ class ArrayQueueCore : public StorageType {
    */
   size_t relativeIndexToAbsolute(size_t index) const;
 
+  /**
+   * Converts absolute index to relative index with respect to mHead.
+   *
+   * @param index absolute index showing the offset to the head of storage
+   * array.
+   * @return size_t relative index in range [0, size() - 1].
+   */
+  size_t absoluteIndexToRelative(size_t index) const;
+
+  /**
+   * Removes an item at index and pull the tail forward to fill gap.
+   *
+   * @param index the relative index of the item to be remove, must be smaller
+   * than mSize.
+   */
+  void removeAndPullTail(size_t index);
+
+  /**
+   * Removes an item at index and pull the head forward to fill gap.
+   *
+   * @param index the relative index of the item to be remove, must be smaller
+   * than mSize.
+   */
+  void removeAndPullHead(size_t index);
+
   /*
    * Pulls mHead to the next element in the array queue and decrements mSize
    * accordingly. It is illegal to call this function on an empty array queue.
@@ -257,6 +282,26 @@ class ArrayQueueCore : public StorageType {
    * @return true if the array queue is not full.
    */
   bool pushTail();
+
+  /**
+   * Advance an index or wrap it around to the head of it is out of bound.
+   *
+   * @param index current index.
+   * @return the calculated result.
+   */
+  size_t advanceOrWrapAround(size_t index) {
+    return index >= StorageType::capacity() - 1 ? 0 : index + 1;
+  }
+
+  /**
+   * Subtract an index or wrap it around to the end of it is out of bound.
+   *
+   * @param index current index.
+   * @return the calculated result.
+   */
+  size_t subtractOrWrapAround(size_t index) {
+    return index == 0 ? StorageType::capacity() - 1 : index - 1;
+  }
 };
 
 /**

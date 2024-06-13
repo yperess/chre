@@ -107,12 +107,6 @@ void HostMessageHandlers::loadNanoappData(
       LOGD("Instance ID %" PRIu16 " assigned to app ID 0x%" PRIx64,
            cbData->nanoapp->getInstanceId(), appId);
 
-      // This message must be sent to the host before the nanoapp is started so
-      // that the host can correctly map the nanoapp instance ID to the app ID
-      // before processing tokenized logs from the nanoapp.
-      sendNanoappInstanceIdInfo(hostClientId, cbData->nanoapp->getInstanceId(),
-                                appId);
-
       // Note that if this fails, we'll generate the error response in
       // the normal deferred callback
       EventLoopManagerSingleton::get()->deferCallback(

@@ -20,6 +20,7 @@
 #include <cinttypes>
 
 #include "chre/platform/assert.h"
+#include "chre/platform/host_link.h"
 #include "chre/platform/log.h"
 #include "chre/platform/shared/authentication.h"
 #include "chre/platform/shared/nanoapp_dso_util.h"
@@ -265,6 +266,17 @@ bool PlatformNanoappBase::verifyNanoappInfo() {
   return success;
 }
 
+void PlatformNanoappBase::sendTokenDatabaseInfo() {
+  auto *loader = reinterpret_cast<chre::NanoappLoader *>(mDsoHandle);
+  uint32_t databaseOffset = 0;
+  size_t databaseSize = 0;
+
+  if (loader->getTokenDatabaseSectionInfo(&databaseOffset, &databaseSize)) {
+    HostLinkBase::sendNanoappTokenDatabaseInfo(mExpectedAppId, databaseOffset,
+                                               databaseSize);
+  }
+}
+
 bool PlatformNanoappBase::openNanoapp() {
   bool success = false;
   if (mIsStatic) {
@@ -281,6 +293,9 @@ bool PlatformNanoappBase::openNanoapp() {
     } else {
       mDsoHandle = dlopenbuf(binaryStart, mExpectedTcmCapable);
       success = verifyNanoappInfo();
+      if (success) {
+        sendTokenDatabaseInfo();
+      }
     }
   }
 

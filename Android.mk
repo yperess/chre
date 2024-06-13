@@ -97,7 +97,7 @@ LOCAL_SHARED_LIBRARIES := \
     libprotobuf-cpp-lite \
     chremetrics-cpp \
     chre_atoms_log \
-    android.frameworks.stats-V1-ndk \
+    android.frameworks.stats-V2-ndk \
     libbinder_ndk \
     chre_metrics_reporter \
     server_configurable_flags

@@ -1211,7 +1211,7 @@ static inline void chreWifiRangingTargetFromScanResult(
  * Subscribe to a NAN service.
  *
  * Sends a subscription request to the NAN discovery engine with the
- * specified configration parameters. If successful, a unique non-zero
+ * specified configuration parameters. If successful, a unique non-zero
  * subscription ID associated with this instance of the subscription
  * request is assigned by the NAN discovery engine. The subscription request
  * is active until explicitly canceled, or if the connection was interrupted.

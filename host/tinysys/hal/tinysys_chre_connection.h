@@ -190,9 +190,6 @@ class TinysysChreConnection : public ChreConnection {
     return mChreFileDescriptor;
   }
 
-  // The parser of buffered logs from CHRE
-  ::android::chre::LogMessageParser mLogger{};
-
   // The file descriptor for communication with CHRE
   int mChreFileDescriptor;
 

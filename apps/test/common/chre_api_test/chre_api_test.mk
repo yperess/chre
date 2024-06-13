@@ -41,6 +41,7 @@ COMMON_CFLAGS += -I$(NANOAPP_PATH)/inc
 # Permission declarations ######################################################
 
 CHRE_NANOAPP_USES_BLE = true
+CHRE_NANOAPP_USES_AUDIO = true
 
 # PW RPC protos ################################################################
 

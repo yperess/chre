@@ -284,6 +284,7 @@ COMMON_SRCS += $(PIGWEED_DIR)/pw_rpc/nanopb/common.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_rpc/nanopb/method.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_rpc/nanopb/server_reader_writer.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_rpc/pwpb/server_reader_writer.cc
+COMMON_SRCS += $(PIGWEED_DIR)/pw_status/status.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_stream/memory_stream.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_varint/stream.cc
 COMMON_SRCS += $(PIGWEED_DIR)/pw_varint/varint_c.c

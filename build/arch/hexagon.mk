@@ -80,6 +80,7 @@ TARGET_SO_LDFLAGS += --no-threads
 HEXAGON_LIB_PATH = $(HEXAGON_TOOLS_PREFIX)/Tools/target/hexagon/lib
 TARGET_SO_EARLY_LIBS += $(HEXAGON_LIB_PATH)/$(HEXAGON_ARCH)/G0/pic/initS.o
 TARGET_SO_LATE_LIBS += $(HEXAGON_LIB_PATH)/$(HEXAGON_ARCH)/G0/pic/finiS.o
+TARGET_SO_LATE_LIBS += $(LDLIBS)
 
 # Supported Hexagon Architectures ##############################################
 
