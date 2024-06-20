@@ -102,6 +102,10 @@ LOCAL_SHARED_LIBRARIES := \
     chre_metrics_reporter \
     server_configurable_flags
 
+ifeq ($(RELEASE_READ_FROM_NEW_STORAGE),true)
+LOCAL_SHARED_LIBRARIES += libaconfig_storage_read_api_cc
+endif
+
 LOCAL_STATIC_LIBRARIES := \
     chre_flags_c_lib
 
