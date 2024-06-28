@@ -28,6 +28,7 @@ java_library {
     srcs: ["src/**/*.java"],
 
     static_libs: [
+        "androidx.test.espresso.intents",
         "androidx.test.rules",
         "chre_settings_test_java_proto",
         "chre-test-utils",
