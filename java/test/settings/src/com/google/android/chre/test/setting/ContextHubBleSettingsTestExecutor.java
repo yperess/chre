@@ -90,6 +90,7 @@ public class ContextHubBleSettingsTestExecutor {
 
     /** Should be called in an @After method. */
     public void tearDown() throws InterruptedException {
+        Log.d(TAG, "tearDown");
         mExecutor.deinit();
         sSettingsUtil.setBluetooth(mInitialBluetoothEnabled);
         sSettingsUtil.setBluetoothScanningSettings(mInitialScanningEnabled);
@@ -128,6 +129,16 @@ public class ContextHubBleSettingsTestExecutor {
                     sSettingsUtil.setBluetooth(true);
                 }
                 case BluetoothAdapter.STATE_BLE_ON -> {
+                    if (!sAdapter.isBleScanAlwaysAvailable()) {
+                        try {
+                            // Wait to ensure settings is propagated to Bluetooth
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            assertWithMessage(e.getMessage()).fail();
+                        }
+                    }
+                    // staying in BLE_ON is not possible without the scan setting
+                    assertThat(sAdapter.isBleScanAlwaysAvailable()).isTrue();
                     // When Bluetooth is ON, calling enableBLE will not do anything on its own. We
                     // also need to disable the classic Bluetooth
                     assertThat(sAdapter.enableBLE()).isTrue();
