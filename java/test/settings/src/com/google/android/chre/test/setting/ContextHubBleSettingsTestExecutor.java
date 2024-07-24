@@ -35,6 +35,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.location.NanoAppBinary;
 import android.util.Log;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.google.android.chre.nanoapp.proto.ChreSettingsTest;
 import com.google.android.utils.chre.SettingsUtil;
@@ -47,37 +48,36 @@ import org.mockito.hamcrest.MockitoHamcrest;
 public class ContextHubBleSettingsTestExecutor {
     private static final String TAG = "ContextHubBleSettingsTestExecutor";
 
-    private static final Instrumentation sInstrumentation =
-            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation();
+    private final Context mContext =
+            InstrumentationRegistry.getInstrumentation().getTargetContext();
 
-    private static final Context sContext = sInstrumentation.getTargetContext();
-
-    private static final SettingsUtil sSettingsUtil = new SettingsUtil(sContext);
-
-    private static final BluetoothAdapter sAdapter =
-            sContext.getSystemService(BluetoothManager.class).getAdapter();
+    private final BluetoothAdapter mAdapter;
 
     private final ContextHubSettingsTestExecutor mExecutor;
+
+    private final SettingsUtil mSettingsUtil;
 
     private boolean mInitialBluetoothEnabled;
     private boolean mInitialScanningEnabled;
     private boolean mInitialAirplaneMode;
 
     public ContextHubBleSettingsTestExecutor(NanoAppBinary binary) {
+        mAdapter = mContext.getSystemService(BluetoothManager.class).getAdapter();
         mExecutor = new ContextHubSettingsTestExecutor(binary);
+        mSettingsUtil = new SettingsUtil(mContext);
     }
 
     /** Should be called in a @Before method. */
     public void setUp() throws InterruptedException {
-        mInitialBluetoothEnabled = sSettingsUtil.isBluetoothEnabled();
-        mInitialScanningEnabled = sSettingsUtil.isBluetoothScanningAlwaysEnabled();
-        mInitialAirplaneMode = sSettingsUtil.isAirplaneModeOn();
+        mInitialBluetoothEnabled = mSettingsUtil.isBluetoothEnabled();
+        mInitialScanningEnabled = mSettingsUtil.isBluetoothScanningAlwaysEnabled();
+        mInitialAirplaneMode = mSettingsUtil.isAirplaneModeOn();
         Log.d(
                 TAG,
                 ("isBluetoothEnabled=" + mInitialBluetoothEnabled)
                         + (" isBluetoothScanningEnabled=" + mInitialScanningEnabled)
                         + (" isAirplaneModeOn=" + mInitialAirplaneMode));
-        sSettingsUtil.setAirplaneMode(false /* enable */);
+        mSettingsUtil.setAirplaneMode(false /* enable */);
         mExecutor.init();
     }
 
@@ -92,9 +92,9 @@ public class ContextHubBleSettingsTestExecutor {
     public void tearDown() throws InterruptedException {
         Log.d(TAG, "tearDown");
         mExecutor.deinit();
-        sSettingsUtil.setBluetooth(mInitialBluetoothEnabled);
-        sSettingsUtil.setBluetoothScanningSettings(mInitialScanningEnabled);
-        sSettingsUtil.setAirplaneMode(mInitialAirplaneMode);
+        mSettingsUtil.setBluetooth(mInitialBluetoothEnabled);
+        mSettingsUtil.setBluetoothScanningSettings(mInitialScanningEnabled);
+        mSettingsUtil.setAirplaneMode(mInitialAirplaneMode);
     }
 
     @SafeVarargs
@@ -104,9 +104,9 @@ public class ContextHubBleSettingsTestExecutor {
     }
 
     private int getBluetoothState() {
-        if (sAdapter.getState() == BluetoothAdapter.STATE_ON) {
+        if (mAdapter.getState() == BluetoothAdapter.STATE_ON) {
             return BluetoothAdapter.STATE_ON;
-        } else if (sAdapter.isLeEnabled()) {
+        } else if (mAdapter.isLeEnabled()) {
             return BluetoothAdapter.STATE_BLE_ON;
         } else {
             return BluetoothAdapter.STATE_OFF;
@@ -116,7 +116,7 @@ public class ContextHubBleSettingsTestExecutor {
     /** return true if a state change occurred */
     private void setBluetoothMode(int wantedState) {
         BroadcastReceiver receiver = mock(BroadcastReceiver.class);
-        sContext.registerReceiver(
+        mContext.registerReceiver(
                 receiver, new IntentFilter(BluetoothAdapter.ACTION_BLE_STATE_CHANGED));
         try {
             if (wantedState == getBluetoothState()) {
@@ -126,10 +126,10 @@ public class ContextHubBleSettingsTestExecutor {
 
             switch (wantedState) {
                 case BluetoothAdapter.STATE_ON -> {
-                    sSettingsUtil.setBluetooth(true);
+                    mSettingsUtil.setBluetooth(true);
                 }
                 case BluetoothAdapter.STATE_BLE_ON -> {
-                    if (!sAdapter.isBleScanAlwaysAvailable()) {
+                    if (!mAdapter.isBleScanAlwaysAvailable()) {
                         try {
                             // Wait to ensure settings is propagated to Bluetooth
                             Thread.sleep(1000);
@@ -138,31 +138,31 @@ public class ContextHubBleSettingsTestExecutor {
                         }
                     }
                     // staying in BLE_ON is not possible without the scan setting
-                    assertThat(sAdapter.isBleScanAlwaysAvailable()).isTrue();
+                    assertThat(mAdapter.isBleScanAlwaysAvailable()).isTrue();
                     // When Bluetooth is ON, calling enableBLE will not do anything on its own. We
                     // also need to disable the classic Bluetooth
-                    assertThat(sAdapter.enableBLE()).isTrue();
-                    sSettingsUtil.setBluetooth(false);
+                    assertThat(mAdapter.enableBLE()).isTrue();
+                    mSettingsUtil.setBluetooth(false);
                 }
                 case BluetoothAdapter.STATE_OFF -> {
-                    sSettingsUtil.setBluetooth(false);
+                    mSettingsUtil.setBluetooth(false);
                 }
             }
 
             verifyIntentReceived(receiver, hasExtra(BluetoothAdapter.EXTRA_STATE, wantedState));
         } finally {
-            sContext.unregisterReceiver(receiver);
+            mContext.unregisterReceiver(receiver);
         }
     }
 
     void setScanningMode(boolean enableScanning) {
-        if (enableScanning == sSettingsUtil.isBluetoothScanningAlwaysEnabled()) {
+        if (enableScanning == mSettingsUtil.isBluetoothScanningAlwaysEnabled()) {
             Log.d(TAG, "Scanning is already in the expected mode: " + enableScanning);
             return;
         }
 
         Log.d(TAG, "Setting scanning into: " + enableScanning);
-        sSettingsUtil.setBluetoothScanningSettings(enableScanning);
+        mSettingsUtil.setBluetoothScanningSettings(enableScanning);
     }
 
     /**
@@ -192,8 +192,8 @@ public class ContextHubBleSettingsTestExecutor {
             assertWithMessage(e.getMessage()).fail();
         }
 
-        assertThat(sSettingsUtil.isBluetoothEnabled()).isEqualTo(enableBluetooth);
-        assertThat(sSettingsUtil.isBluetoothScanningAlwaysEnabled()).isEqualTo(enableScanning);
+        assertThat(mSettingsUtil.isBluetoothEnabled()).isEqualTo(enableBluetooth);
+        assertThat(mSettingsUtil.isBluetoothScanningAlwaysEnabled()).isEqualTo(enableScanning);
 
         boolean enableFeature = enableBluetooth || enableScanning;
         ChreSettingsTest.TestCommand.State state =
