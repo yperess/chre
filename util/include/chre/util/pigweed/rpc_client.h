@@ -128,7 +128,9 @@ Optional<T> RpcClient::get() {
 
     mChannelId = chreGetInstanceId();
     mChannelOutput.setServer(info.instanceId);
-    mRpcClient.OpenChannel(mChannelId, mChannelOutput);
+    if (!mRpcClient.OpenChannel(mChannelId, mChannelOutput).ok()) {
+      return Optional<T>();
+    }
   }
 
   chreConfigureNanoappInfoEvents(true);

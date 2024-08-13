@@ -176,8 +176,10 @@ void RpcServer::handleHostClientNotification(const void *eventData) {
   if (notif->notificationType == HOST_ENDPOINT_NOTIFICATION_TYPE_DISCONNECT) {
     size_t hostIndex = mConnectedHosts.find(notif->hostEndpointId);
     if (hostIndex != mConnectedHosts.size()) {
-      mServer.CloseChannel(kChannelIdHostClient |
-                           static_cast<uint32_t>(notif->hostEndpointId));
+      mServer
+          .CloseChannel(kChannelIdHostClient |
+                        static_cast<uint32_t>(notif->hostEndpointId))
+          .IgnoreError();
       mConnectedHosts.erase(hostIndex);
     }
   }

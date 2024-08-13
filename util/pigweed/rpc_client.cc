@@ -97,7 +97,7 @@ void RpcClient::handleNanoappStopped(const void *eventData) {
   }
 
   if (info->instanceId == mChannelId) {
-    mRpcClient.CloseChannel(mChannelId);
+    mRpcClient.CloseChannel(mChannelId).IgnoreError();
     mChannelId = 0;
   }
 }
